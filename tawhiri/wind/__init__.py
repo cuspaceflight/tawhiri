@@ -30,27 +30,25 @@ class Dataset(object):
 
     assert shape == tuple(len(x) for x in axes)
 
+    SUFFIX_GRIBMIRROR = '.gribmirror'
+    SUFFIX_DOWNLOADING = '.downloading'
+
     @classmethod
     def filename(cls, directory, ds_time, suffix=''):
         ds_time_str = ds_time.strftime("%Y%m%d%H")
         return os.path.join(directory, ds_time_str + suffix)
 
-    @classmethod
-    def gribmirror_filename(cls, directory, ds_time):
-        return cls.filename(directory, ds_time, suffix='.gribmirror')
-
-    def __init__(self, directory, ds_time, new=False):
+    def __init__(self, directory, ds_time, suffix='', new=False):
         self.directory = directory
         self.ds_time = ds_time
         self.new = new
 
-        self.ds_time_str = self.ds_time.strftime("%Y%m%d%H")
-        self.filename = os.path.join(self.directory, self.ds_time_str)
+        self.fn = self.filename(self.directory, self.ds_time, suffix)
 
-        logger.info("Opening dataset %s %s %s", self.ds_time, self.filename,
+        logger.info("Opening dataset %s %s %s", self.ds_time, self.fn,
                         '(truncate and write)' if new else '(read)')
 
-        self.array = np.memmap(self.filename, mode=('w+' if self.new else 'r'),
+        self.array = np.memmap(self.fn, mode=('w+' if self.new else 'r'),
                                dtype=np.float64, shape=self.shape, order='C')
 
     def __del__(self):
@@ -58,7 +56,7 @@ class Dataset(object):
 
     def close(self):
         if hasattr(self, 'array'):
-            logger.info("Closing dataset %s %s", self.ds_time, self.filename)
+            logger.info("Closing dataset %s %s", self.ds_time, self.fn)
             del self.array
 
 

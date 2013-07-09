@@ -68,7 +68,10 @@ class DatasetDownloader(object):
             deadline = max(datetime.now() + timedelta(hours=2),
                            ds_time + timedelta(hours=5))
 
-        self.local_directory = self.download_directory(directory)
+        self.directory = directory
+        self.ds_time = ds_time
+
+        self.local_directory = self.download_directory(self.directory)
         self.timeout = timeout
         self.first_file_timeout = first_file_timeout
         self.deadline = deadline
@@ -78,14 +81,16 @@ class DatasetDownloader(object):
         self.have_first_file = False
 
         if write_dataset:
-            self.dataset = Dataset(directory, ds_time, new=True)
+            self.dataset = Dataset(self.directory, self.ds_time,
+                                   Dataset.SUFFIX_DOWNLOADING, new=True)
         else:
             self.dataset = None
 
         if write_gribmirror:
-            fn = Dataset.gribmirror_filename(directory, ds_time)
+            fn = Dataset.filename(self.directory, self.ds_time,
+                      Dataset.SUFFIX_GRIBMIRROR + Dataset.SUFFIX_DOWNLOADING)
             logger.info("Opening gribmirror (truncate and write) %s %s",
-                                ds_time, fn)
+                                self.ds_time, fn)
             self.gribmirror = open(fn, "w+")
         else:
             self.gribmirror = None
@@ -99,10 +104,10 @@ class DatasetDownloader(object):
         self.files_count = 0
         self.completed = Event()
 
-        ds_time_str = ds_time.strftime("%Y%m%d%H")
+        ds_time_str = self.ds_time.strftime("%Y%m%d%H")
         self.remote_directory = dataset_path.format(ds_time_str)
 
-        filename_prefix = ds_time.strftime("gfs.t%Hz.pgrb2")
+        filename_prefix = self.ds_time.strftime("gfs.t%Hz.pgrb2")
 
         # Items in the queue are (hour, sleep_until, filename)
         # so they sort by hour, and then if a 404 adds a delay to
@@ -192,12 +197,23 @@ class DatasetDownloader(object):
                     self.files_complete, self.files_count,
                     self.files_complete / self.files_count * 100)
 
-    def close(self):
+    def move_final(self, suffix=''):
+        fn1 = Dataset.filename(self.directory, self.ds_time,
+                               suffix + Dataset.SUFFIX_DOWNLOADING)
+        fn2 = Dataset.filename(self.directory, self.ds_time, suffix)
+        logger.info("renaming %s to %s", fn1, fn2)
+        os.rename(fn1, fn2)
+
+    def close(self, move_files=True):
         self.clear_download_directory()
         if self.dataset is not None:
             self.dataset.close()
+            if move_files:
+                self.move_final()
         if self.gribmirror is not None:
             self.gribmirror.close()
+            if move_files:
+                self.move_final(Dataset.SUFFIX_GRIBMIRROR)
 
 class DownloadWorker(gevent.Greenlet):
     def __init__(self, downloader, worker_id, connect_host):
