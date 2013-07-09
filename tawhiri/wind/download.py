@@ -152,7 +152,7 @@ class DatasetDownloader(object):
         while True:
             try:
                 self.greenlets.join(raise_error=True)
-            except greenlet.LinkedExited:
+            except greenlet.LinkedCompleted:
                 # we'll get a lot of these...
                 pass
             else:
