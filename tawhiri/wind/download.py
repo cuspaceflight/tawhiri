@@ -6,6 +6,7 @@ import os
 import os.path
 import errno
 import shutil
+import math
 from time import time
 from datetime import datetime, timedelta
 from socket import inet_ntoa
@@ -248,8 +249,25 @@ class DownloadWorker(gevent.Greenlet):
                     sleep_time = self.downloader.first_file_timeout
                 self.logger.info("404, file sleep %s", sleep_time)
                 self.files.put((hour, time() + sleep_time, filename))
+
+            except Timeout:
+                # skip the small server sleeps (less than the timeout that just
+                # failed); also ensures other workers get a go at this file
+                server_sleep_backoff = \
+                        max(server_sleep_backoff,
+                            int(math.log(self.downloader.timeout, 2) + 1))
+
+                log_to = int(math.ceil(math.log(self.downloader.timeout, 2)))
+                if server_sleep_backoff < log_to + 1:
+                    server_sleep_backoff = log_to + 1
+                server_sleep_time = 2 ** server_sleep_backoff
+
+                self.logger.info("timeout, server sleep %s", server_sleep_time)
+                self.files.put((hour, 0, filename))
+
             except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
                 raise
+
             except:
                 if server_sleep_backoff < 10:
                     server_sleep_backoff += 1
@@ -259,11 +277,13 @@ class DownloadWorker(gevent.Greenlet):
                                         server_sleep_time)
                 self.files.put((hour, 0, filename))
 
-                self.connection_close()
             else:
                 server_sleep_backoff = 0
                 # unfortunately gevent doesn't have JoinablePriorityQueues
                 self.downloader.file_complete()
+
+            if server_sleep_time > 0:
+                self.connection_close()
 
             sleep(server_sleep_time)
 
