@@ -182,8 +182,11 @@ class DatasetDownloader(object):
 
     def file_complete(self):
         self.files_complete += 1
+        self.have_first_file = True
+
         if self.files_complete == self.files_count:
             self.completed.set()
+
         logger.info("progress %s/%s %s%%",
                     self.files_complete, self.files_count,
                     self.files_complete / self.files_count * 100)
@@ -258,8 +261,8 @@ class DownloadWorker(gevent.Greenlet):
 
                 self.connection_close()
             else:
-                # unfortunately gevent doesn't have JoinablePriorityQueues
                 server_sleep_backoff = 0
+                # unfortunately gevent doesn't have JoinablePriorityQueues
                 self.downloader.file_complete()
 
             sleep(server_sleep_time)
