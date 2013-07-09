@@ -23,14 +23,11 @@ import httplib
 import itertools
 import pygrib
 
+from . import Dataset, unpack_grib
+
 
 logger = logging.getLogger("tawhiri.wind.download")
-
-
-from . import Dataset, unpack_grib
-axes = Dataset.axes
-shape = Dataset.shape
-assert axes._fields[0:3] == ("hour", "pressure", "variable")
+assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
 
 class HTTPConnection(httplib.HTTPConnection):
@@ -99,7 +96,7 @@ class DatasetDownloader(object):
             raise ValueError("Choose write_datset or write_gribmirror "
                                 "(or both)")
 
-        self.checklist = np.zeros(shape[0:3], dtype=np.bool_)
+        self.checklist = Dataset.checklist()
         self.files_complete = 0
         self.files_count = 0
         self.completed = Event()
@@ -115,7 +112,7 @@ class DatasetDownloader(object):
         # are tried first
         self.files = PriorityQueue()
 
-        for hour in axes.hour:
+        for hour in Dataset.axes.hour:
             hour_str = "{0:02}".format(hour)
             files = tuple(filename_prefix + x + hour_str for x in ["f", "bf"])
             for filename in files:

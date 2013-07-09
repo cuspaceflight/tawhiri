@@ -38,6 +38,10 @@ class Dataset(object):
         ds_time_str = ds_time.strftime("%Y%m%d%H")
         return os.path.join(directory, ds_time_str + suffix)
 
+    @classmethod
+    def checklist(cls):
+        return np.zeros(cls.shape[0:3], dtype=np.bool_)
+
     def __init__(self, directory, ds_time, suffix='', new=False):
         self.directory = directory
         self.ds_time = ds_time
