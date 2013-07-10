@@ -4,7 +4,7 @@ from tawhiri.wind import Dataset
 from tawhiri.wind.download import DatasetDownloader
 
 directory = "datasets"
-ds_time = datetime(2013, 7, 9, 12, 0, 0)
+ds_time = datetime(2013, 7, 10, 6, 0, 0)
 
 log_filename = Dataset.filename(directory, ds_time, suffix='.log')
 log_file = open(log_filename, "w")
