@@ -1,2 +1,3 @@
 /venv/
+/datasets/
 *.pyc
