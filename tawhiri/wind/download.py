@@ -63,7 +63,7 @@ class DatasetDownloader(object):
 
         if deadline is None:
             deadline = max(datetime.now() + timedelta(hours=2),
-                           ds_time + timedelta(hours=5))
+                           ds_time + timedelta(hours=6))
 
         self.directory = directory
         self.ds_time = ds_time
