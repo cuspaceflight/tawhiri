@@ -286,8 +286,13 @@ class DownloadWorker(gevent.Greenlet):
                     server_sleep_backoff += 1
                 server_sleep_time = 2 ** server_sleep_backoff
 
-                self.logger.exception("exception; server sleep %s",
-                                        server_sleep_time)
+                # don't print an exception until it's serious
+                if server_sleep_backoff >= 5:
+                    lf = self.logger.exception
+                else:
+                    lf = self.logger.info
+                lf("exception; server sleep %s", server_sleep_time)
+
                 self.files.put((hour, 0, filename))
 
             else:
