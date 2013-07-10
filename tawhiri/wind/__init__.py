@@ -11,6 +11,11 @@ class Dataset(object):
     shape = (65, 47, 3, 361, 720)
 
     # TODO: use the other levels too?
+    # {10, 80, 100}m heightAboveGround (u, v)
+    #       -- note ground, not mean sea level - would need elevation
+    # 0 unknown "planetary boundry layer" (u, v) (first two records)
+    # 0 surface "Planetary boundary layer height"
+    # {1829, 2743, 3658} heightAboveSea (u, v)
     _pressures_pgrb2f = [10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400,
                          450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925,
                          950, 975, 1000]
