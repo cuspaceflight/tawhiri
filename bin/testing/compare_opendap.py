@@ -31,7 +31,7 @@ variable_to_opendap = {"height": "hgtprs",
 axes_test = dataset_b[variable_to_opendap["height"]]
 assert axes_test.dimensions == ('time', 'lev', 'lat', 'lon')
 assert [timestamp_to_hour(x) for x in axes_test.time] == Dataset.axes.hour
-assert np.array_equal(list(axes_test.lev)[::-1], Dataset.axes.pressure)
+assert np.array_equal(axes_test.lev, Dataset.axes.pressure)
 assert np.array_equal(axes_test.lat, Dataset.axes.latitude)
 assert np.array_equal(axes_test.lon, Dataset.axes.longitude)
 
@@ -43,7 +43,7 @@ for i in range(20):
 
     location = tuple(random.randrange(0, len(x)) for x in Dataset.axes)
     location_name = tuple(Dataset.axes[i][n] for i, n in enumerate(location))
-    location_b = (location[0], -location[1] - 1) + location[3:]
+    location_b = location[0:2] + location[3:]
     ndap_var = variable_to_opendap[location_name[2]]
 
     print "location", location

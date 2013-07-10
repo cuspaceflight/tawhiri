@@ -22,7 +22,7 @@ class Dataset(object):
 
     axes = _axes_type(
         range(0, 192 + 3, 3),
-        sorted(_pressures_pgrb2f + _pressures_pgrb2bf),
+        sorted(_pressures_pgrb2f + _pressures_pgrb2bf, reverse=True),
         ["height", "wind_u", "wind_v"],
         np.arange(-90, 90 + 0.5, 0.5),
         np.arange(0, 360, 0.5)
