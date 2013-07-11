@@ -41,7 +41,6 @@ class Dataset(object):
     assert shape == tuple(len(x) for x in axes)
 
     SUFFIX_GRIBMIRROR = '.gribmirror'
-    SUFFIX_DOWNLOADING = '.downloading'
 
     @classmethod
     def filename(cls, directory, ds_time, suffix=''):
