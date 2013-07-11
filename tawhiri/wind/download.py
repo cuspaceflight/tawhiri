@@ -489,7 +489,7 @@ class DownloadDaemon(object):
             # datasets typically start hitting the mirror 3.5 hours after
             # their named time
             expect = next_dataset + timedelta(hours=3, minutes=30)
-            wait_for = (datetime.now() - expect).total_seconds()
+            wait_for = (expect - datetime.now()).total_seconds()
             if wait_for > 0:
                 logger.info("waiting until %s (%s) for dataset %s",
                             expect, wait_for, next_dataset)
