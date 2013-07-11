@@ -333,8 +333,14 @@ class DownloadWorker(gevent.Greenlet):
         elif resp.status != 200:
             raise Exception("Status: {0}".format(resp.status))
 
+        # if open() fails, os.unlink will raise an exception in the finally
+        # block, obscuring the original exception
+        opened = False
+
         try:
             with open(temp_file, "w") as f:
+                opened = True
+
                 start = time()
                 length = 0
 
@@ -363,4 +369,5 @@ class DownloadWorker(gevent.Greenlet):
             # race with catching another exception.
             # cancelling will prevent the exception even if the timer
             # is overdue
-            os.unlink(temp_file)
+            if opened:
+                os.unlink(temp_file)
