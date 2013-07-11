@@ -103,10 +103,12 @@ class DatasetDownloader(object):
         self._checklist = Dataset.checklist()
 
     def open(self):
+        logger.info("downloader: opening files for dataset %s", self.ds_time)
+
         self._tmp_directory = \
                 tempfile.mkdtemp(dir=self.directory, prefix="download.")
         os.chmod(self._tmp_directory, 0775)
-        logger.info("Temporary directory is %s", self._tmp_directory)
+        logger.debug("Temporary directory is %s", self._tmp_directory)
 
         if self.write_dataset:
             self._dataset = \
@@ -115,13 +117,15 @@ class DatasetDownloader(object):
         if self.write_gribmirror:
             fn = Dataset.filename(self._tmp_directory, self.ds_time,
                                   Dataset.SUFFIX_GRIBMIRROR)
-            logger.info("Opening gribmirror (truncate and write) %s %s",
+            logger.debug("Opening gribmirror (truncate and write) %s %s",
                                 self.ds_time, fn)
             self._gribmirror = open(fn, "w+")
 
     def download(self):
+        logger.info("download of %s starting", self.ds_time)
+
         ttl, addresses = resolve_ipv4(self.dataset_host)
-        logger.info("Resolved to %s IPs", len(addresses))
+        logger.debug("Resolved to %s IPs", len(addresses))
 
         addresses = [inet_ntoa(x) for x in addresses]
 
@@ -130,7 +134,7 @@ class DatasetDownloader(object):
         if total_timeout_secs < 0:
             raise ValueError("Deadline already passed")
         else:
-            logger.info("Deadline in %s", total_timeout)
+            logger.debug("Deadline in %s", total_timeout)
 
         self._add_files()
         self._run_workers(addresses, total_timeout_secs)
@@ -142,6 +146,7 @@ class DatasetDownloader(object):
             raise ValueError("incomplete: records missing")
 
         self.success = True
+        logger.debug("downloaded %s successfully", self.ds_time)
 
     def _add_files(self):
         filename_prefix = self.ds_time.strftime("gfs.t%Hz.pgrb2")
@@ -154,7 +159,7 @@ class DatasetDownloader(object):
                 self._files.put((hour, 0, filename))
 
     def _run_workers(self, addresses, total_timeout_secs):
-        logger.info("Spawning %s workers", len(addresses))
+        logger.debug("Spawning %s workers", len(addresses))
 
         # don't ask _join_all to raise the first exception it catches
         # if we're already raising something in the except block
@@ -229,6 +234,13 @@ class DatasetDownloader(object):
         if move_files is None:
             move_files = self.success
 
+        if self._dataset is not None or self._gribmirror is not None or \
+                self._tmp_directory is not None:
+            if move_files:
+                logger.info("moving downloaded files")
+            else:
+                logger.info("deleting failed download files")
+
         if self._dataset is not None:
             self._dataset.close()
             self._dataset = None
@@ -257,23 +269,23 @@ class DatasetDownloader(object):
         l = os.listdir(dir)
 
         if l:
-            logger.info("cleaning %s unknown file%s in temporary directory",
-                        len(l), '' if len(l) == 1 else 's')
+            logger.warning("cleaning %s unknown file%s in temporary directory",
+                           len(l), '' if len(l) == 1 else 's')
             for filename in l:
                 os.unlink(os.path.join(dir, filename))
 
-        logger.info("removing temporary directory")
+        logger.debug("removing temporary directory")
         os.rmdir(dir)
 
     def _move_file(self, suffix=''):
         fn1 = Dataset.filename(self._tmp_directory, self.ds_time, suffix)
         fn2 = Dataset.filename(self.directory, self.ds_time, suffix)
-        logger.info("renaming %s to %s", fn1, fn2)
+        logger.debug("renaming %s to %s", fn1, fn2)
         os.rename(fn1, fn2)
 
     def _delete_file(self, suffix=''):
         fn = Dataset.filename(self._tmp_directory, self.ds_time, suffix)
-        logger.info("deleting %s", fn)
+        logger.warning("deleting %s", fn)
         os.unlink(fn)
 
 class DownloadWorker(gevent.Greenlet):
@@ -298,11 +310,11 @@ class DownloadWorker(gevent.Greenlet):
             # worker might put a file back in (after failure)
             hour, sleep_until, filename = self._files.get(block=True)
 
-            self._logger.info("downloading %s", filename)
+            self._logger.debug("downloading %s", filename)
 
             sleep_for = sleep_until - time()
             if sleep_for > 0:
-                self._logger.info("sleeping for %s", sleep_for)
+                self._logger.debug("sleeping for %s", sleep_for)
                 self._connection_close() # don't hold connections open
                 sleep(sleep_for)
 
@@ -311,7 +323,7 @@ class DownloadWorker(gevent.Greenlet):
             server_sleep_time = 0
 
             try:
-                self._logger.info("begin download")
+                self._logger.debug("begin download")
 
                 timeout = Timeout(self.downloader.timeout)
                 timeout.start()
@@ -340,7 +352,7 @@ class DownloadWorker(gevent.Greenlet):
                     server_sleep_backoff = log_to + 1
                 server_sleep_time = 2 ** server_sleep_backoff
 
-                self._logger.info("timeout, server sleep %s",
+                self._logger.warning("timeout, server sleep %s",
                                     server_sleep_time)
                 self._files.put((hour, 0, filename))
 
@@ -352,9 +364,9 @@ class DownloadWorker(gevent.Greenlet):
                     server_sleep_backoff += 1
                 server_sleep_time = 2 ** server_sleep_backoff
 
-                # don't print an exception until it's serious
+                # don't print a stack trace until it's more
                 if server_sleep_backoff >= 5:
-                    lf = self._logger.exception
+                    lf = lambda a, b: self._logger.warning(a, b, exc_info=1)
                 else:
                     lf = self._logger.info
                 lf("exception; server sleep %s", server_sleep_time)
@@ -382,7 +394,7 @@ class DownloadWorker(gevent.Greenlet):
 
     def _download_file(self, hour, filename):
         if self._connection is None:
-            self._logger.info("connecting to %s", self.connect_host)
+            self._logger.debug("connecting to %s", self.connect_host)
             self._connection = HTTPConnection(self.connect_host)
 
         remote_file = os.path.join(self.downloader.remote_directory, filename)
@@ -407,21 +419,13 @@ class DownloadWorker(gevent.Greenlet):
             with open(temp_file, "w") as f:
                 opened = True
 
-                start = time()
-                length = 0
-
                 while True:
                     d = resp.read(1024 * 1024)
                     if d == '':
                         break
                     f.write(d)
-                    length += len(d)
 
-                end = time()
-
-                duration = end - start
-                speed = length / (duration * 1024 * 1024)
-                self._logger.info("download complete, speed %sMB/s", speed)
+                self._logger.debug("download complete")
         except:
             raise
         else:
