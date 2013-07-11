@@ -532,3 +532,109 @@ def _parse_ds_str(ds_time_str):
     if ds_time.hour % 6 != 0:
         argparse.ArgumentTypeError("dataset hour must be a multiple of 6")
     return ds_time
+
+
+_format_email = \
+"""%(levelname)s from logger %(name)s (thread %(threadName)s)
+
+Time:       %(asctime)s
+Location:   %(pathname)s:%(lineno)d
+Module:     %(module)s
+Function:   %(funcName)s
+
+%(message)s"""
+
+_format_string = \
+"[%(asctime)s] %(levelname)s %(name)s %(threadName)s: %(message)s"
+
+
+def main():
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument('-d', '--directory', default="datasets")
+    parent.add_argument('-f', '--log-file')
+    parent.add_argument('-e', '--email-exceptions')
+    parent.add_argument('-s', '--email-from', default='tawhiri@localhost')
+    parent.add_argument('-c', '--email-server', default='localhost')
+
+    group = parent.add_mutually_exclusive_group()
+    group.add_argument('-w', '--log-file-verbose', action="store_true")
+    group.add_argument('-r', '--log-file-quiet', action="store_true")
+
+    group = parent.add_mutually_exclusive_group()
+    group.add_argument("-v", "--verbose", action="store_true")
+    group.add_argument("-q", "--quiet", action="store_true")
+
+    parser = argparse.ArgumentParser(description='Dataset Downloader')
+    subparsers = parser.add_subparsers(dest='subparser_name')
+
+    parser_daemon = subparsers.add_parser('daemon', parents=[parent],
+                                          help='downloader daemon mode')
+    parser_daemon.add_argument('-n', '--num-datasets', type=int, default=1)
+
+    parser_download = subparsers.add_parser('download', parents=[parent],
+                                            help='download a single dataset')
+    parser_download.add_argument('dataset', nargs='?', type=_parse_ds_str)
+
+    # TODO - more options (other options of relevant initialisers)
+
+    args = parser.parse_args()
+
+    fmtr = logging.Formatter(_format_string)
+
+    handler = logging.StreamHandler() # stderr
+    handler.setFormatter(fmtr)
+    if args.verbose:
+        handler.setLevel(logging.DEBUG)
+    elif not args.quiet:
+        handler.setLevel(logging.INFO)
+    else:
+        handler.setLevel(logging.WARNING)
+    root_logger.addHandler(handler)
+
+    if args.log_file:
+        handler = logging.handlers.WatchedFileHandler(args.log_file)
+        handler.setFormatter(fmtr)
+        if args.log_file_verbose:
+            handler.setLevel(logging.DEBUG)
+        elif not args.log_file_quiet:
+            handler.setLevel(logging.INFO)
+        else:
+            handler.setLevel(logging.WARNING)
+        root_logger.addHandler(handler)
+        logger.info("Opening log file %s", args.log_file)
+
+    if args.email_exceptions:
+        emails_to = [args.email_exceptions]
+        emails_from = args.email_from
+        email_server = args.email_server
+
+        handler = logging.handlers.SMTPHandler(
+                email_server, emails_from, emails_to,
+                "tawhiri wind downloader")
+        handler.setLevel(logging.ERROR)
+        handler.setFormatter(logging.Formatter(_format_email))
+        root_logger.addHandler(handler)
+
+    try:
+        if args.subparser_name == 'download':
+            d = DatasetDownloader(args.directory, args.dataset)
+            try:
+                d.open()
+                d.download()
+            finally:
+                d.close()
+        else:
+            d = DownloadDaemon(args.directory, args.num_datasets)
+            d.run()
+    except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
+        logger.warning("exit via %s", sys.exc_info()[0].__name__)
+        raise
+    except:
+        logger.exception("unhandled exception")
+        raise
+
+if __name__ == "__main__":
+    main()
