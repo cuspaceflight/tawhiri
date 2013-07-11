@@ -4,7 +4,7 @@ from tawhiri.wind import Dataset
 from tawhiri.wind.download import DatasetDownloader
 
 directory = "datasets"
-ds_time = datetime(2013, 7, 10, 6, 0, 0)
+ds_time = datetime(2013, 7, 11, 6, 0, 0)
 
 log_filename = Dataset.filename(directory, ds_time, suffix='.log')
 log_file = open(log_filename, "w")
@@ -30,10 +30,22 @@ logging.info("Opened logfile %s (truncate and write)", log_filename)
 logging.info("Initialising")
 d = DatasetDownloader("datasets", ds_time)
 
-logging.info("Downloading")
-d.download()
+try:
+    logging.info("Opening")
+    d.open()
 
-logging.info("Closing")
-d.close()
+    logging.info("Downloading")
+    d.download()
 
-logging.info("Done")
+except:
+    logging.exception("Exception; will reraise")
+    raise
+
+else:
+    logging.info("Success")
+
+finally:
+    logging.info("Closing")
+    d.close()
+
+logging.info("Clean exit")
