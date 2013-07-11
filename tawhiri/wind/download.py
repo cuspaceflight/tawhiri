@@ -1,7 +1,8 @@
 from __future__ import division
 
-import numpy as np
 import logging
+import logging.handlers
+import argparse
 import sys
 import os
 import os.path
@@ -23,6 +24,7 @@ from gevent.dns import resolve_ipv4
 import gevent.socket
 import httplib
 import itertools
+import numpy as np
 import pygrib
 
 from . import Dataset, unpack_grib
@@ -441,3 +443,92 @@ class DownloadWorker(gevent.Greenlet):
             # is overdue
             if opened:
                 os.unlink(temp_file)
+
+class DownloadDaemon(object):
+    def __init__(self, directory, num_datasets=1):
+        # TODO - accept the options that DatasetDownloader does
+        self.directory = directory
+        self.num_datasets = num_datasets
+
+    def clean_directory(self):
+        # also returns the latest dataset we have
+
+        datasets = Dataset.listdir(self.directory, only_suffices=('', ))
+        keep_rows = sorted(datasets, reverse=True)[:self.num_datasets]
+        keep_ds_times = [r.ds_time for r in keep_rows]
+
+        kept = []
+        removed = []
+
+        for row in Dataset.listdir(self.directory):
+            if row.ds_time not in keep_ds_times:
+                removed.append(row.filename)
+                os.unlink(row.path)
+            else:
+                kept.append(row.filename)
+
+        logger.info("cleaning: kept %s, removed %s", kept, removed)
+
+        if len(keep_ds_times):
+            logger.debug("latest downloaded dataset is: %s", keep_ds_times[0])
+            return keep_ds_times[0]
+        else:
+            return None
+
+    def run(self):
+        last_downloaded_dataset = self.clean_directory()
+        latest_dataset = self._latest_dataset()
+
+        if last_downloaded_dataset is None or \
+                last_downloaded_dataset < latest_dataset:
+            next_dataset = latest_dataset
+        else:
+            next_dataset = last_downloaded_dataset + timedelta(hours=6)
+
+        while True:
+            # datasets typically start hitting the mirror 3.5 hours after
+            # their named time
+            expect = next_dataset + timedelta(hours=3, minutes=30)
+            wait_for = (datetime.now() - expect).total_seconds()
+            if wait_for > 0:
+                logger.info("waiting until %s (%s) for dataset %s",
+                            expect, wait_for, next_dataset)
+                sleep(wait_for)
+
+            logger.info("downloading dataset %s", next_dataset)
+            self._download(next_dataset)
+
+            assert next_dataset == self.clean_directory()
+            next_dataset += timedelta(hours=6)
+
+    def _latest_dataset(self):
+        latest_dataset = (datetime.now() - timedelta(hours=3, minutes=30)) \
+                         .replace(minute=0, second=0, microsecond=0)
+        hour = latest_dataset.hour - (latest_dataset.hour % 6)
+        latest_dataset = latest_dataset.replace(hour=hour)
+        logger.info("latest dataset is %s", latest_dataset)
+        return latest_dataset
+
+    def _download(self, ds_time):
+        try:
+            d = DatasetDownloader(self.directory, ds_time)
+            d.open()
+            d.download()
+        except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            logger.exception("Failed to download %s", ds_time)
+        else:
+            logger.info("Download complete %s", ds_time)
+        finally:
+            d.close()
+
+def _parse_ds_str(ds_time_str):
+    try:
+        ds_time = datetime.strptime(ds_time_str, "%Y%m%d%H")
+    except ValueError:
+        argparse.ArgumentTypeError("invalid dataset string")
+
+    if ds_time.hour % 6 != 0:
+        argparse.ArgumentTypeError("dataset hour must be a multiple of 6")
+    return ds_time
