@@ -1,6 +1,8 @@
 import logging
 from collections import namedtuple
+import os
 import os.path
+from datetime import datetime
 import numpy as np
 import pygrib
 
@@ -23,7 +25,7 @@ class Dataset(object):
                           475, 525, 575, 625, 675, 725, 775, 825, 875]
 
     _axes_type = namedtuple("axes",
-              ("hour", "pressure", "variable", "latitude", "longitude"))
+                ("hour", "pressure", "variable", "latitude", "longitude"))
 
     axes = _axes_type(
         range(0, 192 + 3, 3),
@@ -32,6 +34,9 @@ class Dataset(object):
         np.arange(-90, 90 + 0.5, 0.5),
         np.arange(0, 360, 0.5)
     )
+
+    _listdir_type = namedtuple("dataset_in_row",
+                ("ds_time", "suffix", "filename", "path"))
 
     assert shape == tuple(len(x) for x in axes)
 
@@ -42,6 +47,25 @@ class Dataset(object):
     def filename(cls, directory, ds_time, suffix=''):
         ds_time_str = ds_time.strftime("%Y%m%d%H")
         return os.path.join(directory, ds_time_str + suffix)
+
+    @classmethod
+    def listdir(cls, directory, only_suffices=None):
+        for filename in os.listdir(directory):
+            if len(filename) < 10:
+                continue
+
+            ds_time_str = filename[:10]
+            try:
+                ds_time = datetime.strptime(ds_time_str, "%Y%m%d%H")
+            except ValueError:
+                pass
+            else:
+                suffix = filename[10:]
+                if only_suffices and suffix not in only_suffices:
+                    continue
+
+                yield cls._listdir_type(ds_time, suffix, filename,
+                                        os.path.join(directory, filename))
 
     @classmethod
     def checklist(cls):
