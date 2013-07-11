@@ -555,7 +555,7 @@ def main():
     parent = argparse.ArgumentParser(add_help=False)
     parent.add_argument('-d', '--directory', default="datasets")
     parent.add_argument('-f', '--log-file')
-    parent.add_argument('-e', '--email-exceptions')
+    parent.add_argument('-e', '--email-exceptions', metavar='USER@DOMAIN.TLD')
     parent.add_argument('-s', '--email-from', default='tawhiri@localhost')
     parent.add_argument('-c', '--email-server', default='localhost')
 
