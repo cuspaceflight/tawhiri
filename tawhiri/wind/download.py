@@ -22,6 +22,7 @@ from gevent.event import Event
 from gevent.pool import Group
 from gevent.queue import PriorityQueue
 from gevent.dns import resolve_ipv4
+from gevent.coros import RLock
 import gevent.socket
 import httplib
 import itertools
@@ -107,6 +108,8 @@ class DatasetDownloader(object):
         ds_time_str = self.ds_time.strftime("%Y%m%d%H")
         self.remote_directory = dataset_path.format(ds_time_str)
 
+        self._greenlets = Group()
+        self.unpack_lock = RLock()
 
         # Items in the queue are
         #   (hour, sleep_until, filename, ...)
@@ -114,7 +117,6 @@ class DatasetDownloader(object):
         # a specific file, files from that hour without the delay
         # are tried first
         self._files = PriorityQueue()
-        self._greenlets = Group()
 
         # areas in self.dataset.array are considered 'undefined' until
         #   self.checklist[index[:3]] is True, since unpack_grib may
@@ -496,30 +498,29 @@ class DownloadWorker(gevent.Greenlet):
                 os.unlink(temp_file)
 
     def _unpack_file(self, temp_file, queue_item):
-        # callback: yields to other greenlets after each row; primarily for IO
-        # if another greenlet starts unpacking, this isn't a problem:
-        # global checklist prevents them overwriting each other.
+        # callback: yields to other greenlets for IO _only_
 
-        axes = ([queue_item.hour], queue_item.expect_pressures,
-                Dataset.axes.variable)
-        file_checklist = set(itertools.product(*axes))
+        with self.downloader.unpack_lock:
+            axes = ([queue_item.hour], queue_item.expect_pressures,
+                    Dataset.axes.variable)
+            file_checklist = set(itertools.product(*axes))
 
-        try:
-            unpack_grib(temp_file,
-                        self.downloader._dataset,
-                        self.downloader._checklist,
-                        self.downloader._gribmirror,
-                        file_checklist=file_checklist,
-                        assert_hour=queue_item.hour,
-                        callback=lambda a, b: sleep(0))
-        except:
             try:
-                type, value, traceback = sys.exc_info()
-                value = str(value)
-                raise BadFile(value), None, traceback
-            finally:
-                # avoid circular reference
-                del traceback
+                unpack_grib(temp_file,
+                            self.downloader._dataset,
+                            self.downloader._checklist,
+                            self.downloader._gribmirror,
+                            file_checklist=file_checklist,
+                            assert_hour=queue_item.hour,
+                            callback=lambda a, b, c: sleep(0))
+            except:
+                try:
+                    type, value, traceback = sys.exc_info()
+                    value = str(value)
+                    raise BadFile(value), None, traceback
+                finally:
+                    # avoid circular reference
+                    del traceback
 
 class DownloadDaemon(object):
     def __init__(self, directory, num_datasets=1):
