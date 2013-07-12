@@ -431,13 +431,21 @@ class DownloadWorker(gevent.Greenlet):
         with open(temp_file, "w") as f:
             opened = True
 
+            start = time()
+            length = 0
+
             while True:
                 d = resp.read(1024 * 1024)
                 if d == '':
                     break
                 f.write(d)
+                length += len(d)
 
-            self._logger.debug("download complete")
+            end = time()
+
+            duration = end - start
+            speed = length / (duration * 1024 * 1024)
+            self._logger.debug("download complete, speed %sMB/s", speed)
 
     def _handle_notfound(self, queue_item):
         if self.downloader.have_first_file:
