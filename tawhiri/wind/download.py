@@ -381,7 +381,7 @@ class DownloadWorker(gevent.Greenlet):
                 raise
 
             else:
-                server_sleep_backoff = 0
+                self._server_sleep_backoff = 0
                 # unfortunately gevent doesn't have JoinablePriorityQueues
                 self.downloader._file_complete()
 
