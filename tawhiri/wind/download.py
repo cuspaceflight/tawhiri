@@ -513,6 +513,8 @@ class DownloadWorker(gevent.Greenlet):
                             file_checklist=file_checklist,
                             assert_hour=queue_item.hour,
                             callback=lambda a, b, c: sleep(0))
+            except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
+                raise
             except:
                 try:
                     type, value, traceback = sys.exc_info()
