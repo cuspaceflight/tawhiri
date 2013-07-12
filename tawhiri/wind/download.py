@@ -353,13 +353,16 @@ class DownloadWorker(gevent.Greenlet):
             # if we 404, ideally we want another server to try
             self._server_sleep_time = 0
 
+            temp_file = os.path.join(self.downloader._tmp_directory,
+                                     queue_item.filename)
+
             try:
                 self._logger.debug("begin download")
 
                 timeout = Timeout(self.downloader.timeout)
                 timeout.start()
                 try:
-                    self._download_file(queue_item)
+                    self._download_file(temp_file, queue_item)
                 finally:
                     timeout.cancel()
 
@@ -381,14 +384,18 @@ class DownloadWorker(gevent.Greenlet):
                 raise
 
             else:
+                self._unpack_file(temp_file, queue_item)
+
                 self._server_sleep_backoff = 0
                 # unfortunately gevent doesn't have JoinablePriorityQueues
                 self.downloader._file_complete()
 
-            if self._server_sleep_time > 0:
-                self._connection_close()
-
-            sleep(self._server_sleep_time)
+            finally:
+                try:
+                    os.unlink(temp_file)
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        raise
 
     def _handle_notfound(self, queue_item):
         if self.downloader.have_first_file:
@@ -449,14 +456,12 @@ class DownloadWorker(gevent.Greenlet):
             pass
         self._connection = None
 
-    def _download_file(self, queue_item):
+    def _download_file(self, temp_file, queue_item):
         if self._connection is None:
             self._logger.debug("connecting to %s", self.connect_host)
             self._connection = HTTPConnection(self.connect_host)
 
         remote_file = os.path.join(self.downloader.remote_directory,
-                                    queue_item.filename)
-        temp_file = os.path.join(self.downloader._tmp_directory,
                                     queue_item.filename)
 
         headers = {"Connection": "Keep-Alive",
@@ -474,28 +479,16 @@ class DownloadWorker(gevent.Greenlet):
         # block, obscuring the original exception
         opened = False
 
-        try:
-            with open(temp_file, "w") as f:
-                opened = True
+        with open(temp_file, "w") as f:
+            opened = True
 
-                while True:
-                    d = resp.read(1024 * 1024)
-                    if d == '':
-                        break
-                    f.write(d)
+            while True:
+                d = resp.read(1024 * 1024)
+                if d == '':
+                    break
+                f.write(d)
 
-                self._logger.debug("download complete")
-        except:
-            raise
-        else:
-            self._unpack_file(temp_file, queue_item)
-        finally:
-            # timeout only fires on blocking gevent operations so won't
-            # race with catching another exception.
-            # cancelling will prevent the exception even if the timer
-            # is overdue
-            if opened:
-                os.unlink(temp_file)
+            self._logger.debug("download complete")
 
     def _unpack_file(self, temp_file, queue_item):
         # callback: yields to other greenlets for IO _only_
