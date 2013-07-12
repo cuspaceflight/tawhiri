@@ -349,53 +349,95 @@ class DownloadWorker(gevent.Greenlet):
                 self._connection_close() # don't hold connections open
                 sleep(sleep_for)
 
-            # sleep zero seconds at the end to yield:
+            # by default, sleep zero seconds at the end to yield:
             # if we 404, ideally we want another server to try
             self._server_sleep_time = 0
 
-            temp_file = os.path.join(self.downloader._tmp_directory,
-                                     queue_item.filename)
+            self._run_queue_item(queue_item)
 
+            if self._server_sleep_time > 0:
+                self._connection_close()
+
+            sleep(self._server_sleep_time)
+
+    def _run_queue_item(self, queue_item):
+        temp_file = os.path.join(self.downloader._tmp_directory,
+                                 queue_item.filename)
+
+        try:
+            self._logger.debug("begin download")
+
+            timeout = Timeout(self.downloader.timeout)
+            timeout.start()
             try:
-                self._logger.debug("begin download")
-
-                timeout = Timeout(self.downloader.timeout)
-                timeout.start()
-                try:
-                    self._download_file(temp_file, queue_item)
-                finally:
-                    timeout.cancel()
-
-            except NotFound:
-                self._handle_notfound(queue_item)
-
-            except Timeout:
-                self._handle_timeout(queue_item)
-
-            except BadFile as e:
-                abort = self._handle_badfile(queue_item)
-                if abort:
-                    raise # thereby killing the download
-
-            except (gevent.socket.error, httplib.HTTPException):
-                self._handle_ioerror(queue_item)
-
-            except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
-                raise
-
-            else:
-                self._unpack_file(temp_file, queue_item)
-
-                self._server_sleep_backoff = 0
-                # unfortunately gevent doesn't have JoinablePriorityQueues
-                self.downloader._file_complete()
-
+                self._download_file(temp_file, queue_item)
             finally:
-                try:
-                    os.unlink(temp_file)
-                except OSError as e:
-                    if e.errno != errno.ENOENT:
-                        raise
+                timeout.cancel()
+
+            self._unpack_file(temp_file, queue_item)
+
+        except NotFound:
+            self._handle_notfound(queue_item)
+
+        except Timeout:
+            self._handle_timeout(queue_item)
+
+        except BadFile as e:
+            abort = self._handle_badfile(queue_item)
+            if abort:
+                raise # thereby killing the whole download
+
+        except (gevent.socket.error, httplib.HTTPException):
+            self._handle_ioerror(queue_item)
+
+        except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
+            raise
+
+        else:
+            self._server_sleep_backoff = 0
+            # unfortunately gevent doesn't have JoinablePriorityQueues
+            self.downloader._file_complete()
+
+        finally:
+            try:
+                os.unlink(temp_file)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+
+    def _download_file(self, temp_file, queue_item):
+        if self._connection is None:
+            self._logger.debug("connecting to %s", self.connect_host)
+            self._connection = HTTPConnection(self.connect_host)
+
+        remote_file = os.path.join(self.downloader.remote_directory,
+                                    queue_item.filename)
+
+        headers = {"Connection": "Keep-Alive",
+                   "Host": self.downloader.dataset_host}
+        self._connection.request("GET", remote_file, headers=headers)
+
+        resp = self._connection.getresponse()
+
+        if resp.status == 404:
+            raise NotFound
+        elif resp.status != 200:
+            raise Exception("Status: {0}".format(resp.status))
+
+        # if open() fails, os.unlink will raise an exception in the finally
+        # block, obscuring the original exception
+        opened = False
+
+        with open(temp_file, "w") as f:
+            opened = True
+
+            while True:
+                d = resp.read(1024 * 1024)
+                if d == '':
+                    break
+                f.write(d)
+
+            self._logger.debug("download complete")
 
     def _handle_notfound(self, queue_item):
         if self.downloader.have_first_file:
@@ -456,42 +498,11 @@ class DownloadWorker(gevent.Greenlet):
             pass
         self._connection = None
 
-    def _download_file(self, temp_file, queue_item):
-        if self._connection is None:
-            self._logger.debug("connecting to %s", self.connect_host)
-            self._connection = HTTPConnection(self.connect_host)
-
-        remote_file = os.path.join(self.downloader.remote_directory,
-                                    queue_item.filename)
-
-        headers = {"Connection": "Keep-Alive",
-                   "Host": self.downloader.dataset_host}
-        self._connection.request("GET", remote_file, headers=headers)
-
-        resp = self._connection.getresponse()
-
-        if resp.status == 404:
-            raise NotFound
-        elif resp.status != 200:
-            raise Exception("Status: {0}".format(resp.status))
-
-        # if open() fails, os.unlink will raise an exception in the finally
-        # block, obscuring the original exception
-        opened = False
-
-        with open(temp_file, "w") as f:
-            opened = True
-
-            while True:
-                d = resp.read(1024 * 1024)
-                if d == '':
-                    break
-                f.write(d)
-
-            self._logger.debug("download complete")
-
     def _unpack_file(self, temp_file, queue_item):
         # callback: yields to other greenlets for IO _only_
+        # the timeout must be canceled - we do not want to be interrupted,
+        # it could leave downloader._dataset/_checklist in an inconsistent
+        # state
 
         with self.downloader.unpack_lock:
             axes = ([queue_item.hour], queue_item.expect_pressures,
