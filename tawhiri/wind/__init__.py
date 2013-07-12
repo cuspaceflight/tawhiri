@@ -18,18 +18,18 @@ class Dataset(object):
     # 0 unknown "planetary boundry layer" (u, v) (first two records)
     # 0 surface "Planetary boundary layer height"
     # {1829, 2743, 3658} heightAboveSea (u, v)
-    _pressures_pgrb2f = [10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400,
-                         450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925,
-                         950, 975, 1000]
-    _pressures_pgrb2bf = [1, 2, 3, 5, 7, 125, 175, 225, 275, 325, 375, 425,
-                          475, 525, 575, 625, 675, 725, 775, 825, 875]
+    pressures_pgrb2f = [10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400,
+                        450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925,
+                        950, 975, 1000]
+    pressures_pgrb2bf = [1, 2, 3, 5, 7, 125, 175, 225, 275, 325, 375, 425,
+                         475, 525, 575, 625, 675, 725, 775, 825, 875]
 
     _axes_type = namedtuple("axes",
                 ("hour", "pressure", "variable", "latitude", "longitude"))
 
     axes = _axes_type(
         range(0, 192 + 3, 3),
-        sorted(_pressures_pgrb2f + _pressures_pgrb2bf, reverse=True),
+        sorted(pressures_pgrb2f + pressures_pgrb2bf, reverse=True),
         ["height", "wind_u", "wind_v"],
         np.arange(-90, 90 + 0.5, 0.5),
         np.arange(0, 360, 0.5)
@@ -97,54 +97,31 @@ _grib_name_to_variable = {"Geopotential Height": "height",
                           "V component of wind": "wind_v"}
 
 def unpack_grib(filename, dataset=None, checklist=None, gribmirror=None,
-                assert_hour=None):
-    if dataset is None and checklist is None and gribmirror is None:
-        raise ValueError("supply at least one of dataset, checklist and "
-                                "gribmirror")
+                assert_hour=None, file_checklist=None, callback=None):
+    # docstring needs warning about modifying dataset and then returning
+    # ValueError, see DatasetDownloader's comments on self._checklist
+    # in __init__
 
     assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
     if dataset is not None:
         assert dataset.axes == Dataset.axes
         assert dataset.shape == Dataset.shape
 
-    grib = pygrib.open(filename)
+    if file_checklist is not None:
+        file_checklist = file_checklist.copy()
+
+    checklist_temp = Dataset.checklist()
     checked_axes = False
 
-    for record in grib:
-        if record.typeOfLevel != "isobaricInhPa":
-            continue
-        if record.name not in _grib_name_to_variable:
-            continue
-
-        if assert_hour is not None and record.forecastTime != assert_hour:
-            raise ValueError("Incorrect forecastTime (assert_hour)")
-
-        location_name = (record.forecastTime, record.level,
-                         _grib_name_to_variable[record.name])
-
-        location = tuple(Dataset.axes[i].index(n)
-                         for i, n in enumerate(location_name))
-
-        if checklist is not None:
-            if checklist[location]:
-                raise ValueError("repeated: {0}".format(location_name))
-            checklist[location] = True
+    for record, location, location_name in _grib_records(filename):
+        _check_record(record, location, location_name, checklist_temp,
+                      checklist, assert_hour, file_checklist)
 
         # Checking axes (for some reason) is really slow, so do it once as
         # a small sanity check, and hope that if it's OK for one record,
         # the file is good.
         if not checked_axes:
-            # I'm unsure whether this is the correct thing to do.
-            # Some GRIB functions (.latitudes, .latLonValues) have the
-            # latitudes scanning negatively (90 to -90); but .values and
-            # .distinctLatitudes seem to return a grid scanning positively
-            # If it works...
-            if not np.array_equal(record.distinctLatitudes,
-                                  Dataset.axes.latitude):
-                raise ValueError("unexpected axes on record (latitudes)")
-            if not np.array_equal(record.distinctLongitudes,
-                                  Dataset.axes.longitude):
-                raise ValueError("unexpected axes on record (longitudes)")
+            _check_axes(record)
             checked_axes = True
 
         if dataset is not None:
@@ -154,5 +131,67 @@ def unpack_grib(filename, dataset=None, checklist=None, gribmirror=None,
 
         logger.debug("unpacked %s %s %s", filename, location_name, location)
 
+        # don't update the main checklist until we finish the file and
+        # therefore know that we won't be raising a ValueError
+        checklist_temp[location] = True
+
+        if file_checklist is not None:
+            file_checklist.remove(location_name)
+        if callback is not None:
+            callback(location, location_name)
+
+    if file_checklist != set():
+        raise ValueError("records missing from file")
+
+    # callback may yield to another greenlet, so could race:
+    if (checklist & checklist_temp).any():
+        raise ValueError("records already unpacked (checklist race)")
+    # numpy overloads in-place-or which will update the referenced array
+    # rather than only modifying the local variable
+    checklist |= checklist_temp
+
     logger.info("unpacked %s", filename)
-    grib.close()
+
+def _grib_records(filename):
+    grib = pygrib.open(filename)
+    try:
+        for record in grib:
+            if record.typeOfLevel != "isobaricInhPa":
+                continue
+            if record.name not in _grib_name_to_variable:
+                continue
+
+            location_name = (record.forecastTime, record.level,
+                             _grib_name_to_variable[record.name])
+
+            location = tuple(Dataset.axes[i].index(n)
+                             for i, n in enumerate(location_name))
+
+            yield record, location, location_name
+    finally:
+        grib.close()
+
+def _check_record(record, location, location_name, checklist_temp,
+                  checklist, assert_hour, file_checklist):
+    if checklist_temp[location]:
+        raise ValueError("repeated in file: {0}".format(location_name))
+    if checklist is not None and checklist[location]:
+        raise ValueError("record already unpacked (from other file): {0}"
+                            .format(location_name))
+    if assert_hour is not None and record.forecastTime != assert_hour:
+        raise ValueError("Incorrect forecastTime (assert_hour)")
+    if file_checklist is not None and location_name not in file_checklist:
+        raise ValueError("unexpected record: {0}".format(location_name))
+
+def _check_axes(record):
+    # I'm unsure whether this is the correct thing to do.
+    # Some GRIB functions (.latitudes, .latLonValues) have the
+    # latitudes scanning negatively (90 to -90); but .values and
+    # .distinctLatitudes seem to return a grid scanning positively
+    # If it works...
+    if not np.array_equal(record.distinctLatitudes,
+                          Dataset.axes.latitude):
+        raise ValueError("unexpected axes on record (latitudes)")
+    if not np.array_equal(record.distinctLongitudes,
+                          Dataset.axes.longitude):
+        raise ValueError("unexpected axes on record (longitudes)")

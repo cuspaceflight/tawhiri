@@ -10,6 +10,7 @@ import errno
 import shutil
 import math
 import tempfile
+from collections import namedtuple
 from time import time
 from datetime import datetime, timedelta
 from socket import inet_ntoa
@@ -51,13 +52,27 @@ class HTTPConnection(httplib.HTTPConnection):
 class NotFound(Exception):
     pass
 
+class BadFile(Exception):
+    pass
+
 class DatasetDownloader(object):
+    _queue_item_type = namedtuple("queue_item",
+                                    ("hour", "sleep_until", "filename",
+                                     "expect_pressures", "bad_downloads"))
+
     def __init__(self, directory, ds_time, timeout=120,
                  first_file_timeout=600,
+                 bad_download_retry_limit=3,
                  write_dataset=True, write_gribmirror=True,
                  deadline=None,
                  dataset_host="www.ftp.ncep.noaa.gov",
                  dataset_path="/data/nccf/com/gfs/prod/gfs.{0}/"):
+
+        # set these ASAP for close() via __del__ if __init__ raises something
+        self.success = False
+        self._dataset = None
+        self._gribmirror = None
+        self._tmp_directory = None
 
         assert ds_time.hour in (0, 6, 12, 18)
         assert ds_time.minute == ds_time.second == ds_time.microsecond == 0
@@ -77,6 +92,7 @@ class DatasetDownloader(object):
         self.first_file_timeout = first_file_timeout
         self.write_dataset = write_dataset
         self.write_gribmirror = write_gribmirror
+        self.bad_download_retry_limit = bad_download_retry_limit
 
         self.deadline = deadline
         self.dataset_host = dataset_host
@@ -87,21 +103,28 @@ class DatasetDownloader(object):
         self.files_complete = 0
         self.files_count = 0
         self.completed = Event()
-        self.success = False
 
         ds_time_str = self.ds_time.strftime("%Y%m%d%H")
         self.remote_directory = dataset_path.format(ds_time_str)
 
-        self._dataset = None
-        self._gribmirror = None
-        self._tmp_directory = None
 
-        # Items in the queue are (hour, sleep_until, filename)
+        # Items in the queue are
+        #   (hour, sleep_until, filename, ...)
         # so they sort by hour, and then if a 404 adds a delay to
         # a specific file, files from that hour without the delay
         # are tried first
         self._files = PriorityQueue()
         self._greenlets = Group()
+
+        # areas in self.dataset.array are considered 'undefined' until
+        #   self.checklist[index[:3]] is True, since unpack_grib may
+        #   write to them, and then abort via ValueError before marking
+        #   updating the checklist if the file turns out later to be bad
+
+        # the checklist also serves as a sort of final sanity check:
+        #   we also have "does this file contain all the records we think it
+        #   should" checklists; see Worker._download_file
+
         self._checklist = Dataset.checklist()
 
     def open(self):
@@ -155,10 +178,14 @@ class DatasetDownloader(object):
 
         for hour in Dataset.axes.hour:
             hour_str = "{0:02}".format(hour)
-            files = tuple(filename_prefix + x + hour_str for x in ["f", "bf"])
-            for filename in files:
+
+            for bit, exp_pr in (("f", Dataset.pressures_pgrb2f),
+                                ("bf", Dataset.pressures_pgrb2bf)):
+                self._files.put(self._queue_item_type(
+                    hour, 0, filename_prefix + bit + hour_str, exp_pr, 0))
                 self.files_count += 1
-                self._files.put((hour, 0, filename))
+
+        logger.info("Need to download %s files", self.files_count)
 
     def _run_workers(self, addresses, total_timeout_secs):
         logger.debug("Spawning %s workers", len(addresses))
@@ -299,22 +326,22 @@ class DownloadWorker(gevent.Greenlet):
         self.connect_host = connect_host
 
         self._connection = None
+        self._server_sleep_backoff = 0
+        self._server_sleep_time = 0
         self._files = downloader._files
 
         logger_path = logger.name + ".worker.{0}".format(worker_id)
         self._logger = logging.getLogger(logger_path)
 
     def _run(self):
-        server_sleep_backoff = 0
-
         while True:
             # block, with no timeout. If the queue is empty, another
             # worker might put a file back in (after failure)
-            hour, sleep_until, filename = self._files.get(block=True)
+            queue_item = self._files.get(block=True)
 
-            self._logger.debug("downloading %s", filename)
+            self._logger.debug("downloading %s", queue_item.filename)
 
-            sleep_for = sleep_until - time()
+            sleep_for = queue_item.sleep_until - time()
             if sleep_for > 0:
                 self._logger.debug("sleeping for %s", sleep_for)
                 self._connection_close() # don't hold connections open
@@ -322,7 +349,7 @@ class DownloadWorker(gevent.Greenlet):
 
             # sleep zero seconds at the end to yield:
             # if we 404, ideally we want another server to try
-            server_sleep_time = 0
+            self._server_sleep_time = 0
 
             try:
                 self._logger.debug("begin download")
@@ -330,60 +357,86 @@ class DownloadWorker(gevent.Greenlet):
                 timeout = Timeout(self.downloader.timeout)
                 timeout.start()
                 try:
-                    self._download_file(hour, filename)
+                    self._download_file(queue_item)
                 finally:
                     timeout.cancel()
 
-            except NotFound as e:
-                if self.downloader.have_first_file:
-                    sleep_time = self.downloader.timeout
-                else:
-                    sleep_time = self.downloader.first_file_timeout
-                self._logger.info("404, file sleep %s", sleep_time)
-                self._files.put((hour, time() + sleep_time, filename))
+            except NotFound:
+                self._handle_notfound(queue_item)
 
             except Timeout:
-                # skip the small server sleeps (less than the timeout that just
-                # failed); also ensures other workers get a go at this file
-                server_sleep_backoff = \
-                        max(server_sleep_backoff,
-                            int(math.log(self.downloader.timeout, 2) + 1))
+                self._handle_timeout(queue_item)
 
-                log_to = int(math.ceil(math.log(self.downloader.timeout, 2)))
-                if server_sleep_backoff < log_to + 1:
-                    server_sleep_backoff = log_to + 1
-                server_sleep_time = 2 ** server_sleep_backoff
+            except BadFile as e:
+                abort = self._handle_badfile(queue_item)
+                if abort:
+                    raise # thereby killing the download
 
-                self._logger.warning("timeout, server sleep %s",
-                                    server_sleep_time)
-                self._files.put((hour, 0, filename))
+            except (gevent.socket.error, httplib.HTTPException):
+                self._handle_ioerror(queue_item)
 
             except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
                 raise
-
-            except:
-                if server_sleep_backoff < 10:
-                    server_sleep_backoff += 1
-                server_sleep_time = 2 ** server_sleep_backoff
-
-                # don't print a stack trace until it's more
-                if server_sleep_backoff >= 5:
-                    lf = lambda a, b: self._logger.warning(a, b, exc_info=1)
-                else:
-                    lf = self._logger.info
-                lf("exception; server sleep %s", server_sleep_time)
-
-                self._files.put((hour, 0, filename))
 
             else:
                 server_sleep_backoff = 0
                 # unfortunately gevent doesn't have JoinablePriorityQueues
                 self.downloader._file_complete()
 
-            if server_sleep_time > 0:
+            if self._server_sleep_time > 0:
                 self._connection_close()
 
-            sleep(server_sleep_time)
+            sleep(self._server_sleep_time)
+
+    def _handle_notfound(self, queue_item):
+        if self.downloader.have_first_file:
+            sleep_time = self.downloader.timeout
+        else:
+            sleep_time = self.downloader.first_file_timeout
+        self._logger.info("404: %s; file sleep %s",
+                          queue_item.filname, sleep_time)
+        sleep_until = time() + sleep_time
+        self._files.put(queue_item._replace(sleep_until=sleep_until))
+
+    def _handle_timeout(self, queue_item):
+        # skip the small server sleeps (less than the timeout that just
+        # failed); also ensures other workers get a go at this file
+        backoff_min = int(math.ceil(math.log(self.downloader.timeout, 2)))
+        if self._server_sleep_backoff < backoff_min + 1:
+            self._server_sleep_backoff = backoff_min + 1
+
+        self._server_sleep_time = 2 ** self._server_sleep_backoff
+        self._logger.warning("timeout while downloading %s; server sleep %s",
+                             queue_item.filename, self._server_sleep_time)
+        self._files.put(queue_item)
+
+    def _handle_badfile(self, queue_item):
+        retry_limit = self.downloader.bad_download_retry_limit
+        if queue_item.bad_downloads == retry_limit:
+            self._logger.exception("retry limit reached")
+            return True # abort download
+        else:
+            n = queue_item.bad_downloads + 1
+            su = time() + self.downloader.timeout
+            i = queue_item._replace(bad_downloads=n, sleep_until=su)
+            self._logger.warning("bad file (%s, attempt %s), file sleep %s",
+                                 queue_item.filename, n,
+                                 self.downloader.timeout, exc_info=1)
+            self._files.put(i)
+
+    def _handle_ioerror(self, queue_item):
+        if self._server_sleep_backoff < 10:
+            self._server_sleep_backoff += 1
+        self._server_sleep_time = 2 ** self._server_sleep_backoff
+
+        # don't print a stack trace until it's more
+        if self._server_sleep_backoff >= 5:
+            lf = lambda a, b: self._logger.warning(a, b, exc_info=1)
+        else:
+            lf = self._logger.info
+        lf("exception; server sleep %s", self._server_sleep_time)
+
+        self._files.put(queue_item)
 
     def _connection_close(self):
         try:
@@ -394,13 +447,15 @@ class DownloadWorker(gevent.Greenlet):
             pass
         self._connection = None
 
-    def _download_file(self, hour, filename):
+    def _download_file(self, queue_item):
         if self._connection is None:
             self._logger.debug("connecting to %s", self.connect_host)
             self._connection = HTTPConnection(self.connect_host)
 
-        remote_file = os.path.join(self.downloader.remote_directory, filename)
-        temp_file = os.path.join(self.downloader._tmp_directory, filename)
+        remote_file = os.path.join(self.downloader.remote_directory,
+                                    queue_item.filename)
+        temp_file = os.path.join(self.downloader._tmp_directory,
+                                    queue_item.filename)
 
         headers = {"Connection": "Keep-Alive",
                    "Host": self.downloader.dataset_host}
@@ -431,11 +486,7 @@ class DownloadWorker(gevent.Greenlet):
         except:
             raise
         else:
-            unpack_grib(temp_file,
-                        self.downloader._dataset,
-                        self.downloader._checklist,
-                        self.downloader._gribmirror,
-                        assert_hour=hour)
+            self._unpack_file(temp_file, queue_item)
         finally:
             # timeout only fires on blocking gevent operations so won't
             # race with catching another exception.
@@ -443,6 +494,32 @@ class DownloadWorker(gevent.Greenlet):
             # is overdue
             if opened:
                 os.unlink(temp_file)
+
+    def _unpack_file(self, temp_file, queue_item):
+        # callback: yields to other greenlets after each row; primarily for IO
+        # if another greenlet starts unpacking, this isn't a problem:
+        # global checklist prevents them overwriting each other.
+
+        axes = ([queue_item.hour], queue_item.expect_pressures,
+                Dataset.axes.variable)
+        file_checklist = set(itertools.product(*axes))
+
+        try:
+            unpack_grib(temp_file,
+                        self.downloader._dataset,
+                        self.downloader._checklist,
+                        self.downloader._gribmirror,
+                        file_checklist=file_checklist,
+                        assert_hour=queue_item.hour,
+                        callback=lambda a, b: sleep(0))
+        except:
+            try:
+                type, value, traceback = sys.exc_info()
+                value = str(value)
+                raise BadFile(value), None, traceback
+            finally:
+                # avoid circular reference
+                del traceback
 
 class DownloadDaemon(object):
     def __init__(self, directory, num_datasets=1):
