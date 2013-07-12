@@ -575,7 +575,6 @@ class DownloadDaemon(object):
             logger.info("downloading dataset %s", next_dataset)
             self._download(next_dataset)
 
-            assert next_dataset == self.clean_directory()
             next_dataset += timedelta(hours=6)
 
     def _latest_dataset(self):
