@@ -652,7 +652,7 @@ def main():
 
     parser_download = subparsers.add_parser('download', parents=[parent],
                                             help='download a single dataset')
-    parser_download.add_argument('dataset', nargs='?', type=_parse_ds_str)
+    parser_download.add_argument('dataset', type=_parse_ds_str)
 
     # TODO - more options (other options of relevant initialisers)
 
