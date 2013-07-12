@@ -453,7 +453,7 @@ class DownloadWorker(gevent.Greenlet):
         else:
             sleep_time = self.downloader.first_file_timeout
         self._logger.info("404: %s; file sleep %s",
-                          queue_item.filname, sleep_time)
+                          queue_item.filename, sleep_time)
         sleep_until = time() + sleep_time
         self._files.put(queue_item._replace(sleep_until=sleep_until))
 
