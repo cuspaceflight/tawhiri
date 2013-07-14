@@ -589,6 +589,7 @@ class DownloadDaemon(object):
 
             logger.info("downloading dataset %s", next_dataset)
             self._download(next_dataset)
+            self.clean_directory()
 
             next_dataset += timedelta(hours=6)
 
