@@ -296,17 +296,13 @@ class DatasetDownloader(object):
         self.close()
 
     def _remove_download_directory(self):
-        dir = self._tmp_directory
-        l = os.listdir(dir)
-
+        l = os.listdir(self._tmp_directory)
         if l:
             logger.warning("cleaning %s unknown file%s in temporary directory",
                            len(l), '' if len(l) == 1 else 's')
-            for filename in l:
-                os.unlink(os.path.join(dir, filename))
 
         logger.debug("removing temporary directory")
-        os.rmdir(dir)
+        shutil.rmtree(self._tmp_directory)
 
     def _move_file(self, suffix=''):
         fn1 = Dataset.filename(self._tmp_directory, self.ds_time, suffix)
@@ -560,6 +556,11 @@ class DownloadDaemon(object):
                 kept.append(row.filename)
 
         logger.info("cleaning: kept %s, removed %s", kept, removed)
+
+        for filename in os.listdir(self.directory):
+            if filename.startswith("download."):
+                logging.warning("removing old temporary directory %s", filename)
+                shutil.rmtree(os.path.join(self.directory, filename))
 
         if len(keep_ds_times):
             logger.debug("latest downloaded dataset is: %s", keep_ds_times[0])
