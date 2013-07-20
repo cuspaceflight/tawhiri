@@ -618,12 +618,15 @@ class DownloadDaemon(object):
 
 def _parse_ds_str(ds_time_str):
     try:
+        if len(ds_time_str) != 10:
+            raise ValueError
         ds_time = datetime.strptime(ds_time_str, "%Y%m%d%H")
     except ValueError:
-        argparse.ArgumentTypeError("invalid dataset string")
+        raise argparse.ArgumentTypeError("invalid dataset string")
 
     if ds_time.hour % 6 != 0:
-        argparse.ArgumentTypeError("dataset hour must be a multiple of 6")
+        raise argparse.ArgumentTypeError("dataset hour must be a multiple of 6")
+
     return ds_time
 
 
