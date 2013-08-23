@@ -56,6 +56,9 @@ class NotFound(Exception):
 class BadFile(Exception):
     pass
 
+class ErrorStatus(Exception):
+    pass
+
 class DatasetDownloader(object):
     _queue_item_type = namedtuple("queue_item",
                                     ("hour", "sleep_until", "filename",
@@ -383,7 +386,7 @@ class DownloadWorker(gevent.Greenlet):
             if abort:
                 raise # thereby killing the whole download
 
-        except (gevent.socket.error, httplib.HTTPException):
+        except (gevent.socket.error, httplib.HTTPException, ErrorStatus):
             self._handle_ioerror(queue_item)
 
         except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
@@ -418,7 +421,7 @@ class DownloadWorker(gevent.Greenlet):
         if resp.status == 404:
             raise NotFound
         elif resp.status != 200:
-            raise Exception("Status: {0}".format(resp.status))
+            raise ErrorStatus(resp.status)
 
         # if open() fails, os.unlink will raise an exception in the finally
         # block, obscuring the original exception
