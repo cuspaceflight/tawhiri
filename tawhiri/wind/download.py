@@ -49,11 +49,15 @@ import pygrib
 from . import Dataset, unpack_grib
 
 
+__all__ = ["DatasetDownloader", "DownloadDaemon"]
+
 logger = logging.getLogger("tawhiri.wind.download")
 assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
 
 class HTTPConnection(httplib.HTTPConnection):
+    """gevent-friendly :cls:`httplib.HTTPConnection`"""
+
     # gevent.httplib is bad:
     # in ubuntu 12.04 breaks on all ipv6; fixed upstream Jan 2012.
     # .read() seems to wait for the entire request.
@@ -67,14 +71,16 @@ class HTTPConnection(httplib.HTTPConnection):
         if self._tunnel_host:
             self._tunnel()
 
+
 class NotFound(Exception):
-    pass
+    """A GRIB file wasn't found (404)"""
 
 class BadFile(Exception):
-    pass
+    """A GRIB file was retrieved, but its contents were bad"""
 
 class ErrorStatus(Exception):
-    pass
+    """A HTTP status other than 200 or 404 was returned"""
+
 
 class DatasetDownloader(object):
     _queue_item_type = namedtuple("queue_item",
@@ -224,9 +230,9 @@ class DatasetDownloader(object):
                 self._greenlets.add(w)
 
             # worker unhandled exceptions are raised in this greenlet
-            # via link(). They can appwaear in completed.wait and
-            # greenlets.kill(block=True) only (only times this greenlet
-            # will yield
+            # via link(). They can appear in completed.wait and
+            # greenlets.kill(block=True) only (the only times that this
+            # greenlet will yield
             self.completed.wait(timeout=total_timeout_secs)
 
         except:
@@ -440,13 +446,7 @@ class DownloadWorker(gevent.Greenlet):
         elif resp.status != 200:
             raise ErrorStatus(resp.status)
 
-        # if open() fails, os.unlink will raise an exception in the finally
-        # block, obscuring the original exception
-        opened = False
-
         with open(temp_file, "w") as f:
-            opened = True
-
             start = time()
             length = 0
 
@@ -524,7 +524,7 @@ class DownloadWorker(gevent.Greenlet):
 
     def _unpack_file(self, temp_file, queue_item):
         # callback: yields to other greenlets for IO _only_
-        # the timeout must be canceled - we do not want to be interrupted,
+        # the timeout must be cancelled - we do not want to be interrupted,
         # it could leave downloader._dataset/_checklist in an inconsistent
         # state
 
