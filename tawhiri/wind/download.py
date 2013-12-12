@@ -15,6 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with tawhiri.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Wind :class:`tahwiri.wind.Dataset` Downloader
+
+Downloaded data arrives in `GRIB <http://en.wikipedia.org/wiki/GRIB>`_
+format, although three quarters of the records in the downloaded file are
+ignored. The records that are used can also be written to a new grib file
+as they are unpacked (which is therefore somewhat smaller, as it is
+still compressed and only contains the useful bits).
+"""
+
+
 from __future__ import unicode_literals, print_function, division
 
 import logging
@@ -56,7 +67,7 @@ assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
 
 class HTTPConnection(httplib.HTTPConnection):
-    """gevent-friendly :cls:`httplib.HTTPConnection`"""
+    """gevent-friendly :class:`httplib.HTTPConnection`"""
 
     # gevent.httplib is bad:
     # in ubuntu 12.04 breaks on all ipv6; fixed upstream Jan 2012.

@@ -15,6 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with tawhiri.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Wind Datasets
+
+Datasets downloaded from the NOAA are stored as large binary files that are
+memmapped into the predictor process and thereby treated like a huge array.
+"""
+
+
 from __future__ import unicode_literals, print_function, division
 
 import logging
@@ -153,6 +161,8 @@ class Dataset(object):
         logger.info("Opening dataset %s %s %s", self.ds_time, self.fn,
                         '(truncate and write)' if new else '(read)')
 
+        # TODO: is there enough precision in these values to warrant use of
+        # float64? Would float32 not suffice?
         self.array = np.memmap(self.fn, mode=('w+' if self.new else 'r'),
                                dtype=np.float64, shape=self.shape, order='C')
 
