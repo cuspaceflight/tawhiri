@@ -14,21 +14,32 @@ god of weather, which rather aptly
 
 ## More information
 
-Please see the [CUSF wiki](http://www.cusf.co.uk/wiki/), which contains pages
-on [Tawhiri](http://www.cusf.co.uk/wiki/tawhiri:start) and [prediction in
-general](http://www.cusf.co.uk/wiki/landing_predictor).
+  - The [CUSF wiki](http://www.cusf.co.uk/wiki/) contains some pages on 
+    [Tawhiri](http://www.cusf.co.uk/wiki/tawhiri:start) and
+    [prediction in general](http://www.cusf.co.uk/wiki/landing_predictor).
 
-## Setup
+  - Some [notes](http://www.danielrichman.co.uk/files/tawhiri-notes/)
+    made during the meetings so far
+    ((gh)[https://github.com/danielrichman/tawhiri-notes])
+
+## Dependencies
+
+As much of the project as possible is written for Python 3. The only exception
+(so far) is the wind data downloading code, since there is not yet an official
+gevent port to Python 3.
 
 pygrib (at the time of writing) had a broken setup.py, so we need to install
 numpy first, and pyproj separately.
 
 ```bash
 $ sudo aptitude install libevent-dev libgrib-api-dev
-$ virtualenv venv
-$ source venv/bin/activate
+$ virtualenv venv2.7
+$ source venv2.7/bin/activate
 $ pip install numpy
 $ pip install pygrib pyproj 'gevent<1.0'
 ```
 
+## License & Authors
 
+Tawhiri was written by various CUSF members (see [AUTHORS.md]) and is licensed
+under the GNU GPL v3 (see [COPYING]).
