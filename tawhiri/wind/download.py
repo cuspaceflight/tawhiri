@@ -1,4 +1,32 @@
-from __future__ import division
+# Copyright (C) 2013 Daniel Richman
+#
+# This file is part of tawhiri.
+#
+# tawhiri is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# tawhiri is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with tawhiri.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+Wind :class:`tahwiri.wind.Dataset` Downloader
+
+Downloaded data arrives in `GRIB <http://en.wikipedia.org/wiki/GRIB>`_
+format, although three quarters of the records in the downloaded file are
+ignored. The records that are used can also be written to a new grib file
+as they are unpacked (which is therefore somewhat smaller, as it is
+still compressed and only contains the useful bits).
+"""
+
+
+from __future__ import unicode_literals, print_function, division
 
 import logging
 import logging.handlers
@@ -32,11 +60,15 @@ import pygrib
 from . import Dataset, unpack_grib
 
 
+__all__ = ["DatasetDownloader", "DownloadDaemon"]
+
 logger = logging.getLogger("tawhiri.wind.download")
 assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
 
 class HTTPConnection(httplib.HTTPConnection):
+    """gevent-friendly :class:`httplib.HTTPConnection`"""
+
     # gevent.httplib is bad:
     # in ubuntu 12.04 breaks on all ipv6; fixed upstream Jan 2012.
     # .read() seems to wait for the entire request.
@@ -50,14 +82,16 @@ class HTTPConnection(httplib.HTTPConnection):
         if self._tunnel_host:
             self._tunnel()
 
+
 class NotFound(Exception):
-    pass
+    """A GRIB file wasn't found (404)"""
 
 class BadFile(Exception):
-    pass
+    """A GRIB file was retrieved, but its contents were bad"""
 
 class ErrorStatus(Exception):
-    pass
+    """A HTTP status other than 200 or 404 was returned"""
+
 
 class DatasetDownloader(object):
     _queue_item_type = namedtuple("queue_item",
@@ -207,9 +241,9 @@ class DatasetDownloader(object):
                 self._greenlets.add(w)
 
             # worker unhandled exceptions are raised in this greenlet
-            # via link(). They can appwaear in completed.wait and
-            # greenlets.kill(block=True) only (only times this greenlet
-            # will yield
+            # via link(). They can appear in completed.wait and
+            # greenlets.kill(block=True) only (the only times that this
+            # greenlet will yield
             self.completed.wait(timeout=total_timeout_secs)
 
         except:
@@ -423,13 +457,7 @@ class DownloadWorker(gevent.Greenlet):
         elif resp.status != 200:
             raise ErrorStatus(resp.status)
 
-        # if open() fails, os.unlink will raise an exception in the finally
-        # block, obscuring the original exception
-        opened = False
-
         with open(temp_file, "w") as f:
-            opened = True
-
             start = time()
             length = 0
 
@@ -507,7 +535,7 @@ class DownloadWorker(gevent.Greenlet):
 
     def _unpack_file(self, temp_file, queue_item):
         # callback: yields to other greenlets for IO _only_
-        # the timeout must be canceled - we do not want to be interrupted,
+        # the timeout must be cancelled - we do not want to be interrupted,
         # it could leave downloader._dataset/_checklist in an inconsistent
         # state
 
