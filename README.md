@@ -17,7 +17,6 @@ god of weather, which rather aptly
   - The [CUSF wiki](http://www.cusf.co.uk/wiki/) contains some pages on 
     [Tawhiri](http://www.cusf.co.uk/wiki/tawhiri:start) and
     [prediction in general](http://www.cusf.co.uk/wiki/landing_predictor).
-
   - Some [notes](http://www.danielrichman.co.uk/files/tawhiri-notes/)
     made during the meetings so far
     ([gh](https://github.com/danielrichman/tawhiri-notes))
