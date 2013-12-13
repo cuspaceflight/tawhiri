@@ -20,7 +20,7 @@ god of weather, which rather aptly
 
   - Some [notes](http://www.danielrichman.co.uk/files/tawhiri-notes/)
     made during the meetings so far
-    ((gh)[https://github.com/danielrichman/tawhiri-notes])
+    ([gh](https://github.com/danielrichman/tawhiri-notes))
 
 ## Dependencies
 
@@ -41,5 +41,5 @@ $ pip install pygrib pyproj 'gevent<1.0'
 
 ## License & Authors
 
-Tawhiri was written by various CUSF members (see [AUTHORS.md]) and is licensed
-under the GNU GPL v3 (see [COPYING]).
+Tawhiri was written by various CUSF members (see [AUTHORS](AUTHORS.md)) and is
+licensed under the GNU GPL v3 (see [COPYING](COPYING)).
