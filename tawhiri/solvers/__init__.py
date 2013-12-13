@@ -103,6 +103,31 @@ from __future__ import unicode_literals, print_function, division
 from .. import Time, InitialConditions
 
 
+class Solver(object):
+    """
+    A Solver
+
+    A solver need not be derived from this class (indeed, solvers may
+    merely be functions; see duck typing), it just exists so that
+    classes may be "annotated" - there's no easier way to say "this
+    thing is a solver".
+    """
+
+    def __call__(self, initial_conditions, model, termination_condition):
+        raise NotImplementedError
+
+class SolverWithAP(object):
+    """
+    A Solver that uses an altitude profile
+
+    Decorative - see :class:`Solver`.
+    """
+
+    def __call__(self, initial_conditions, model, altitude_profile,
+                       termination_condition):
+        raise NotImplementedError
+
+
 class Configuration(object):
     """
     All the bits needed to run a prediction (or an item in a chain).
