@@ -212,3 +212,32 @@ def run_chain(initial_conditions, chain):
 
         initial_conditions = \
                 InitialConditions(last[0], last[1].now, last[1].flight_time)
+
+def decimate(solution, timestep=None, nth=None):
+    """
+    Decimate the output of a solver
+
+    Specify exactly one of `timestep` or `nth`.
+    The former reduces the output so that points are at least `timestep`
+    seconds apart; the latter takes every `nth` point.
+    """
+
+    if not ((timestep is None) ^ (nth is None)):
+        raise ValueError("Specify exactly one of timestep and nth")
+
+    if timestep is not None:
+        last = None
+        for x, t in solution:
+            # TODO: floats. This should compare with a tolerance.
+            if last is None or last + timestep <= t.flight_time:
+                last = x, t
+                yield x, t
+
+    else:
+        for i, (x, t) in enumerate(solution):
+            if i % nth == 0:
+                yield x, t
+
+        # always yield the last point
+        if i % nth != 0:
+            yield x, t
