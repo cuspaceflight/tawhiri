@@ -37,21 +37,18 @@ class ForwardsEuler(Solver):
 
         # something like this?
         x = initial_conditions.x
-        t = 0
+        t = Time.from_initial_conditions(initial_conditions, 0)
 
         while True:
-            # implement Time.__add__? could be simpler.
-            time = Time.from_initial_conditions(initial_conditions, t)
-
-            if termination_function(x, time):
+            if termination_function(x, t):
                 break
 
-            x_dot = model(x, time)
+            x_dot = model(x, t)
             for i in range(3):
                 x[i] += x_dot[i] * self.dt
             t += self.dt
 
-            yield x, time
+            yield x, t
 
 class ForwardsEulerWithAP(Solver):
     """Forwards Euler ODE solver, with an altitude profile & time step `dt`"""

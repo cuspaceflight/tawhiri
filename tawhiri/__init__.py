@@ -26,6 +26,8 @@ CU Spaceflight's balloon landing prediction software.
 
 from __future__ import unicode_literals, print_function, division
 
+import numbers
+
 from datetime import timedelta
 from collections import namedtuple
 
@@ -63,9 +65,12 @@ class InitialConditions(object):
         self.flight_time = flight_time
 
     def replace_flight_time(self, flight_time):
-        """Create a new replacing :attr:`flight_time` with `flight_time`"""
-        return InitialConditions(self.latitude, self.longitude,
-                                 self.datetime, flight_time)
+        """Create a new object, replacing :attr:`flight_time`"""
+        return type(self)(self.x, self.datetime, flight_time)
+
+    def copy(self):
+        return type(self)(self.x, self.datetime, self.flight_time)
+
 
 class Time(object):
     """
@@ -107,3 +112,25 @@ class Time(object):
         now = initial_conditions.datetime + timedelta(seconds=item_time)
         flight_time = initial_conditions.flight_time + item_time
         return cls(now, flight_time, item_time)
+
+    def __add__(self, other):
+        """Add some seconds to a :class:`Time` object"""
+        if not isinstance(other, numbers.Real):
+            return NotImplemented
+
+        now = self.now + timedelta(seconds=other)
+        flight_time = self.flight_time + other
+        item_time = self.item_time + other
+        return type(self)(now, flight_time, item_time)
+
+    __radd__ = __add__
+
+    def __iadd__(self, other):
+        """Add some seconds to this object (modifies in place)"""
+        if not isinstance(other, numbers.Real):
+            return NotImplemented
+
+        self.now += timedelta(seconds=other)
+        self.flight_time += other
+        self.item_time += other
+        return self
