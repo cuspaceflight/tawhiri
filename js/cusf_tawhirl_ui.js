@@ -6,7 +6,6 @@ function Request() {
 
     var parent = this;
 
-
     this.pollForFinishedStatus = function(CSVParseCallback) {
         this.shouldKeepPollingStatus = true;
         this.hasFinished = false;
@@ -46,11 +45,13 @@ function Request() {
             }
         });
     };
+
     this.setStatusCheck = function(CSVParseCallback) {
         window.setTimeout(function() {
             parent.checkStatus(CSVParseCallback);
         }, parent.statusPollInterval);
     };
+
     this.checkStatus = function(CSVParseCallback) {
         var hasFinished = false;
         $.ajax({
@@ -137,8 +138,11 @@ var MapObjects = {
 function Map() {
     var parent = this;
     this.markers = [];
-    this.paths = [];
+    this.paths = {};
     this.pathPointInfoWindows = [];
+    this.hourlyPredictionHours = 5;
+    this.hourlyPrediction = false;
+    this.hourlyPredictionTimes = [];
     // initialisation code
     this.mapOptions = {
         center: new google.maps.LatLng(52.2135, 0.0964),
@@ -188,12 +192,13 @@ function Map() {
     };
 
     this.removeAllPaths = function() {
-        for (var i = 0; i < this.paths.length; i++) {
-            for (var j = 0; j < this.paths[i].length; j++) {
-                this.paths[i][j].setMap(null);
+        console.log('deleting all previous paths');
+        $.each(this.paths, function(key, val) {
+            for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
+                parent.paths[key].pathCollection[j].setMap(null);
             }
-        }
-        this.paths = [];
+        });
+        this.paths = {};
     };
 
     this.placeMarker = function(latLng) {
@@ -211,9 +216,9 @@ function Map() {
         }
     };
 
-    this.parseDrawCSVData = function(data, args) {
-        var poly = args.poly;
-        var polyw = args.polyw;
+    this.parseDrawCSVData = function(data, launchTime) {
+        var poly = parent.paths[launchTime].poly;
+        var polyw = parent.paths[launchTime].polyw;
         var path = poly.getPath();
         var pathw = polyw.getPath();
 
@@ -242,8 +247,8 @@ function Map() {
                 latlng = new google.maps.LatLng(lat, lng);
                 path.push(latlng);
                 pathw.push(latlng);
-                var infostr = '<span class="pathInfoPoint">' + formatTime(time) + "; Lat: " + lat + ", Long: " + lng + ", Alt: " + alt + "m</span>";
-                parent.plotPathInfoPoint(latlng, infostr, pathCollection);
+                //var infostr = '<span class="pathInfoPoint">' + formatTime(time) + "; Lat: " + lat + ", Long: " + lng + ", Alt: " + alt + "m</span>";
+                //parent.plotPathInfoPoint(latlng, infostr, pathCollection);
                 //console.log(infostr);
 
                 if (key == 0) {
@@ -279,14 +284,12 @@ function Map() {
             title: 'Burst position'
         });
         pathCollection.push(marker);
-        parent.paths.push(pathCollection);
+        parent.paths[launchTime].pathCollection = pathCollection;
         return true;
     };
 
-    this.plotPath = function() {
-        console.log('deleting all previous paths');
-        this.removeAllPaths();
-        console.log("Getting path data");
+    this.plotPath = function(formData, launchTime) {
+        console.log("plotting path");
         // thin black line
         var polyOptions = {
             strokeColor: '#000000',
@@ -315,10 +318,13 @@ function Map() {
             polyw: polyw
         };
 
+        this.paths[launchTime] = args;
+
         request = new Request();
         request.submitForm(
                 this.parseDrawCSVData,
-                args//,
+                launchTime,
+                formData
                 //'launchsite=Churchill&second=0&submit=Run+Prediction&lat=52.109878940354896&lon=-0.38898468017578125&initial_alt=28&day=15&month=1&year=2014&hour=21&min=59&ascent=5&burst=3000&drag=5'
                 );
     };
@@ -362,11 +368,37 @@ function Map() {
             val.close();
         });
     };
+    this.getHourlySliderTooltip = function(value) {
+        //console.log(value);
+        return parent.hourlyPredictionTimes[value].toUTCString();
+    };
 
-}
+    this.dimAllPaths = function() {
+        $.each(this.paths, function(key, val) {
+            for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
+                parent.paths[key].pathCollection[j].setVisible(false);
+            }
+            parent.paths[key].poly.setOptions({visible: true, strokeOpacity: 0.1});
+            parent.paths[key].polyw.setOptions({visible: true, strokeOpacity: 0.1});
+        });
+    };
 
-function displayInfoBox(html) {
-    $('#info-box').html(html);
+    this.unDimPath = function(path) {
+        for (var j = 0; j < path.pathCollection.length; j++) {
+            path.pathCollection[j].setVisible(true);
+        }
+        path.poly.setOptions({strokeOpacity: 1.0});
+        path.polyw.setOptions({strokeOpacity: 0.3});
+    };
+
+    this.onHourlySliderSlide = function(event) {
+        //console.log(event);
+        var value = event.value;
+        console.log('dimming all paths');
+        parent.dimAllPaths();
+        console.log('undimming selected path');
+        parent.unDimPath(parent.paths[parent.hourlyPredictionTimes[value]]);
+    };
 }
 
 function padTwoDigits(x) {
@@ -400,16 +432,72 @@ function feetToMeters(feet) {
     return 0.3048 * feet;
 }
 
+function getFormObj(formId) {
+    var formObj = {};
+    var inputs = $(formId).serializeArray();
+    $.each(inputs, function(i, input) {
+        formObj[input.name] = input.value;
+    });
+    return formObj;
+}
 
 function predict() {
-    //event.preventDefault();
-    /*
-     poly.setMap(null);
-     polyw.setMap(null);
-     removeAllMarkers();
-     closeAllPathPointInfoWindows();*/
+    map.removeAllPaths();
+    var formData = getFormObj('#prediction-form');
+    console.log(formData);
+    var runTime = new Date(
+            formData.year,
+            formData.month,
+            formData.day,
+            formData.hour,
+            formData.min,
+            formData.second,
+            0
+            );
+    if (formData.hourly !== 'on') {
+        // is not an hourly prediction
+        map.plotPath($('#prediction-form').serialize(), runTime);
+    } else {
+        // is an hourly prediction
+        var i;
+        for (i = 0; i < map.hourlyPredictionHours; i++) {
+            var predictionData = jQuery.extend({}, formData);
+            var d = new Date(runTime.getTime() + i * 1440000); // add i hours
+            predictionData.year = d.getFullYear();
+            predictionData.month = d.getMonth();
+            predictionData.day = d.getDate();
+            predictionData.hour = padTwoDigits(d.getHours());
+            predictionData.min = padTwoDigits(d.getMinutes());
+            //console.log($.param(predictionData));
+            map.hourlyPrediction = true;
+            map.hourlyPredictionTimes.push(d);
+            map.plotPath($.param(predictionData), d);
+        }
+        initHourlySlider(map.hourlyPredictionHours - 1);
+    }
+}
 
-    map.plotPath();
+function initHourlySlider(max) {
+    $("#hourly-time-slider").slider({
+        min: 0,
+        max: max,
+        step: 1,
+        value: 0,
+        orientation: 'vertical',
+        tooltip: 'show',
+        selection: 'before',
+        formater: map.getHourlySliderTooltip
+    }).on('slide', map.onHourlySliderSlide);
+    $('#hourly-time-slider-container div.tooltip.right')
+            .addClass('left')
+            .removeClass('right')
+            .css('left', '')
+            .css('right', '100%')
+            .css('margin-right', '3px');
+}
+
+function hideHourlySlider() {
+    $('#hourly-time-slider-container').html('<div id="hourly-time-slider"></div>');
 }
 
 //google.maps.event.addDomListener(window, 'load', initialize);
@@ -425,5 +513,6 @@ $(function() {
         event.preventDefault();
         predict();
     });
-    $('#prediction-form').submit();
+
+    //$('#prediction-form').submit();
 });

@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
     <link href="css/base.css" rel="stylesheet" media="screen">
+    <link href="css/slider.css" rel="stylesheet" media="screen">
     <script src="js/jquery-1.10.2.min.js"></script>
+    <script src="js/bootstrap-slider.js"></script>
 
     <!-- google maps -->
     <script type="text/javascript"
@@ -30,7 +32,7 @@
           <h1>Predictor</h1>
           <hr/>
           <form class="form-horizontal" id="prediction-form" role="form">
-            <input type="hidden" name="launchsite" value="Churchill"/>
+            <input type="hidden" name="launchsite" value="Other"/>
             <input type="hidden" name="second" value="0"/>
             <input type="hidden" name="submit" value="Run Prediction"/>
             <h4>Launch parameters <small><p class="text-right">Right click to set position</p></small></h4>
@@ -214,14 +216,21 @@
             </div>
 
             <div class="form-group">
-              <div class="col-sm-offset-2 col-sm-10">
-                <button type="submit" class="btn btn-success">Predict</button>
+              <div class="col-sm-12">
+                <div class="checkbox pull-left">
+                  <label>
+                    <input name="hourly" type="checkbox" checked="checked"> Hourly predictions
+                  </label>
+                </div>
+                <button type="submit" class="btn btn-success pull-right">Predict</button>
               </div>
             </div>
           </form>
 
         </div>
         <div class="col-md-9 tall">
+          <div id="hourly-time-slider-container">
+            <div id="hourly-time-slider"></div></div>
           <div id="map-canvas"></div>
         </div>
       </div>
