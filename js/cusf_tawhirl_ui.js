@@ -19,7 +19,7 @@ function Request() {
             func: CSVParseCallback,
             args: args
         };
-        console.log($("#prediction-form").serialize());
+        //console.log($("#prediction-form").serialize());
 
         $.ajax({
             data: data || $("#prediction-form").serialize(),
@@ -32,7 +32,7 @@ function Request() {
                 console.log(xhr);
             },
             success: function(data) {
-                console.log(data);
+                //console.log(data);
                 if (data.valid == 'false') {
                     console.log('Error submitting prediction form, false data.valid');
                 } else if (data.valid == 'true') {
@@ -137,6 +137,7 @@ var MapObjects = {
 function Map() {
     var parent = this;
     this.markers = [];
+    this.paths = [];
     this.pathPointInfoWindows = [];
     // initialisation code
     this.mapOptions = {
@@ -146,7 +147,7 @@ function Map() {
     };
     this.map = new google.maps.Map(document.getElementById("map-canvas"),
             this.mapOptions);
-    google.maps.event.addListener(this.map, 'rightclick', function(event){
+    google.maps.event.addListener(this.map, 'rightclick', function(event) {
         console.log("Right click event", event);
         parent.setLaunch(event);
     });
@@ -186,6 +187,15 @@ function Map() {
         });
     };
 
+    this.removeAllPaths = function() {
+        for (var i = 0; i < this.paths.length; i++) {
+            for (var j = 0; j < this.paths[i].length; j++) {
+                this.paths[i][j].setMap(null);
+            }
+        }
+        this.paths = [];
+    };
+
     this.placeMarker = function(latLng) {
         this.removeAllMarkers();
         var marker = new google.maps.Marker({position: latLng,
@@ -202,8 +212,13 @@ function Map() {
     };
 
     this.parseDrawCSVData = function(data, args) {
-        var path = args.path;
-        var pathw = args.pathw;
+        var poly = args.poly;
+        var polyw = args.polyw;
+        var path = poly.getPath();
+        var pathw = polyw.getPath();
+
+        var pathCollection = [poly, polyw];
+
         var items = [];
         var time;
         var lat;
@@ -228,7 +243,7 @@ function Map() {
                 path.push(latlng);
                 pathw.push(latlng);
                 var infostr = '<span class="pathInfoPoint">' + formatTime(time) + "; Lat: " + lat + ", Long: " + lng + ", Alt: " + alt + "m</span>";
-                parent.plotPathInfoPoint(latlng, infostr);
+                parent.plotPathInfoPoint(latlng, infostr, pathCollection);
                 //console.log(infostr);
 
                 if (key == 0) {
@@ -239,6 +254,7 @@ function Map() {
                         map: parent.map,
                         title: 'Launch position'
                     });
+                    pathCollection.push(marker);
                 }
                 if (alt > burst_alt) {
                     burst_time = time;
@@ -255,16 +271,21 @@ function Map() {
             map: parent.map,
             title: 'Landing position'
         });
+        pathCollection.push(marker);
         var marker = new google.maps.Marker({
             position: burst_latlng,
             icon: MapObjects.burstCircle,
             map: parent.map,
             title: 'Burst position'
         });
+        pathCollection.push(marker);
+        parent.paths.push(pathCollection);
         return true;
     };
 
     this.plotPath = function() {
+        console.log('deleting all previous paths');
+        this.removeAllPaths();
         console.log("Getting path data");
         // thin black line
         var polyOptions = {
@@ -275,7 +296,6 @@ function Map() {
         };
         var poly = new google.maps.Polyline(polyOptions);
         poly.setMap(this.map);
-        var path = poly.getPath();
         // thick transparent line
         var polywOptions = {
             strokeColor: '#000000',
@@ -291,19 +311,19 @@ function Map() {
         //});
 
         var args = {
-            path: path,
-            pathw: pathw
+            poly: poly,
+            polyw: polyw
         };
 
         request = new Request();
         request.submitForm(
                 this.parseDrawCSVData,
-                args,
-                'launchsite=Churchill&second=0&submit=Run+Prediction&lat=52.109878940354896&lon=-0.38898468017578125&initial_alt=28&day=15&month=1&year=2014&hour=21&min=59&ascent=5&burst=3000&drag=5'
+                args//,
+                //'launchsite=Churchill&second=0&submit=Run+Prediction&lat=52.109878940354896&lon=-0.38898468017578125&initial_alt=28&day=15&month=1&year=2014&hour=21&min=59&ascent=5&burst=3000&drag=5'
                 );
     };
 
-    this.plotPathInfoPoint = function(latlng, text) {
+    this.plotPathInfoPoint = function(latlng, text, pathCollection) {
         var circleOptions = {
             strokeColor: '#FF0000',
             strokeOpacity: 0,
@@ -316,10 +336,12 @@ function Map() {
             zIndex: 100
         };
         var infoPoint = new google.maps.Circle(circleOptions);
+        pathCollection.push(infoPoint);
         var infowindow = new google.maps.InfoWindow({
             content: text,
             position: latlng
         });
+        pathCollection.push(infowindow);
         google.maps.event.addListener(infoPoint, 'mouseover', function() {
             // show point details
             //displayInfoBox(text);
@@ -359,11 +381,11 @@ function formatTime(d) {
     return padTwoDigits(d.getHours()) + ":" + padTwoDigits(d.getMinutes());
 }
 
-
-
 function autoPopulateInputs() {
-// date time
-    var d = new Date();
+    // date time
+    var currentTime = new Date();
+    var d = new Date(currentTime.getTime() + 5 * 60000); // add 5 minutes into the future
+
     $('#inputLaunchDay').attr("value", d.getDate());
     $('#inputLaunchMonth option[value=' + d.getMonth() + ']').attr("selected", "selected");
     $('#inputLaunchYear').attr("value", d.getFullYear());
@@ -379,17 +401,15 @@ function feetToMeters(feet) {
 }
 
 
-function predict(event) {
+function predict() {
     //event.preventDefault();
     /*
- poly.setMap(null);
- polyw.setMap(null);
- removeAllMarkers();
- closeAllPathPointInfoWindows();*/
+     poly.setMap(null);
+     polyw.setMap(null);
+     removeAllMarkers();
+     closeAllPathPointInfoWindows();*/
 
     map.plotPath();
-    //alert('here');
-    return false;
 }
 
 //google.maps.event.addDomListener(window, 'load', initialize);
@@ -401,5 +421,9 @@ $(function() {
     elevator = new google.maps.ElevationService();
     map = new Map();
     autoPopulateInputs();
+    $('#prediction-form').submit(function(event) {
+        event.preventDefault();
+        predict();
+    });
     $('#prediction-form').submit();
 });
