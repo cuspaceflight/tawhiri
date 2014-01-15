@@ -309,9 +309,10 @@ function Map() {
         var polyw = new google.maps.Polyline(polywOptions);
         polyw.setMap(this.map);
         var pathw = polyw.getPath();
-        //google.maps.event.addListener(polyw, 'mouseout', function() {
-        //alert("mouseout");
-        //});
+        google.maps.event.addListener(polyw, 'click', function(event) {
+            parent.selectPath(parent.paths[launchTime]);
+            $("#hourly-time-slider").slider('setValue', $.inArray(launchTime, parent.hourlyPredictionTimes));
+        });
 
         var args = {
             poly: poly,
@@ -391,13 +392,15 @@ function Map() {
         path.polyw.setOptions({strokeOpacity: 0.3});
     };
 
+    this.selectPath = function(path) {
+        parent.dimAllPaths();
+        parent.unDimPath(path);
+    };
+
     this.onHourlySliderSlide = function(event) {
         //console.log(event);
         var value = event.value;
-        console.log('dimming all paths');
-        parent.dimAllPaths();
-        console.log('undimming selected path');
-        parent.unDimPath(parent.paths[parent.hourlyPredictionTimes[value]]);
+        parent.selectPath(parent.paths[parent.hourlyPredictionTimes[value]]);
     };
 }
 
@@ -442,6 +445,7 @@ function getFormObj(formId) {
 }
 
 function predict() {
+    hideHourlySlider()
     map.removeAllPaths();
     var formData = getFormObj('#prediction-form');
     console.log(formData);
