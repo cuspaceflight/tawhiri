@@ -25,8 +25,8 @@
     <![endif]-->
   </head>
   <body>
-
     <div class="container tall">
+      <div class="row" id="alert-area"></div>
       <div class="row tall">
         <div class="col-md-3 tall">
           <h1>Predictor</h1>
@@ -39,20 +39,20 @@
             <div class="form-group">
               <label for="inputLaunchLat" class="col-sm-3 control-label">Lat</label>
               <div class="col-sm-9">
-                <input type="number" step="any" class="form-control" id="inputLaunchLat" name="lat" placeholder="">
+                <input type="number" step="any" class="form-control" id="inputLaunchLat" name="lat" placeholder="" required="required">
               </div>
             </div>
             <div class="form-group">
               <label for="inputLaunchLong" class="col-sm-3 control-label">Long</label>
               <div class="col-sm-9">
-                <input type="number" step="any" class="form-control" id="inputLaunchLong" name="lon" placeholder="">
+                <input type="number" step="any" class="form-control" id="inputLaunchLong" name="lon" placeholder="" required="required">
               </div>
             </div>
             <div class="form-group ">
               <label for="inputLaunchAltitude" class="col-sm-3 control-label">Altitude</label>
               <div class="col-sm-9">
                 <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchAltitude" name="initial_alt" value="0" placeholder="">
+                  <input type="number" step="any" class="form-control" id="inputLaunchAltitude" name="initial_alt" value="0" placeholder="" required="required">
                   <span class="input-group-addon">m</span>
                 </div>
               </div>
@@ -62,10 +62,10 @@
               <div class="col-sm-9">
                 <div class="row">
                   <div class="col-sm-3 input-sm">
-                    <input type="number" step="any" class="form-control" id="inputLaunchDay" name="day" placeholder="dd">
+                    <input type="number" step="any" class="form-control" id="inputLaunchDay" name="day" placeholder="dd" required="required">
                   </div>
                   <div class="col-sm-5 input-sm">
-                    <select class="form-control" id="inputLaunchMonth" name="month">
+                    <select class="form-control" id="inputLaunchMonth" name="month" required="required">
                       <option value="1">Jan</option>
                       <option value="2">Feb</option>
                       <option value="3">Mar</option>
@@ -81,7 +81,7 @@
                     </select>
                   </div>
                   <div class="col-sm-4 input-sm">
-                    <input type="text" class="form-control" id="inputLaunchYear" name="year" placeholder="yyyy">
+                    <input type="text" class="form-control" id="inputLaunchYear" name="year" placeholder="yyyy" required="required">
                   </div>
                 </div>
               </div>
@@ -91,7 +91,7 @@
               <div class="col-sm-9">
                 <div class="row">
                   <div class="col-sm-6">
-                    <select id="inputLaunchHour" name="hour" class="form-control">
+                    <select id="inputLaunchHour" name="hour" class="form-control" required="required">
                       <option value="00">00</option>
                       <option value="01">01</option>
                       <option value="02">02</option>
@@ -119,7 +119,7 @@
                     </select>
                   </div>
                   <div class="col-sm-6">
-                    <select id="inputLaunchMinute" name="min" class="form-control">
+                    <select id="inputLaunchMinute" name="min" class="form-control" required="required">
                       <option value="00">00</option>
                       <option value="01">01</option>
                       <option value="02">02</option>
@@ -191,7 +191,7 @@
               <label for="inputLaunchAscentRate" class="col-sm-6 control-label">Ascent Rate</label>
               <div class="col-sm-6">
                 <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="">
+                  <input type="number" step="any" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="" required="required">
                   <span class="input-group-addon">m/s</span>
                 </div>
               </div>
@@ -200,7 +200,7 @@
               <label for="inputLaunchBurstAlt" class="col-sm-6 control-label">Burst Altitude</label>
               <div class="col-sm-6">
                 <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="">
+                  <input type="number" step="any" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="" required="required">
                   <span class="input-group-addon">m</span>
                 </div>
               </div>
@@ -209,7 +209,7 @@
               <label for="inputLaunchDescentRate" class="col-sm-6 control-label">Descent Rate</label>
               <div class="col-sm-6">
                 <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="">
+                  <input type="number" step="any" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="" required="required">
                   <span class="input-group-addon">m/s</span>
                 </div>
               </div>

@@ -3,6 +3,8 @@ function Request() {
     this.base_url = 'http://predict.habhub.org/';
     this.statusPollInterval = 500; //ms
     this.statusCheckTimeout = 5000; //ms
+    this.numberOfFails = 0;
+    this.maxNumberOfFails = 10;
 
     var parent = this;
 
@@ -27,20 +29,26 @@ function Request() {
             type: 'POST',
             dataType: 'json',
             error: function(xhr, status, error) {
-                console.log('sending form data failed; ' + status + '; ' + error);
+                infoAlert('sending form data failed; ' + status + '; ' + error);
+                map.totalResponsesExpected--;
+                map.willNotComplete = true;
                 console.log(xhr);
             },
             success: function(data) {
-                //console.log(data);
+                console.log(data);
                 if (data.valid == 'false') {
-                    console.log('Error submitting prediction form, false data.valid');
+                    infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error);
+                    map.totalResponsesExpected--;
+                    map.willNotComplete = true;
                 } else if (data.valid == 'true') {
                     parent.uuid = data.uuid;
                     console.log('Prediction form submitted with uuid ' + parent.uuid);
                     parent.isBackendWorking = true;
                     parent.pollForFinishedStatus(CSVParseCallback);
                 } else {
-                    console.log('Error submitting prediction form, invalid data.valid');
+                    infoAlert('Error submitting prediction form, invalid data.valid');
+                    map.totalResponsesExpected--;
+                    map.willNotComplete = true;
                 }
             }
         });
@@ -61,13 +69,34 @@ function Request() {
             timeout: parent.statusCheckTimeout,
             error: function(xhr, status, error) {
                 if (status == 'timeout') {
-                    console.log('Status update failed, timeout (>5s)');
+                    if (parent.numberOfFails <= parent.maxNumberOfFails) {
+                        parent.numberOfFails++;
+                        //infoAlert('Status update failed, timeout (>5s). trying again', 'info', 'info');
+                        parent.setStatusCheck(CSVParseCallback);
+                    } else {
+                        infoAlert('Status update failed, maximum number of attempts reached. Aborting.');
+                        map.totalResponsesExpected--;
+                        map.willNotComplete = true;
+                    }
+                } else {
+                    //alert(status);
+                    if (parent.numberOfFails <= parent.maxNumberOfFails) {
+                        parent.numberOfFails++;
+                        infoAlert('Status update failed. trying again; ' + status + '; ' + error, 'info', 'info');
+                        parent.setStatusCheck(CSVParseCallback);
+                    } else {
+                        infoAlert('Status update failed, maximum number of attempts reached. Aborting.');
+                        map.totalResponsesExpected--;
+                        map.willNotComplete = true;
+                    }
                 }
             },
             success: function(data) {
                 if (data.pred_complete == false) {
                     if (data.pred_running == false) {
-                        console.log('Error: predictor not finished but not running');
+                        infoAlert('Error: predictor not finished but not running');
+                        map.totalResponsesExpected--;
+                        map.willNotComplete = true;
                         return;
                     }
                     parent.setStatusCheck(CSVParseCallback);
@@ -75,7 +104,9 @@ function Request() {
                     parent.hasFinished = true;
                     parent.getCSVData(CSVParseCallback);
                 } else {
-                    console.log('Error: predictor status invalid');
+                    infoAlert('Error: predictor status invalid');
+                    map.totalResponsesExpected--;
+                    map.willNotComplete = true;
                     hasFinished = 'error';
                 }
             }
@@ -83,16 +114,20 @@ function Request() {
     };
 
     this.getCSVData = function(CSVParseCallback) {
-        $.get(parent.base_url + 'ajax.php', {'action': 'getCSV', 'uuid': parent.uuid}, function(data) {
+        $.get(parent.base_url + 'ajax.php', {action: 'getCSV', uuid: parent.uuid}, function(data) {
             if (data != null) {
                 console.log('Got CSV data from server');
                 if (CSVParseCallback.func(data, CSVParseCallback.args)) {
                     console.log('Finished parsing CSV data');
                 } else {
-                    console.log('Error: Parsing CSV data failed');
+                    infoAlert('Error: Parsing CSV data failed');
+                    map.totalResponsesExpected--;
+                    map.willNotComplete = true;
                 }
             } else {
-                console.log('Error: no CSV data actually returned');
+                infoAlert('Error: no CSV data actually returned');
+                map.totalResponsesExpected--;
+                map.willNotComplete = true;
             }
         }, 'json');
     };
@@ -140,13 +175,18 @@ function Map() {
     this.markers = [];
     this.paths = {};
     this.pathPointInfoWindows = [];
-    this.hourlyPredictionHours = 5;
+    this.hourlyPredictionHours = 50;
     this.hourlyPrediction = false;
     this.hourlyPredictionTimes = [];
+    this.mapBounds = [];
+    this.responsesReceived = 0;
+    this.totalResponsesExpected = 1;
+    this.willNotComplete = false;
+    this.shouldCheckForCompletion = true;
     // initialisation code
     this.mapOptions = {
-        center: new google.maps.LatLng(52.2135, 0.0964),
-        zoom: 10,
+        center: new google.maps.LatLng(52, 0),
+        zoom: 8,
         mapTypeId: google.maps.MapTypeId.TERRAIN
     };
     this.map = new google.maps.Map(document.getElementById("map-canvas"),
@@ -156,6 +196,32 @@ function Map() {
         parent.setLaunch(event);
     });
     // end init code
+
+    this.reset = function() {
+        this.removeAllPaths();
+        this.clearMapBounds();
+
+        this.responsesReceived = 0;
+        this.totalResponsesExpected = 1;
+        this.willNotComplete = false;
+        this.shouldCheckForCompletion = true;
+    };
+
+    this.addMapBound = function(latlng) {
+        this.mapBounds.push(latlng);
+    };
+
+    this.clearMapBounds = function() {
+        this.mapBounds = [];
+    };
+
+    this.centerMapToBounds = function() {
+        var bounds = new google.maps.LatLngBounds();
+        for (var i = 0; i < parent.mapBounds.length; i++) {
+            bounds.extend(parent.mapBounds[i]);
+        }
+        this.map.fitBounds(bounds);
+    };
 
     this.setLaunch = function(event) {
         console.log('Setting launch position and marker')
@@ -194,8 +260,10 @@ function Map() {
     this.removeAllPaths = function() {
         console.log('deleting all previous paths');
         $.each(this.paths, function(key, val) {
-            for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
-                parent.paths[key].pathCollection[j].setMap(null);
+            if (parent.paths[key].pathCollection) {
+                for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
+                    parent.paths[key].pathCollection[j].setMap(null);
+                }
             }
         });
         this.paths = {};
@@ -217,6 +285,7 @@ function Map() {
     };
 
     this.parseDrawCSVData = function(data, launchTime) {
+        //console.log(data);
         var poly = parent.paths[launchTime].poly;
         var polyw = parent.paths[launchTime].polyw;
         var path = poly.getPath();
@@ -247,6 +316,8 @@ function Map() {
                 latlng = new google.maps.LatLng(lat, lng);
                 path.push(latlng);
                 pathw.push(latlng);
+                // add location to map bounds ready for recenter
+                parent.addMapBound(latlng);
                 //var infostr = '<span class="pathInfoPoint">' + formatTime(time) + "; Lat: " + lat + ", Long: " + lng + ", Alt: " + alt + "m</span>";
                 //parent.plotPathInfoPoint(latlng, infostr, pathCollection);
                 //console.log(infostr);
@@ -285,6 +356,7 @@ function Map() {
         });
         pathCollection.push(marker);
         parent.paths[launchTime].pathCollection = pathCollection;
+        parent.responsesReceived++;
         return true;
     };
 
@@ -376,8 +448,10 @@ function Map() {
 
     this.dimAllPaths = function() {
         $.each(this.paths, function(key, val) {
-            for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
-                parent.paths[key].pathCollection[j].setVisible(false);
+            if (parent.paths[key].pathCollection) {
+                for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
+                    parent.paths[key].pathCollection[j].setVisible(false);
+                }
             }
             parent.paths[key].poly.setOptions({visible: true, strokeOpacity: 0.1});
             parent.paths[key].polyw.setOptions({visible: true, strokeOpacity: 0.1});
@@ -385,8 +459,11 @@ function Map() {
     };
 
     this.unDimPath = function(path) {
-        for (var j = 0; j < path.pathCollection.length; j++) {
-            path.pathCollection[j].setVisible(true);
+        //console.log(path);
+        if (path.pathCollection) {
+            for (var j = 0; j < path.pathCollection.length; j++) {
+                path.pathCollection[j].setVisible(true);
+            }
         }
         path.poly.setOptions({strokeOpacity: 1.0});
         path.polyw.setOptions({strokeOpacity: 0.3});
@@ -401,6 +478,17 @@ function Map() {
         //console.log(event);
         var value = event.value;
         parent.selectPath(parent.paths[parent.hourlyPredictionTimes[value]]);
+    };
+
+    this.checkForAllResponsesReceived = function() {
+        console.log('checking for responses received' + parent.responsesReceived + parent.totalResponsesExpected);
+        if (parent.responsesReceived >= parent.totalResponsesExpected && parent.responsesReceived > 0) {
+            // all responses received
+            parent.centerMapToBounds();
+            setHourlySlider(0);
+        } else if (parent.shouldCheckForCompletion && parent.totalResponsesExpected > 0) {
+            window.setTimeout(parent.checkForAllResponsesReceived, 1000);
+        }
     };
 }
 
@@ -445,10 +533,11 @@ function getFormObj(formId) {
 }
 
 function predict() {
-    hideHourlySlider()
-    map.removeAllPaths();
+    closeAllInfoAlerts();
+    hideHourlySlider();
+    map.reset();
     var formData = getFormObj('#prediction-form');
-    console.log(formData);
+    //console.log(formData);
     var runTime = new Date(
             formData.year,
             formData.month,
@@ -460,6 +549,7 @@ function predict() {
             );
     if (formData.hourly !== 'on') {
         // is not an hourly prediction
+        map.totalResponsesExpected = 1;
         map.plotPath($('#prediction-form').serialize(), runTime);
     } else {
         // is an hourly prediction
@@ -478,7 +568,9 @@ function predict() {
             map.plotPath($.param(predictionData), d);
         }
         initHourlySlider(map.hourlyPredictionHours - 1);
+        map.totalResponsesExpected = map.hourlyPredictionHours;
     }
+    map.checkForAllResponsesReceived();
 }
 
 function initHourlySlider(max) {
@@ -504,11 +596,47 @@ function hideHourlySlider() {
     $('#hourly-time-slider-container').html('<div id="hourly-time-slider"></div>');
 }
 
+function setHourlySlider(value) {
+    $("#hourly-time-slider").slider('setValue', value);
+    map.onHourlySliderSlide({value: value});
+}
+
+function closeAllInfoAlerts() {
+    $('#alert-area').html('');
+    openAlerts = {};
+}
+
+function infoAlert(msg, title, type) {
+    var alertData = $.param({msg: msg, title: title, type: type});
+
+    if (alertData in openAlerts) {
+        alert(1);
+        $('#' + openAlerts[alertData]).remove();
+    }
+
+    var d = new Date();
+    var id = 'alert-' + d.getTime();
+    $('#alert-area').append('<div id="' + id + '" class="alert alert-' + (type || 'danger') + ' alert-dismissable">' +
+            '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' +
+            '<strong>' + (title || 'Error') + '</strong> ' + msg +
+            '</div>');
+    $('#' + id).hide().slideDown('slow');
+    // add alert close hook
+    $('#' + id).bind('close.bs.alert', function() {
+        // remove from global openAlerts array
+        openAlerts = $.grep(openAlerts, function(value) {
+            return value != alertData;
+        });
+    });
+    openAlerts[alertData] = id;
+
+}
+
 //google.maps.event.addDomListener(window, 'load', initialize);
 
+var openAlerts = {};
 var elevator;
 var map;
-
 $(function() {
     elevator = new google.maps.ElevationService();
     map = new Map();
@@ -517,6 +645,7 @@ $(function() {
         event.preventDefault();
         predict();
     });
-
+    //infoAlert('hey');
+    //window.setTimeout(function(){infoAlert('hey');}, 3000);
     //$('#prediction-form').submit();
 });
