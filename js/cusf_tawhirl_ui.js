@@ -4,9 +4,24 @@ function Request() {
     this.statusPollInterval = 500; //ms
     this.statusCheckTimeout = 5000; //ms
     this.numberOfFails = 0;
-    this.maxNumberOfFails = 10;
+    this.maxNumberOfFails = 5;
+    this.status = 'running';
+    this.numberOfReruns = 0;
+    this.maxNumberOfReruns = 3;
+    this.CSVParseCallback = null;
+    this.args = null;
+    this.data = null;
 
     var parent = this;
+
+    this.rerun = function() {
+        alert('rerun');
+        this.numberOfFails = 0;
+        this.maxNumberOfFails = 10;
+        this.status = 'running';
+
+        this.submitForm(this.CSVParseCallback, this.args, this.data);
+    };
 
     this.pollForFinishedStatus = function(CSVParseCallback) {
         this.shouldKeepPollingStatus = true;
@@ -16,7 +31,10 @@ function Request() {
 
 
     this.submitForm = function(CSVParseCallback, args, data) {
-        CSVParseCallback = {
+        this.CSVParseCallback = CSVParseCallback;
+        this.args = args;
+        this.data = data;
+        var CSVParseCallbackInfo = {
             func: CSVParseCallback,
             args: args
         };
@@ -29,26 +47,23 @@ function Request() {
             type: 'POST',
             dataType: 'json',
             error: function(xhr, status, error) {
-                infoAlert('sending form data failed; ' + status + '; ' + error);
-                map.totalResponsesExpected--;
-                map.willNotComplete = true;
+                console.log('sending form data failed; ' + status + '; ' + error);
+                parent.status = 'failed, should rerun';
                 console.log(xhr);
             },
             success: function(data) {
                 console.log(data);
                 if (data.valid == 'false') {
                     infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error);
-                    map.totalResponsesExpected--;
-                    map.willNotComplete = true;
+                    parent.status = 'failed';
                 } else if (data.valid == 'true') {
                     parent.uuid = data.uuid;
                     console.log('Prediction form submitted with uuid ' + parent.uuid);
                     parent.isBackendWorking = true;
-                    parent.pollForFinishedStatus(CSVParseCallback);
+                    parent.pollForFinishedStatus(CSVParseCallbackInfo);
                 } else {
-                    infoAlert('Error submitting prediction form, invalid data.valid');
-                    map.totalResponsesExpected--;
-                    map.willNotComplete = true;
+                    console.log('Error submitting prediction form, invalid data.valid');
+                    parent.status = 'failed, should rerun';
                 }
             }
         });
@@ -71,43 +86,37 @@ function Request() {
                 if (status == 'timeout') {
                     if (parent.numberOfFails <= parent.maxNumberOfFails) {
                         parent.numberOfFails++;
-                        //infoAlert('Status update failed, timeout (>5s). trying again', 'info', 'info');
+                        console.log('Status update failed, timeout (>5s). trying again', 'info', 'info');
                         parent.setStatusCheck(CSVParseCallback);
                     } else {
-                        infoAlert('Status update failed, maximum number of attempts reached. Aborting.');
-                        map.totalResponsesExpected--;
-                        map.willNotComplete = true;
+                        console.log('Status update failed, maximum number of attempts reached. Aborting.');
+                        parent.status = 'failed, should rerun';
                     }
                 } else {
                     //alert(status);
                     if (parent.numberOfFails <= parent.maxNumberOfFails) {
                         parent.numberOfFails++;
-                        infoAlert('Status update failed. trying again; ' + status + '; ' + error, 'info', 'info');
+                        console.log('Status update failed. trying again; ' + status + '; ' + error, 'info', 'info');
                         parent.setStatusCheck(CSVParseCallback);
                     } else {
-                        infoAlert('Status update failed, maximum number of attempts reached. Aborting.');
-                        map.totalResponsesExpected--;
-                        map.willNotComplete = true;
+                        console.log('Status update failed, maximum number of attempts reached. Aborting.');
+                        parent.status = 'failed, should rerun';
                     }
                 }
             },
             success: function(data) {
                 if (data.pred_complete == false) {
                     if (data.pred_running == false) {
-                        infoAlert('Error: predictor not finished but not running');
-                        map.totalResponsesExpected--;
-                        map.willNotComplete = true;
+                        console.log('Error: predictor not finished but not running');
+                        parent.status = 'failed, should rerun';
                         return;
                     }
                     parent.setStatusCheck(CSVParseCallback);
                 } else if (data.pred_complete == true) {
-                    parent.hasFinished = true;
                     parent.getCSVData(CSVParseCallback);
                 } else {
-                    infoAlert('Error: predictor status invalid');
-                    map.totalResponsesExpected--;
-                    map.willNotComplete = true;
-                    hasFinished = 'error';
+                    console.log('Error: predictor status invalid');
+                    parent.status = 'failed, should rerun';
                 }
             }
         });
@@ -116,18 +125,17 @@ function Request() {
     this.getCSVData = function(CSVParseCallback) {
         $.get(parent.base_url + 'ajax.php', {action: 'getCSV', uuid: parent.uuid}, function(data) {
             if (data != null) {
-                console.log('Got CSV data from server');
+                //console.log('Got CSV data from server');
                 if (CSVParseCallback.func(data, CSVParseCallback.args)) {
-                    console.log('Finished parsing CSV data');
+                    //console.log('Finished parsing CSV data');
+                    parent.status = 'success';
                 } else {
-                    infoAlert('Error: Parsing CSV data failed');
-                    map.totalResponsesExpected--;
-                    map.willNotComplete = true;
+                    console.log('Error: Parsing CSV data failed');
+                    parent.status = 'failed, should rerun';
                 }
             } else {
-                infoAlert('Error: no CSV data actually returned');
-                map.totalResponsesExpected--;
-                map.willNotComplete = true;
+                console.log('Error: no CSV data actually returned');
+                parent.status = 'failed, should rerun';
             }
         }, 'json');
     };
@@ -183,6 +191,7 @@ function Map() {
     this.totalResponsesExpected = 1;
     this.willNotComplete = false;
     this.shouldCheckForCompletion = true;
+    this.runningRequests = [];
     // initialisation code
     this.mapOptions = {
         center: new google.maps.LatLng(52, 0),
@@ -205,6 +214,7 @@ function Map() {
         this.totalResponsesExpected = 1;
         this.willNotComplete = false;
         this.shouldCheckForCompletion = true;
+        this.runningRequests = [];
     };
 
     this.addMapBound = function(latlng) {
@@ -393,7 +403,8 @@ function Map() {
 
         this.paths[launchTime] = args;
 
-        request = new Request();
+        var request = new Request();
+        parent.runningRequests.push(request);
         request.submitForm(
                 this.parseDrawCSVData,
                 launchTime,
@@ -481,6 +492,28 @@ function Map() {
     };
 
     this.checkForAllResponsesReceived = function() {
+        parent.runningRequests = $.grep(parent.runningRequests, function(request, index) {
+            console.log(request.status);
+            if (request.status == 'success') {
+                return false;
+            } else if (request.status == 'running') {
+                return true;
+            } else if (request.status == 'failed, should rerun' && request.numberOfReruns <= request.maxNumberOfReruns) {
+                console.log('Rerunning request:');
+                console.log(request);
+                request.numberOfReruns++;
+                request.rerun();
+                return true;
+            } else {
+                // either status is failed, or should rerun but max number
+                // of reruns has been reached
+                infoAlert('Request failed.');
+                parent.totalResponsesExpected--;
+                map.willNotComplete = true;
+                return false;
+            }
+        });
+
         console.log('checking for responses received' + parent.responsesReceived + parent.totalResponsesExpected);
         if (parent.responsesReceived >= parent.totalResponsesExpected && parent.responsesReceived > 0) {
             // all responses received
