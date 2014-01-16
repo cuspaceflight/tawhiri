@@ -36,3 +36,7 @@ width: 100%;
     width: 500px;
     margin: auto;
 }
+
+#map-col {
+    padding-right: 0;
+}
