@@ -243,8 +243,8 @@ function Map() {
     this.setLaunchPosition = function(latLng) {
         // set the lat long values
         //console.log(latLng);
-        $('#inputLaunchLat').val(latLng.b);
-        $('#inputLaunchLong').val(latLng.d);
+        $('#inputLaunchLat').val(latLng.lat());
+        $('#inputLaunchLong').val(latLng.lng());
         // get and set the altitude
         var locations = [latLng];
         var positionalRequest = {
@@ -465,8 +465,17 @@ function Map() {
                     parent.paths[key].pathCollection[j].setVisible(false);
                 }
             }
-            parent.paths[key].poly.setOptions({visible: true, strokeOpacity: 0.1});
-            parent.paths[key].polyw.setOptions({visible: true, strokeOpacity: 0.1});
+            parent.paths[key].poly.setOptions({
+                visible: true,
+                strokeOpacity: 0.1,
+                strokeColor: '#000000',
+                zIndex: 20
+            });
+            parent.paths[key].polyw.setOptions({
+                visible: true,
+                strokeOpacity: 0.1,
+                zIndex: 30
+            });
         });
     };
 
@@ -477,8 +486,16 @@ function Map() {
                 path.pathCollection[j].setVisible(true);
             }
         }
-        path.poly.setOptions({strokeOpacity: 1.0});
-        path.polyw.setOptions({strokeOpacity: 0.3});
+        path.poly.setOptions({
+            strokeOpacity: 1.0,
+            strokeColor: '#00FF5E',
+            zIndex: 50
+        });
+        path.polyw.setOptions({
+            visible: true,
+            strokeOpacity: 0.3,
+            zIndex: 40
+        });
     };
 
     this.selectPath = function(path) {
