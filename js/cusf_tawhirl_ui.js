@@ -15,7 +15,6 @@ function Request() {
     var parent = this;
 
     this.rerun = function() {
-        alert('rerun');
         this.numberOfFails = 0;
         this.maxNumberOfFails = 10;
         this.status = 'running';
@@ -192,6 +191,7 @@ function Map() {
     this.willNotComplete = false;
     this.shouldCheckForCompletion = true;
     this.runningRequests = [];
+    this.currentHourlySliderValue = null;
     // initialisation code
     this.mapOptions = {
         center: new google.maps.LatLng(52, 0),
@@ -215,6 +215,7 @@ function Map() {
         this.willNotComplete = false;
         this.shouldCheckForCompletion = true;
         this.runningRequests = [];
+        this.currentHourlySliderValue = null;
     };
 
     this.addMapBound = function(latlng) {
@@ -259,10 +260,10 @@ function Map() {
                     // set the result
                     $('#inputLaunchAltitude').val(results[0].elevation);
                 } else {
-                    alert("No results found");
+                    infoAlert("No elevation results found");
                 }
             } else {
-                alert("Elevation service failed due to: " + status);
+                infoAlert("Elevation service failed due to: " + status);
             }
         });
     };
@@ -488,10 +489,14 @@ function Map() {
     this.onHourlySliderSlide = function(event) {
         //console.log(event);
         var value = event.value;
-        parent.selectPath(parent.paths[parent.hourlyPredictionTimes[value]]);
+        if (value != parent.currentHourlySliderValue) {
+            parent.currentHourlySliderValue = value;
+            parent.selectPath(parent.paths[parent.hourlyPredictionTimes[value]]);
+        }
     };
 
     this.checkForAllResponsesReceived = function() {
+        parent.hasChangedProgressBar = false;
         parent.runningRequests = $.grep(parent.runningRequests, function(request, index) {
             console.log(request.status);
             if (request.status == 'success') {
@@ -513,12 +518,23 @@ function Map() {
                 return false;
             }
         });
-
+        if (parent.responsesReceived > 0) {
+            if (!parent.hasChangedProgressBar) {
+                hideProgressBar();
+                makeProgressBarStatic();
+                setProgressBar(0);
+                showProgressBar();
+            }
+            setProgressBar(100 * parent.responsesReceived / parent.totalResponsesExpected);
+        }
         console.log('checking for responses received' + parent.responsesReceived + parent.totalResponsesExpected);
         if (parent.responsesReceived >= parent.totalResponsesExpected && parent.responsesReceived > 0) {
             // all responses received
             parent.centerMapToBounds();
-            setHourlySlider(0);
+            if (parent.hourlyPrediction) {
+                setHourlySlider(0);
+            }
+            hideProgressBar();
         } else if (parent.shouldCheckForCompletion && parent.totalResponsesExpected > 0) {
             window.setTimeout(parent.checkForAllResponsesReceived, 1000);
         }
@@ -569,6 +585,8 @@ function predict() {
     closeAllInfoAlerts();
     hideHourlySlider();
     map.reset();
+    showProgressBar();
+    makeProgressBarAnimated();
     var formData = getFormObj('#prediction-form');
     //console.log(formData);
     var runTime = new Date(
@@ -643,7 +661,6 @@ function infoAlert(msg, title, type) {
     var alertData = $.param({msg: msg, title: title, type: type});
 
     if (alertData in openAlerts) {
-        alert(1);
         $('#' + openAlerts[alertData]).remove();
     }
 
@@ -663,6 +680,27 @@ function infoAlert(msg, title, type) {
     });
     openAlerts[alertData] = id;
 
+}
+
+function showProgressBar() {
+    $('#progress-bar-wrapper').show();
+}
+
+function makeProgressBarAnimated() {
+    $('#progress-bar .progress').addClass('progress-striped active');
+    setProgressBar(100);
+}
+
+function makeProgressBarStatic() {
+    $('#progress-bar .progress').removeClass('progress-striped active');
+}
+
+function setProgressBar(perc) {
+    $('#progress-bar .progress-bar').css('width', perc + '%');
+}
+
+function hideProgressBar() {
+    $('#progress-bar-wrapper').hide();
 }
 
 //google.maps.event.addDomListener(window, 'load', initialize);

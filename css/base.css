@@ -17,11 +17,22 @@ width: 100%;
   text-align: center;
 }
 
-
 #hourly-time-slider-container {
-    display: block;
     position: absolute;
     right: 30px;
     top: 50px;
     z-index: 1000;
+}
+
+#progress-bar-wrapper {
+    position: absolute;
+    top: 25px;
+    z-index: 1000;
+    width: 100%;
+    display: none;
+}
+
+#progress-bar {
+    width: 500px;
+    margin: auto;
 }
