@@ -580,6 +580,7 @@ function Map() {
             if (parent.hourlyPrediction) {
                 initHourlySlider(map.responsesReceived - 1);
                 setHourlySlider(0);
+                $('#form-wrap').click();
             } else {
                 $.each(parent.paths, function(key, path) {
                     parent.selectPath(path);
@@ -606,7 +607,19 @@ function formatTime(d) {
     return padTwoDigits(d.getHours()) + ":" + padTwoDigits(d.getMinutes());
 }
 
+function autoPopulateInputs() {
+    // date time
+    var currentTime = new Date();
+    var d = new Date(currentTime.getTime() + 5 * 60000); // add 5 minutes into the future
 
+    $('#inputLaunchDay').attr("value", d.getDate());
+    $('#inputLaunchMonth option[value=' + d.getMonth() + ']').attr("selected", "selected");
+    $('#inputLaunchYear').attr("value", d.getFullYear());
+    var hrs = padTwoDigits(d.getHours());
+    var mins = padTwoDigits(d.getMinutes());
+    $('#inputLaunchHour option[value=' + hrs + ']').attr("selected", "selected");
+    $('#inputLaunchMinute option[value=' + mins + ']').attr("selected", "selected");
+}
 
 function feetToMeters(feet) {
 // 1 meter == 0.3048 ft
@@ -663,7 +676,7 @@ function predict() {
         map.totalResponsesExpected = map.hourlyPredictionHours;
     }
     map.checkForAllResponsesReceived();
-    form.close();
+    closeForm();
 }
 
 function initHourlySlider(max) {
@@ -756,115 +769,44 @@ function hideProgressBar() {
 
 //google.maps.event.addDomListener(window, 'load', initialize);
 
-
-function Form() {
-    this.isOpen = true;
-    var parent = this;
-
-    this.autoPopulateInputs = function() {
-        // date time
-        var currentTime = new Date();
-        var d = new Date(currentTime.getTime() + 5 * 60000); // add 5 minutes into the future
-
-        $('#inputLaunchDay').attr("value", d.getDate());
-        $('#inputLaunchMonth option[value=' + d.getMonth() + ']').attr("selected", "selected");
-        $('#inputLaunchYear').attr("value", d.getFullYear());
-        var hrs = padTwoDigits(d.getHours());
-        var mins = padTwoDigits(d.getMinutes());
-        $('#inputLaunchHour option[value=' + hrs + ']').attr("selected", "selected");
-        $('#inputLaunchMinute option[value=' + mins + ']').attr("selected", "selected");
-    };
-
-    this.setUpEventHandling = function() {
-        // ajax submission
-        $('#prediction-form').submit(function(event) {
-            event.preventDefault();
-            predict();
-        });
-
-        //Enable swiping...
-        $("#form-wrap").swipe({
-            //Generic swipe handler for all directions
-            swipe: function(event, direction, distance, duration, fingerCount) {
-                if (fingerCount > 0) {
-                    // prevent mouse problems
-                    parent.onSwipe(direction);
-                }
-            },
-            //Default is 75px, set to 0 for demo so any distance triggers swipe
-            threshold: 5
-        });
-
-        //Clicking
-        $("#form-wrap .formToggleVisible-wrap").mousedown(function(event) {
-            parent.toggle();
-        });
-        
-    };
-    this.onSwipe = function(direction) {
-        if ((isMobile && direction == 'up') || (!isMobile && direction == 'left')) {
-            parent.close();
-        } else if ((isMobile && direction == 'down') || (!isMobile && direction == 'right')) {
-            parent.open();
-        }
-    };
-    this.open = function() {
-        if (parent.isOpen) {
-            return;
-        }
-        if (isMobile) {
-            $("#form-wrap").animate({marginTop: 0});
-        } else {
-            $("#form-wrap").animate({marginLeft: 0});
-        }
-        parent.isOpen = true;
-    };
-    this.close = function() {
-        if (!parent.isOpen) {
-            return;
-        }
-        if (isMobile) {
-            $("#form-wrap").animate({marginTop: -$("#form-wrap").outerHeight() + 20 + 'px'});
-        } else {
-            $("#form-wrap").animate({marginLeft: '-350px'});
-        }
-        parent.isOpen = false;
-    };
-    this.toggle = function() {
-        if (parent.isOpen) {
-            parent.close();
-        } else {
-            parent.open();
-        }
-    };
-
-    // init code
-    this.autoPopulateInputs();
-    this.setUpEventHandling();
-    // end init code
+function openForm() {
+    $('#form-wrap').animate({
+        left: 0
+    });
+}
+function closeForm() {
+    $('#form-wrap').animate({
+        left: -$('#form-wrap').outerWidth()
+    });
 }
 
 var openAlerts = {};
 var elevator;
 var map;
-var form;
-var isMobile = false;
 $(function() {
     elevator = new google.maps.ElevationService();
     map = new Map();
-    form = new Form();
-    $(window).resize(function() {
-        isMobile = $(window).width() < 500;
+    autoPopulateInputs();
+    // event handlers
+    $('#prediction-form').submit(function(event) {
+        event.preventDefault();
+        predict();
     });
-    isMobile = $(window).width() < 500;
+    $('#form-wrap .formToggleVisible').click(function() {
+        if (this.isCollapsed) {
+            openForm();
+            this.isCollapsed = false;
+        } else {
+            closeForm();
+            this.isCollapsed = true;
+        }
+    });
 
     $('#hourly-time-slider-container').popover({
         placement: 'left',
         trigger: 'manual',
         template: '<div class="popover hourlySliderInfoPopup"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>'
     });
-
-
 
 
     //infoAlert('hey');

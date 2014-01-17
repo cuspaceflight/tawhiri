@@ -4,17 +4,17 @@ body { height: 100%; margin: 0; padding: 0 }
 #map-canvas { height: 100% }
 
 .tall {
-  height: 100%;
+    height: 100%;
 }
 
 .container {
-width: 100%;
+    width: 100%;
 }
 
 .pathInfoPoint{
-  display: block;
-  width: 300px;
-  text-align: center;
+    display: block;
+    width: 300px;
+    text-align: center;
 }
 
 #hourly-time-slider-container {
@@ -46,14 +46,24 @@ width: 100%;
 #form-wrap {
     position: absolute;
     z-index: 100;
-    
+
     width: 350px;
-    
+
     background: white;
     opacity: 0.8;
+    /*
     -webkit-transition: all .5s;
     -moz-transition: all .5s;
-    transition: all .5s;
+    transition: all .5s;/**/
+/*
+-webkit-touch-callout: none;
+-webkit-user-select: none;
+-khtml-user-select: none;
+-moz-user-select: none;
+-ms-user-select: none;
+-o-user-select: none;
+user-select: none;
+/**/
 }
 
 #form {
@@ -89,26 +99,20 @@ width: 100%;
     border-bottom-right-radius: 5px;
 }
 
-.formToggleVisible:before{
-    content: "";
+.formToggleVisible .toggle-bar{
     display: block;
     background: #080B17;
     width: 3px;
     height: 100%;
     position: absolute;
-    left: 5px;
     border-radius: 2px;
 }
 
-.formToggleVisible:after{
-    content: "";
-    display: block;
-    background: #080B17;
-    width: 3px;
-    height: 100%;
-    position: absolute;
+.formToggleVisible .toggle-bar-1{   
+    left: 5px;
+}
+.formToggleVisible .toggle-bar-2{
     right: 5px;
-    border-radius: 2px;
 }
 
 .hourlySliderInfoPopup{
@@ -119,4 +123,73 @@ width: 100%;
 #form {
     height: 100%;
     overflow-y: auto;
+}
+.col-sm-3 {
+    width: 25%;
+}
+.col-sm-4 {
+    width: 33.333333333%;
+}
+.col-sm-5 {
+    width: 41.666666666%;
+}
+.col-sm-6 {
+    width: 50%;
+}
+.col-sm-9 {
+    width: 75%;
+}
+.col-sm-12 {
+    width: 100%;
+}
+[class*='col-'] {
+    float: left;
+}
+.form-horizontal .control-label {
+    text-align: right;
+}
+
+
+
+@media (max-width: 500px){
+    #form-wrap{
+        width: 100%;
+    }
+    
+    #form-wrap-wrapper {
+        margin-bottom: -35px;
+    }
+    #map-canvas {
+        margin-top: 35px;
+    }
+
+
+    #form-wrap .formToggleVisible-wrap {
+        bottom: -20px;
+        width: 100%;
+        height: 20px;
+    }
+
+    .formToggleVisible {
+        height: 20px;
+        width: 50px;
+        left: 50%;
+        border-top-right-radius: 0;
+        border-bottom-left-radius: 5px;
+        border-bottom-right-radius: 5px;
+    }
+    
+    .formToggleVisible .toggle-bar{
+        left: 0;
+        height: 3px;
+        width: 100%;
+    }
+
+    .formToggleVisible .toggle-bar-1{   
+        top: 5px;
+    }
+    .formToggleVisible .toggle-bar-2{
+        bottom: 5px;
+    }
+
 }
