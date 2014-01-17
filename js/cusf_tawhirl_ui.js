@@ -239,6 +239,7 @@ function Map() {
         this.shouldCheckForCompletion = true;
         this.runningRequests = [];
         this.currentHourlySliderValue = null;
+        this.hourlyPredictionTimes = [];
     };
 
     this.listenForNextLeftClick = function() {
@@ -304,14 +305,14 @@ function Map() {
 
     this.removeAllPaths = function() {
         console.log('deleting all previous paths');
-        $.each(this.paths, function(key, val) {
+        $.each(parent.paths, function(key, val) {
             if (parent.paths[key].pathCollection) {
                 for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
                     parent.paths[key].pathCollection[j].setMap(null);
                 }
             }
         });
-        this.paths = {};
+        parent.paths = {};
     };
 
     this.placeMarker = function(latLng) {
@@ -429,7 +430,8 @@ function Map() {
         polyw.setMap(this.map);
         var pathw = polyw.getPath();
         google.maps.event.addListener(polyw, 'click', function(event) {
-            setHourlySlider($.inArray(launchTime, parent.hourlyPredictionTimes));
+            hourlySlider.setValue($.inArray(launchTime, parent.hourlyPredictionTimes));
+            //setHourlySlider($.inArray(launchTime, parent.hourlyPredictionTimes));
         });
 
         var args = {
@@ -538,6 +540,7 @@ function Map() {
     };
 
     this.selectPath = function(path) {
+        console.log(path);
         parent.dimAllPaths();
         parent.unDimPath(path);
     };
@@ -547,6 +550,7 @@ function Map() {
         var value = event.value;
         if (value != parent.currentHourlySliderValue) {
             parent.currentHourlySliderValue = value;
+            //console.log(parent.hourlyPredictionTimes);
             parent.selectPath(parent.paths[parent.hourlyPredictionTimes[value]]);
         }
     };
@@ -589,8 +593,10 @@ function Map() {
                 // all responses received
                 parent.centerMapToBounds();
                 if (parent.hourlyPrediction) {
-                    initHourlySlider(map.responsesReceived - 1);
-                    setHourlySlider(0);
+                    hourlySlider = new HourlySlider(map.responsesReceived - 1);
+                    hourlySlider.setValue(0);
+                    //initHourlySlider(map.responsesReceived - 1);
+                    //setHourlySlider(0);
                 } else {
                     $.each(parent.paths, function(key, path) {
                         parent.selectPath(path);
@@ -636,7 +642,10 @@ function getFormObj(formId) {
 
 function predict() {
     notifications.closeAllNotifications();
-    hideHourlySlider();
+    try {
+        hourlySlider.remove();
+    } catch (e) {
+    }
     map.reset();
     showProgressBar();
     makeProgressBarAnimated();
@@ -659,8 +668,8 @@ function predict() {
     } else {
         // is an hourly prediction
         map.hourlyPrediction = true;
-        var i;
-        for (i = 0; i < map.hourlyPredictionHours; i++) {
+        var i = 0;
+        for (i; i < map.hourlyPredictionHours; i++) {
             var predictionData = jQuery.extend({}, formData);
             var d = new Date(runTime.getTime() + i * 1440000); // add i hours
             predictionData.year = d.getFullYear();
@@ -678,43 +687,63 @@ function predict() {
     form.close();
 }
 
-function initHourlySlider(max) {
-    $("#hourly-time-slider").slider({
-        min: 0,
-        max: max,
-        step: 1,
-        value: 0,
-        orientation: 'vertical',
-        tooltip: 'show',
-        selection: 'before',
-        formater: map.getHourlySliderTooltip
-    }).on('slide', map.onHourlySliderSlide);
-    $('#hourly-time-slider-container div.tooltip.right')
-            .addClass('left')
-            .removeClass('right')
-            .css('left', '')
-            .css('right', '100%')
-            .css('margin-right', '3px');
 
-    // show info popup
-    $('#hourly-time-slider-container').popover('show');
-    window.setTimeout(function() {
-        $('#hourly-time-slider-container').popover('hide');
-    }, 5000);
-    $('#hourly-time-slider-container').mousedown(function(event) {
-        $('#hourly-time-slider-container').popover('hide');
-    });
+function HourlySlider(max) {
+    var parent = this;
+    this.sliderEl = null;
+    this.sliderContainer = $("#hourly-time-slider-container");
+
+    this.init = function(max) {
+        parent.sliderContainer.html('<div id="hourly-time-slider"></div>');
+        this.sliderEl = $("#hourly-time-slider");
+
+        parent.sliderEl.slider({
+            min: 0,
+            max: max,
+            step: 1,
+            value: 0,
+            orientation: 'vertical',
+            tooltip: 'show',
+            selection: 'before',
+            formater: map.getHourlySliderTooltip
+        }).on('slide', map.onHourlySliderSlide);
+        $('#hourly-time-slider-container div.tooltip.right')
+                .addClass('left')
+                .removeClass('right')
+                .css('left', '')
+                .css('right', '100%')
+                .css('margin-right', '3px');
+    };
+
+    this.showPopup = function() {
+        parent.sliderContainer.show();
+        // show info popup
+        parent.sliderContainer.popover('show');
+        window.setTimeout(function() {
+            parent.sliderContainer.popover('hide');
+        }, 5000);
+        parent.sliderContainer.mousedown(function(event) {
+            parent.sliderContainer.popover('hide');
+        });
+    };
+
+    this.hide = function() {
+        parent.sliderContainer.hide();
+    };
+
+    this.remove = function() {
+        alert('remove');
+        $("#hourly-time-slider-container .slider").remove();
+    };
+
+    this.setValue = function(value) {
+        alert(value);
+        parent.sliderEl.slider('setValue', value);
+        map.onHourlySliderSlide({value: value});
+    };
+
+    this.init(max);
 }
-
-function hideHourlySlider() {
-    $('#hourly-time-slider-container').html('<div id="hourly-time-slider"></div>');
-}
-
-function setHourlySlider(value) {
-    $("#hourly-time-slider").slider('setValue', value);
-    map.onHourlySliderSlide({value: value});
-}
-
 
 
 function showProgressBar() {
@@ -947,6 +976,7 @@ var elevator;
 var map;
 var form;
 var notifications;
+var hourlySlider;
 var isMobile = false;
 $(function() {
     elevator = new google.maps.ElevationService();
@@ -962,6 +992,12 @@ $(function() {
         template: '<div class="popover hourlySliderInfoPopup"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>'
     });
 
+/*
+    hourlySlider = new HourlySlider(2);
+    window.setTimeout(function() {
+        hourlySlider.remove();
+        hourlySlider = new HourlySlider(5);
+    }, 6000);*/
     /*infoAlert('hey');
      window.setTimeout(function() {
      infoAlert('hey');
