@@ -241,6 +241,17 @@ function Map() {
         this.currentHourlySliderValue = null;
     };
 
+    this.listenForNextLeftClick = function() {
+        google.maps.event.addListener(parent.map, 'click', function(event) {
+            parent.stopListeningForLeftClick();
+            console.log("Left click event", event);
+            parent.setLaunch(event);
+        });
+    };
+    this.stopListeningForLeftClick = function() {
+        google.maps.event.clearListeners(parent.map, 'click');
+    };
+
     this.addMapBound = function(latlng) {
         this.mapBounds.push(latlng);
     };
@@ -573,18 +584,20 @@ function Map() {
             setProgressBar(100 * parent.responsesReceived / parent.totalResponsesExpected);
         }
         console.log('checking for responses received' + parent.responsesReceived + parent.totalResponsesExpected);
-        if (parent.responsesReceived >= parent.totalResponsesExpected && parent.responsesReceived > 0) {
-            // all responses received
-            parent.centerMapToBounds();
-            if (parent.hourlyPrediction) {
-                initHourlySlider(map.responsesReceived - 1);
-                setHourlySlider(0);
-            } else {
-                $.each(parent.paths, function(key, path) {
-                    parent.selectPath(path);
-                    return;
-                });
+        if (parent.responsesReceived >= parent.totalResponsesExpected) {
+            if (parent.responsesReceived > 0) {
+                // all responses received
+                parent.centerMapToBounds();
+                if (parent.hourlyPrediction) {
+                    initHourlySlider(map.responsesReceived - 1);
+                    setHourlySlider(0);
+                } else {
+                    $.each(parent.paths, function(key, path) {
+                        parent.selectPath(path);
+                        return;
+                    });
 
+                }
             }
             hideProgressBar();
         } else if (parent.shouldCheckForCompletion && parent.totalResponsesExpected > 0) {
@@ -780,6 +793,11 @@ function Form() {
         $('#prediction-form').submit(function(event) {
             event.preventDefault();
             predict();
+        });
+
+        // setting position
+        $('#btn-set-position').click(function(event) {
+            map.listenForNextLeftClick();
         });
 
         //Enable swiping...

@@ -42,7 +42,13 @@
           <input type="hidden" name="launchsite" value="Other"/>
           <input type="hidden" name="second" value="0"/>
           <input type="hidden" name="submit" value="Run Prediction"/>
-          <h4>Launch parameters <small><p class="text-right">Right click to set position</p></small></h4>
+          <h4>Launch parameters 
+            <small class="text-right">
+              <p class="text-right">Right click to 
+                <button id="btn-set-position" class="btn btn-warning btn-xs" type="button" data-toggle="dropdown">set position</button>
+              </p>
+            </small>
+          </h4>
           <div class="form-group">
             <label for="inputLaunchLat" class="col-sm-3 control-label">Lat</label>
             <div class="col-sm-9">
