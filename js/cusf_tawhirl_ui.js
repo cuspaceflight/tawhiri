@@ -612,167 +612,6 @@ function Map() {
     };
 }
 
-function padTwoDigits(x) {
-    x = x + "";
-    if (x.length == 1) {
-        x = "0" + x;
-    }
-    return x;
-}
-
-function formatTime(d) {
-    return padTwoDigits(d.getHours()) + ":" + padTwoDigits(d.getMinutes());
-}
-
-
-
-function feetToMeters(feet) {
-// 1 meter == 0.3048 ft
-    return 0.3048 * feet;
-}
-
-function getFormObj(formId) {
-    var formObj = {};
-    var inputs = $(formId).serializeArray();
-    $.each(inputs, function(i, input) {
-        formObj[input.name] = input.value;
-    });
-    return formObj;
-}
-
-function predict() {
-    notifications.closeAllNotifications();
-    try {
-        hourlySlider.remove();
-    } catch (e) {
-    }
-    map.reset();
-    showProgressBar();
-    makeProgressBarAnimated();
-    var formData = getFormObj('#prediction-form');
-    //console.log(formData);
-    var runTime = new Date(
-            formData.year,
-            formData.month,
-            formData.day,
-            formData.hour,
-            formData.min,
-            formData.second,
-            0
-            );
-    if (formData.hourly !== 'on') {
-        // is not an hourly prediction
-        map.hourlyPrediction = false;
-        map.totalResponsesExpected = 1;
-        map.plotPath($('#prediction-form').serialize(), runTime);
-    } else {
-        // is an hourly prediction
-        map.hourlyPrediction = true;
-        var i = 0;
-        for (i; i < map.hourlyPredictionHours; i++) {
-            var predictionData = jQuery.extend({}, formData);
-            var d = new Date(runTime.getTime() + i * 1440000); // add i hours
-            predictionData.year = d.getFullYear();
-            predictionData.month = d.getMonth();
-            predictionData.day = d.getDate();
-            predictionData.hour = padTwoDigits(d.getHours());
-            predictionData.min = padTwoDigits(d.getMinutes());
-            //console.log($.param(predictionData));
-            map.hourlyPredictionTimes.push(d);
-            map.plotPath($.param(predictionData), d);
-        }
-        map.totalResponsesExpected = map.hourlyPredictionHours;
-    }
-    map.checkForAllResponsesReceived();
-    form.close();
-}
-
-
-function HourlySlider(max) {
-    var parent = this;
-    this.sliderEl = null;
-    this.sliderContainer = $("#hourly-time-slider-container");
-
-    this.init = function(max) {
-        parent.sliderContainer.html('<div id="hourly-time-slider"></div>');
-        this.sliderEl = $("#hourly-time-slider");
-
-        parent.sliderEl.slider({
-            min: 0,
-            max: max,
-            step: 1,
-            value: 0,
-            orientation: 'vertical',
-            tooltip: 'show',
-            selection: 'before',
-            formater: map.getHourlySliderTooltip
-        }).on('slide', map.onHourlySliderSlide);
-        $('#hourly-time-slider-container div.tooltip.right')
-                .addClass('left')
-                .removeClass('right')
-                .css('left', '')
-                .css('right', '100%')
-                .css('margin-right', '3px');
-    };
-
-    this.showPopup = function() {
-        parent.sliderContainer.show();
-        // show info popup
-        parent.sliderContainer.popover('show');
-        window.setTimeout(function() {
-            parent.sliderContainer.popover('hide');
-        }, 5000);
-        parent.sliderContainer.mousedown(function(event) {
-            parent.sliderContainer.popover('hide');
-        });
-    };
-
-    this.hide = function() {
-        parent.sliderContainer.hide();
-    };
-
-    this.remove = function() {
-        alert('remove');
-        $("#hourly-time-slider-container .slider").remove();
-    };
-
-    this.setValue = function(value) {
-        alert(value);
-        parent.sliderEl.slider('setValue', value);
-        map.onHourlySliderSlide({value: value});
-    };
-
-    this.init(max);
-}
-
-
-function showProgressBar() {
-    $('#progress-bar-wrapper').show();
-}
-
-function makeProgressBarAnimated() {
-    $('#progress-bar .progress').addClass('progress-striped active');
-    setProgressBar(100);
-}
-
-function makeProgressBarStatic() {
-    $('#progress-bar .progress').removeClass('progress-striped active');
-}
-
-function setProgressBar(perc) {
-    $('#progress-bar .progress-bar').css('width', perc + '%');
-}
-
-function hideProgressBar() {
-    $('#progress-bar-wrapper').hide();
-}
-
-//google.maps.event.addDomListener(window, 'load', initialize);
-
-function infoAlert(msg, type, timeout) {
-    notifications.new(msg, type, timeout);
-}
-
 function Form() {
     this.isOpen = true;
     this.canBeHoveredOver = true;
@@ -877,6 +716,15 @@ function Form() {
         }
     };
 
+    this.serializeToObject = function() {
+        var formObj = {};
+        var inputs = $('#prediction-form').serializeArray();
+        $.each(inputs, function(i, input) {
+            formObj[input.name] = input.value;
+        });
+        return formObj;
+    };
+
     // init code
     this.autoPopulateInputs();
     this.setUpEventHandling();
@@ -959,6 +807,154 @@ function Notifications() {
     };
 }
 
+function HourlySlider(max) {
+    var parent = this;
+    this.sliderEl = null;
+    this.sliderContainer = $("#hourly-time-slider-container");
+
+    this.init = function(max) {
+        parent.sliderContainer.html('<div id="hourly-time-slider"></div>');
+        this.sliderEl = $("#hourly-time-slider");
+
+        parent.sliderEl.slider({
+            min: 0,
+            max: max,
+            step: 1,
+            value: 0,
+            orientation: 'vertical',
+            tooltip: 'show',
+            selection: 'before',
+            formater: map.getHourlySliderTooltip
+        }).on('slide', map.onHourlySliderSlide);
+        $('#hourly-time-slider-container div.tooltip.right')
+                .addClass('left')
+                .removeClass('right')
+                .css('left', '')
+                .css('right', '100%')
+                .css('margin-right', '3px');
+    };
+
+    this.showPopup = function() {
+        parent.sliderContainer.show();
+        // show info popup
+        parent.sliderContainer.popover('show');
+        window.setTimeout(function() {
+            parent.sliderContainer.popover('hide');
+        }, 5000);
+        parent.sliderContainer.mousedown(function(event) {
+            parent.sliderContainer.popover('hide');
+        });
+    };
+
+    this.hide = function() {
+        parent.sliderContainer.hide();
+    };
+
+    this.remove = function() {
+        $("#hourly-time-slider-container .slider").remove();
+    };
+
+    this.setValue = function(value) {
+        parent.sliderEl.slider('setValue', value);
+        map.onHourlySliderSlide({value: value});
+    };
+
+    this.init(max);
+}
+
+function predict() {
+    notifications.closeAllNotifications();
+    try {
+        hourlySlider.remove();
+    } catch (e) {
+    }
+    map.reset();
+    showProgressBar();
+    makeProgressBarAnimated();
+    var formData = form.serializeToObject();
+    //console.log(formData);
+    var runTime = new Date(
+            formData.year,
+            formData.month,
+            formData.day,
+            formData.hour,
+            formData.min,
+            formData.second,
+            0
+            );
+    if (formData.hourly !== 'on') {
+        // is not an hourly prediction
+        map.hourlyPrediction = false;
+        map.totalResponsesExpected = 1;
+        map.plotPath($('#prediction-form').serialize(), runTime);
+    } else {
+        // is an hourly prediction
+        map.hourlyPrediction = true;
+        var i = 0;
+        for (i; i < map.hourlyPredictionHours; i++) {
+            var predictionData = jQuery.extend({}, formData);
+            var d = new Date(runTime.getTime() + i * 1440000); // add i hours
+            predictionData.year = d.getFullYear();
+            predictionData.month = d.getMonth();
+            predictionData.day = d.getDate();
+            predictionData.hour = padTwoDigits(d.getHours());
+            predictionData.min = padTwoDigits(d.getMinutes());
+            //console.log($.param(predictionData));
+            map.hourlyPredictionTimes.push(d);
+            map.plotPath($.param(predictionData), d);
+        }
+        map.totalResponsesExpected = map.hourlyPredictionHours;
+    }
+    map.checkForAllResponsesReceived();
+    form.close();
+}
+
+
+function padTwoDigits(x) {
+    x = x + "";
+    if (x.length == 1) {
+        x = "0" + x;
+    }
+    return x;
+}
+
+function formatTime(d) {
+    return padTwoDigits(d.getHours()) + ":" + padTwoDigits(d.getMinutes());
+}
+
+function feetToMeters(feet) {
+// 1 meter == 0.3048 ft
+    return 0.3048 * feet;
+}
+
+
+function showProgressBar() {
+    $('#progress-bar-wrapper').show();
+}
+
+function makeProgressBarAnimated() {
+    $('#progress-bar .progress').addClass('progress-striped active');
+    setProgressBar(100);
+}
+
+function makeProgressBarStatic() {
+    $('#progress-bar .progress').removeClass('progress-striped active');
+}
+
+function setProgressBar(perc) {
+    $('#progress-bar .progress-bar').css('width', perc + '%');
+}
+
+function hideProgressBar() {
+    $('#progress-bar-wrapper').hide();
+}
+
+//google.maps.event.addDomListener(window, 'load', initialize);
+
+function infoAlert(msg, type, timeout) {
+    notifications.new(msg, type, timeout);
+}
+
 function onWindowSizeChange() {
     var wasMobile = isMobile;
     isMobile = $(window).width() < 500;
@@ -978,6 +974,7 @@ var form;
 var notifications;
 var hourlySlider;
 var isMobile = false;
+
 $(function() {
     elevator = new google.maps.ElevationService();
     map = new Map();
@@ -992,12 +989,12 @@ $(function() {
         template: '<div class="popover hourlySliderInfoPopup"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>'
     });
 
-/*
-    hourlySlider = new HourlySlider(2);
-    window.setTimeout(function() {
-        hourlySlider.remove();
-        hourlySlider = new HourlySlider(5);
-    }, 6000);*/
+    /*
+     hourlySlider = new HourlySlider(2);
+     window.setTimeout(function() {
+     hourlySlider.remove();
+     hourlySlider = new HourlySlider(5);
+     }, 6000);*/
     /*infoAlert('hey');
      window.setTimeout(function() {
      infoAlert('hey');
