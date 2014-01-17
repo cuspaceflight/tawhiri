@@ -418,8 +418,7 @@ function Map() {
         polyw.setMap(this.map);
         var pathw = polyw.getPath();
         google.maps.event.addListener(polyw, 'click', function(event) {
-            parent.selectPath(parent.paths[launchTime]);
-            $("#hourly-time-slider").slider('setValue', $.inArray(launchTime, parent.hourlyPredictionTimes));
+            setHourlySlider($.inArray(launchTime, parent.hourlyPredictionTimes));
         });
 
         var args = {
@@ -799,7 +798,7 @@ function Form() {
         $("#form-wrap .formToggleVisible-wrap").mousedown(function(event) {
             parent.toggle();
         });
-        
+
     };
     this.onSwipe = function(direction) {
         if ((isMobile && direction == 'up') || (!isMobile && direction == 'left')) {
@@ -824,7 +823,7 @@ function Form() {
             return;
         }
         if (isMobile) {
-            $("#form-wrap").animate({marginTop: -$("#form-wrap").outerHeight() + 20 + 'px'});
+            $("#form-wrap").animate({marginTop: -$("#form-wrap").outerHeight() + 'px'});
         } else {
             $("#form-wrap").animate({marginLeft: '-350px'});
         }
@@ -844,6 +843,18 @@ function Form() {
     // end init code
 }
 
+function onWindowSizeChange() {
+    var wasMobile = isMobile;
+    isMobile = $(window).width() < 500;
+    if (!wasMobile && isMobile) {
+        $('#form-wrap').height($('#form-wrap').outerHeight() - 30 + 'px');
+    }
+    form.open();
+    if (wasMobile && !isMobile) {
+        $('#form-wrap').height('100%');
+    }
+}
+
 var openAlerts = {};
 var elevator;
 var map;
@@ -853,19 +864,14 @@ $(function() {
     elevator = new google.maps.ElevationService();
     map = new Map();
     form = new Form();
-    $(window).resize(function() {
-        isMobile = $(window).width() < 500;
-    });
-    isMobile = $(window).width() < 500;
+    $(window).resize(onWindowSizeChange);
+    onWindowSizeChange();
 
     $('#hourly-time-slider-container').popover({
         placement: 'left',
         trigger: 'manual',
         template: '<div class="popover hourlySliderInfoPopup"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>'
     });
-
-
-
 
     //infoAlert('hey');
     //window.setTimeout(function(){infoAlert('hey');}, 3000);
