@@ -758,6 +758,7 @@ function hideProgressBar() {
 
 function Form() {
     this.isOpen = true;
+    this.canBeHoveredOver = true;
     var parent = this;
 
     this.autoPopulateInputs = function() {
@@ -782,7 +783,7 @@ function Form() {
         });
 
         //Enable swiping...
-        $("#form-wrap").swipe({
+        $("#form-wrap .formToggleVisible-wrap").swipe({
             //Generic swipe handler for all directions
             swipe: function(event, direction, distance, duration, fingerCount) {
                 if (fingerCount > 0) {
@@ -796,7 +797,16 @@ function Form() {
 
         //Clicking
         $("#form-wrap .formToggleVisible-wrap").mousedown(function(event) {
+            console.log('mousedown');
             parent.toggle();
+        });
+
+        // hover
+        $("#form-wrap .formToggleVisible-wrap").hover(function(event) {
+            if (parent.canBeHoveredOver) {
+                console.log('hover');
+                parent.open();
+            }
         });
 
     };
@@ -822,6 +832,12 @@ function Form() {
         if (!parent.isOpen) {
             return;
         }
+
+        parent.canBeHoveredOver = false;
+        window.setTimeout(function() {
+            parent.canBeHoveredOver = true;
+        }, 500);
+
         if (isMobile) {
             $("#form-wrap").animate({marginTop: -$("#form-wrap").outerHeight() + 'px'});
         } else {
