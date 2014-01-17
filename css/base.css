@@ -40,6 +40,24 @@ body { height: 100%; margin: 0; padding: 0 }
     margin: auto;
 }
 
+#notification-area-wrap {
+    position: absolute;
+    bottom: 30px;
+    display: block;
+    width: 100%;
+    z-index: 80;
+}
+#notification-area{
+    width: 80%;
+    margin: auto;
+    overflow: hidden;
+    /*
+    -webkit-transition: all .5s;
+    -moz-transition: all .5s;
+    transition: all .5s;/**/
+    
+}
+
 #map-col {
     padding-right: 0;
 }

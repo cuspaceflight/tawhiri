@@ -53,7 +53,7 @@ function Request() {
             success: function(data) {
                 console.log(data);
                 if (data.valid == 'false') {
-                    infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error);
+                    infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error, 'error');
                     parent.status = 'failed';
                 } else if (data.valid == 'true') {
                     parent.uuid = data.uuid;
@@ -294,10 +294,10 @@ function Map() {
                     // set the result
                     $('#inputLaunchAltitude').val(results[0].elevation);
                 } else {
-                    infoAlert("No elevation results found");
+                    infoAlert("No elevation results found", 'error');
                 }
             } else {
-                infoAlert("Elevation service failed due to: " + status);
+                infoAlert("Elevation service failed due to: " + status, 'error');
             }
         });
     };
@@ -568,7 +568,7 @@ function Map() {
             } else {
                 // either status is failed, or should rerun but max number
                 // of reruns has been reached
-                infoAlert('Request failed.');
+                infoAlert('Request failed.', 'error');
                 parent.totalResponsesExpected--;
                 map.willNotComplete = true;
                 return false;
@@ -635,7 +635,7 @@ function getFormObj(formId) {
 }
 
 function predict() {
-    closeAllInfoAlerts();
+    notifications.closeAllNotifications();
     hideHourlySlider();
     map.reset();
     showProgressBar();
@@ -715,35 +715,7 @@ function setHourlySlider(value) {
     map.onHourlySliderSlide({value: value});
 }
 
-function closeAllInfoAlerts() {
-    $('#alert-area').html('');
-    openAlerts = {};
-}
 
-function infoAlert(msg, title, type) {
-    var alertData = $.param({msg: msg, title: title, type: type});
-
-    if (alertData in openAlerts) {
-        $('#' + openAlerts[alertData]).remove();
-    }
-
-    var d = new Date();
-    var id = 'alert-' + d.getTime();
-    $('#alert-area').append('<div id="' + id + '" class="alert alert-' + (type || 'danger') + ' alert-dismissable">' +
-            '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' +
-            '<strong>' + (title || 'Error') + '</strong> ' + msg +
-            '</div>');
-    $('#' + id).hide().slideDown('slow');
-    // add alert close hook
-    $('#' + id).bind('close.bs.alert', function() {
-        // remove from global openAlerts array
-        openAlerts = $.grep(openAlerts, function(value) {
-            return value != alertData;
-        });
-    });
-    openAlerts[alertData] = id;
-
-}
 
 function showProgressBar() {
     $('#progress-bar-wrapper').show();
@@ -768,6 +740,9 @@ function hideProgressBar() {
 
 //google.maps.event.addDomListener(window, 'load', initialize);
 
+function infoAlert(msg, type, timeout) {
+    notifications.new(msg, type, timeout);
+}
 
 function Form() {
     this.isOpen = true;
@@ -798,6 +773,8 @@ function Form() {
         // setting position
         $('#btn-set-position').click(function(event) {
             map.listenForNextLeftClick();
+            parent.close();
+            infoAlert('Now click anywhere on the map', 'info', 3000);
         });
 
         //Enable swiping...
@@ -877,6 +854,82 @@ function Form() {
     // end init code
 }
 
+function Notifications() {
+    var parent = this;
+
+    this.openNotifications = {};
+    this.notificationArea = $('#notification-area');
+    this.notificationAreaWrap = $('#notification-area-wrap');
+
+    this.closeAllNotifications = function() {
+        parent.openNotifications = {};
+        parent.notificationArea.css({
+            height: 0
+        });
+        parent.notificationArea.html('');
+    };
+
+    this.closeNotification = function(notification) {
+        notification.alert('close');
+    };
+
+    this.new = function(msg, type, timeout) {
+        var alertData = $.param({msg: msg, type: type});
+
+        if (alertData in parent.openNotifications) {
+            parent.closeNotification(parent.openNotifications[alertData]);
+        }
+        var alertClass, alertTitle;
+
+        switch (type) {
+            case 'error':
+                alertClass = 'danger';
+                alertTitle = 'Error';
+                break;
+            default:
+                alertClass = 'info';
+                alertTitle = 'Info';
+                break;
+        }
+
+        var d = new Date();
+        var id = 'alert-' + d.getTime();
+        var oldHeight = parent.notificationArea.outerHeight();
+        parent.notificationArea.append('<div id="' + id + '" class="alert alert-' + alertClass + ' alert-dismissable">' +
+                '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' +
+                '<strong>' + alertTitle + '</strong> ' + msg +
+                '</div>');
+        var notification = $('#' + id);
+        //notification.hide();
+        parent.notificationArea.css('height', oldHeight);
+
+        // add alert close hook
+        $('#' + id).bind('close.bs.alert', function() {
+            // remove from global openAlerts array
+            parent.openNotifications = $.grep(parent.openNotifications, function(value) {
+                return value != notification;
+            });
+            parent.notificationArea.css({
+                height: parent.notificationArea.outerHeight() - notification.outerHeight(true)
+            });
+        });
+
+        // display notification
+        parent.notificationArea.animate({
+            height: parent.notificationArea.outerHeight() + notification.outerHeight(true)
+        });
+
+        // set close timeout
+        if (timeout) {
+            window.setTimeout(function() {
+                parent.closeNotification(notification);
+            }, timeout);
+        }
+        parent.openNotifications[alertData] = notification;
+
+    };
+}
+
 function onWindowSizeChange() {
     var wasMobile = isMobile;
     isMobile = $(window).width() < 500;
@@ -893,11 +946,13 @@ var openAlerts = {};
 var elevator;
 var map;
 var form;
+var notifications;
 var isMobile = false;
 $(function() {
     elevator = new google.maps.ElevationService();
     map = new Map();
     form = new Form();
+    notifications = new Notifications();
     $(window).resize(onWindowSizeChange);
     onWindowSizeChange();
 
@@ -907,7 +962,9 @@ $(function() {
         template: '<div class="popover hourlySliderInfoPopup"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>'
     });
 
-    //infoAlert('hey');
-    //window.setTimeout(function(){infoAlert('hey');}, 3000);
+    /*infoAlert('hey');
+     window.setTimeout(function() {
+     infoAlert('hey');
+     }, 3000);*/
     //$('#prediction-form').submit();
 });
