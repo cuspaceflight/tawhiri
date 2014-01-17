@@ -196,7 +196,30 @@ function Map() {
     this.mapOptions = {
         center: new google.maps.LatLng(52, 0),
         zoom: 8,
-        mapTypeId: google.maps.MapTypeId.TERRAIN
+        mapTypeId: google.maps.MapTypeId.TERRAIN,
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+            style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+            position: google.maps.ControlPosition.TOP_CENTER
+        },
+        panControl: true,
+        panControlOptions: {
+            position: google.maps.ControlPosition.TOP_RIGHT
+        },
+        zoomControl: true,
+        zoomControlOptions: {
+            style: google.maps.ZoomControlStyle.LARGE,
+            position: google.maps.ControlPosition.TOP_RIGHT
+        },
+        scaleControl: true,
+        scaleControlOptions: {
+            position: google.maps.ControlPosition.TOP_RIGHT
+        },
+        streetViewControl: true,
+        streetViewControlOptions: {
+            position: google.maps.ControlPosition.TOP_RIGHT
+        }
+
     };
     this.map = new google.maps.Map(document.getElementById("map-canvas"),
             this.mapOptions);
@@ -356,14 +379,16 @@ function Map() {
             position: latlng,
             icon: MapObjects.landCircle,
             map: parent.map,
-            title: 'Landing position'
+            title: 'Landing position',
+            visible: false
         });
         pathCollection.push(marker);
         var marker = new google.maps.Marker({
             position: burst_latlng,
             icon: MapObjects.burstCircle,
             map: parent.map,
-            title: 'Burst position'
+            title: 'Burst position',
+            visible: false
         });
         pathCollection.push(marker);
         parent.paths[launchTime].pathCollection = pathCollection;
@@ -376,7 +401,7 @@ function Map() {
         // thin black line
         var polyOptions = {
             strokeColor: '#000000',
-            strokeOpacity: 1.0,
+            strokeOpacity: 0.1, //1.0
             strokeWeight: 2,
             zIndex: 10
         };
@@ -385,7 +410,7 @@ function Map() {
         // thick transparent line
         var polywOptions = {
             strokeColor: '#000000',
-            strokeOpacity: 0.3,
+            strokeOpacity: 0.1, //0.3
             strokeWeight: 8,
             zIndex: 20
         };
@@ -455,7 +480,11 @@ function Map() {
     };
     this.getHourlySliderTooltip = function(value) {
         //console.log(value);
-        return parent.hourlyPredictionTimes[value].toUTCString();
+        try {
+            return parent.hourlyPredictionTimes[value].toUTCString();
+        } catch (e) {
+            return ' ';
+        }
     };
 
     this.dimAllPaths = function() {
@@ -549,7 +578,15 @@ function Map() {
             // all responses received
             parent.centerMapToBounds();
             if (parent.hourlyPrediction) {
+                initHourlySlider(map.responsesReceived - 1);
                 setHourlySlider(0);
+                $('#form-wrap').click();
+            } else {
+                $.each(parent.paths, function(key, path) {
+                    parent.selectPath(path);
+                    return;
+                });
+
             }
             hideProgressBar();
         } else if (parent.shouldCheckForCompletion && parent.totalResponsesExpected > 0) {
@@ -617,10 +654,12 @@ function predict() {
             );
     if (formData.hourly !== 'on') {
         // is not an hourly prediction
+        map.hourlyPrediction = false;
         map.totalResponsesExpected = 1;
         map.plotPath($('#prediction-form').serialize(), runTime);
     } else {
         // is an hourly prediction
+        map.hourlyPrediction = true;
         var i;
         for (i = 0; i < map.hourlyPredictionHours; i++) {
             var predictionData = jQuery.extend({}, formData);
@@ -631,14 +670,13 @@ function predict() {
             predictionData.hour = padTwoDigits(d.getHours());
             predictionData.min = padTwoDigits(d.getMinutes());
             //console.log($.param(predictionData));
-            map.hourlyPrediction = true;
             map.hourlyPredictionTimes.push(d);
             map.plotPath($.param(predictionData), d);
         }
-        initHourlySlider(map.hourlyPredictionHours - 1);
         map.totalResponsesExpected = map.hourlyPredictionHours;
     }
     map.checkForAllResponsesReceived();
+    closeForm();
 }
 
 function initHourlySlider(max) {
@@ -658,6 +696,15 @@ function initHourlySlider(max) {
             .css('left', '')
             .css('right', '100%')
             .css('margin-right', '3px');
+
+    // show info popup
+    $('#hourly-time-slider-container').popover('show');
+    window.setTimeout(function() {
+        $('#hourly-time-slider-container').popover('hide');
+    }, 5000);
+    $('#hourly-time-slider-container').mousedown(function(event) {
+        $('#hourly-time-slider-container').popover('hide');
+    });
 }
 
 function hideHourlySlider() {
@@ -722,6 +769,17 @@ function hideProgressBar() {
 
 //google.maps.event.addDomListener(window, 'load', initialize);
 
+function openForm() {
+    $('#form-wrap').animate({
+        left: 0
+    });
+}
+function closeForm() {
+    $('#form-wrap').animate({
+        left: -$('#form-wrap').outerWidth()
+    });
+}
+
 var openAlerts = {};
 var elevator;
 var map;
@@ -729,10 +787,28 @@ $(function() {
     elevator = new google.maps.ElevationService();
     map = new Map();
     autoPopulateInputs();
+    // event handlers
     $('#prediction-form').submit(function(event) {
         event.preventDefault();
         predict();
     });
+    $('#form-wrap .formToggleVisible').click(function() {
+        if (this.isCollapsed) {
+            openForm();
+            this.isCollapsed = false;
+        } else {
+            closeForm();
+            this.isCollapsed = true;
+        }
+    });
+
+    $('#hourly-time-slider-container').popover({
+        placement: 'left',
+        trigger: 'manual',
+        template: '<div class="popover hourlySliderInfoPopup"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>'
+    });
+
+
     //infoAlert('hey');
     //window.setTimeout(function(){infoAlert('hey');}, 3000);
     //$('#prediction-form').submit();

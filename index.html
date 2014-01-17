@@ -24,227 +24,226 @@
       <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
     <![endif]-->
   </head>
+
   <body>
-    <div class="container tall">
-      <div class="row" id="alert-area"></div>
-      <div class="row tall">
-        <div class="col-md-3 tall">
-          <h1>Predictor</h1>
-          <hr/>
-          <form class="form-horizontal" id="prediction-form" role="form">
-            <input type="hidden" name="launchsite" value="Other"/>
-            <input type="hidden" name="second" value="0"/>
-            <input type="hidden" name="submit" value="Run Prediction"/>
-            <h4>Launch parameters <small><p class="text-right">Right click to set position</p></small></h4>
-            <div class="form-group">
-              <label for="inputLaunchLat" class="col-sm-3 control-label">Lat</label>
-              <div class="col-sm-9">
-                <input type="number" step="any" class="form-control" id="inputLaunchLat" name="lat" placeholder="" required="required">
-              </div>
+    <div id="alert-area"></div>
+    <div class="tall" id="form-wrap">
+      <div class="formToggleVisible-wrap"><span class="formToggleVisible"></span></div>
+      <div id="form">
+        <h1>Predictor</h1>
+        <hr/>
+        <form class="form-horizontal" id="prediction-form" role="form">
+          <input type="hidden" name="launchsite" value="Other"/>
+          <input type="hidden" name="second" value="0"/>
+          <input type="hidden" name="submit" value="Run Prediction"/>
+          <h4>Launch parameters <small><p class="text-right">Right click to set position</p></small></h4>
+          <div class="form-group">
+            <label for="inputLaunchLat" class="col-sm-3 control-label">Lat</label>
+            <div class="col-sm-9">
+              <input type="number" step="any" class="form-control" id="inputLaunchLat" name="lat" placeholder="" required="required">
             </div>
-            <div class="form-group">
-              <label for="inputLaunchLong" class="col-sm-3 control-label">Long</label>
-              <div class="col-sm-9">
-                <input type="number" step="any" class="form-control" id="inputLaunchLong" name="lon" placeholder="" required="required">
-              </div>
+          </div>
+          <div class="form-group">
+            <label for="inputLaunchLong" class="col-sm-3 control-label">Long</label>
+            <div class="col-sm-9">
+              <input type="number" step="any" class="form-control" id="inputLaunchLong" name="lon" placeholder="" required="required">
             </div>
-            <div class="form-group ">
-              <label for="inputLaunchAltitude" class="col-sm-3 control-label">Altitude</label>
-              <div class="col-sm-9">
-                <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchAltitude" name="initial_alt" value="0" placeholder="" required="required">
-                  <span class="input-group-addon">m</span>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="inputLaunchDate" class="col-sm-3 control-label">Date</label>
-              <div class="col-sm-9">
-                <div class="row">
-                  <div class="col-sm-3 input-sm">
-                    <input type="number" step="any" class="form-control" id="inputLaunchDay" name="day" placeholder="dd" required="required">
-                  </div>
-                  <div class="col-sm-5 input-sm">
-                    <select class="form-control" id="inputLaunchMonth" name="month" required="required">
-                      <option value="1">Jan</option>
-                      <option value="2">Feb</option>
-                      <option value="3">Mar</option>
-                      <option value="4">Apr</option>
-                      <option value="5">May</option>
-                      <option value="6">Jun</option>
-                      <option value="7">Jul</option>
-                      <option value="8">Aug</option>
-                      <option value="9">Sep</option>
-                      <option value="10">Oct</option>
-                      <option value="11">Nov</option>
-                      <option value="12">Dec</option>
-                    </select>
-                  </div>
-                  <div class="col-sm-4 input-sm">
-                    <input type="text" class="form-control" id="inputLaunchYear" name="year" placeholder="yyyy" required="required">
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="inputLaunchTime" class="col-sm-3 control-label">Time</label>
-              <div class="col-sm-9">
-                <div class="row">
-                  <div class="col-sm-6">
-                    <select id="inputLaunchHour" name="hour" class="form-control" required="required">
-                      <option value="00">00</option>
-                      <option value="01">01</option>
-                      <option value="02">02</option>
-                      <option value="03">03</option>
-                      <option value="04">04</option>
-                      <option value="05">05</option>
-                      <option value="06">06</option>
-                      <option value="07">07</option>
-                      <option value="08">08</option>
-                      <option value="09">09</option>
-                      <option value="10">10</option>
-                      <option value="11">11</option>
-                      <option value="12">12</option>
-                      <option value="13">13</option>
-                      <option value="14">14</option>
-                      <option value="15">15</option>
-                      <option value="16">16</option>
-                      <option value="17">17</option>
-                      <option value="18">18</option>
-                      <option value="19">19</option>
-                      <option value="20">20</option>
-                      <option value="21">21</option>
-                      <option value="22">22</option>
-                      <option value="23">23</option>
-                    </select>
-                  </div>
-                  <div class="col-sm-6">
-                    <select id="inputLaunchMinute" name="min" class="form-control" required="required">
-                      <option value="00">00</option>
-                      <option value="01">01</option>
-                      <option value="02">02</option>
-                      <option value="03">03</option>
-                      <option value="04">04</option>
-                      <option value="05">05</option>
-                      <option value="06">06</option>
-                      <option value="07">07</option>
-                      <option value="08">08</option>
-                      <option value="09">09</option>
-                      <option value="10">10</option>
-                      <option value="11">11</option>
-                      <option value="12">12</option>
-                      <option value="13">13</option>
-                      <option value="14">14</option>
-                      <option value="15">15</option>
-                      <option value="16">16</option>
-                      <option value="17">17</option>
-                      <option value="18">18</option>
-                      <option value="19">19</option>
-                      <option value="20">20</option>
-                      <option value="21">21</option>
-                      <option value="22">22</option>
-                      <option value="23">23</option>
-                      <option value="24">24</option>
-                      <option value="25">25</option>
-                      <option value="26">26</option>
-                      <option value="27">27</option>
-                      <option value="28">28</option>
-                      <option value="29">29</option>
-                      <option value="30">30</option>
-                      <option value="31">31</option>
-                      <option value="32">32</option>
-                      <option value="33">33</option>
-                      <option value="34">34</option>
-                      <option value="35">35</option>
-                      <option value="36">36</option>
-                      <option value="37">37</option>
-                      <option value="38">38</option>
-                      <option value="39">39</option>
-                      <option value="40">40</option>
-                      <option value="41">41</option>
-                      <option value="42">42</option>
-                      <option value="43">43</option>
-                      <option value="44">44</option>
-                      <option value="45">45</option>
-                      <option value="46">46</option>
-                      <option value="47">47</option>
-                      <option value="48">48</option>
-                      <option value="49">49</option>
-                      <option value="50">50</option>
-                      <option value="51">51</option>
-                      <option value="52">52</option>
-                      <option value="53">53</option>
-                      <option value="54">54</option>
-                      <option value="55">55</option>
-                      <option value="56">56</option>
-                      <option value="57">57</option>
-                      <option value="58">58</option>
-                      <option value="59">59</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <h4>In flight parameters</h4>
-            <div class="form-group ">
-              <label for="inputLaunchAscentRate" class="col-sm-6 control-label">Ascent Rate</label>
-              <div class="col-sm-6">
-                <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="" required="required">
-                  <span class="input-group-addon">m/s</span>
-                </div>
-              </div>
-            </div>
-            <div class="form-group ">
-              <label for="inputLaunchBurstAlt" class="col-sm-6 control-label">Burst Altitude</label>
-              <div class="col-sm-6">
-                <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="" required="required">
-                  <span class="input-group-addon">m</span>
-                </div>
-              </div>
-            </div>
-            <div class="form-group ">
-              <label for="inputLaunchDescentRate" class="col-sm-6 control-label">Descent Rate</label>
-              <div class="col-sm-6">
-                <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="" required="required">
-                  <span class="input-group-addon">m/s</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <div class="col-sm-12">
-                <div class="checkbox pull-left">
-                  <label>
-                    <input name="hourly" type="checkbox" checked="checked"> Hourly predictions
-                  </label>
-                </div>
-                <button type="submit" class="btn btn-success pull-right">Predict</button>
-              </div>
-            </div>
-          </form>
-
-        </div>
-        <div class="col-md-9 tall" id="map-col">
-          <div id="progress-bar-wrapper">
-          <div id="progress-bar">
-            <div class="progress">
-              <div class="progress-bar" role="progressbar">
-                <span class="sr-only">60% Complete</span>
+          </div>
+          <div class="form-group ">
+            <label for="inputLaunchAltitude" class="col-sm-3 control-label">Altitude</label>
+            <div class="col-sm-9">
+              <div class="input-group">
+                <input type="number" step="any" class="form-control" id="inputLaunchAltitude" name="initial_alt" value="0" placeholder="" required="required">
+                <span class="input-group-addon">m</span>
               </div>
             </div>
           </div>
+          <div class="form-group">
+            <label for="inputLaunchDate" class="col-sm-3 control-label">Date</label>
+            <div class="col-sm-9">
+              <div class="row date-row">
+                <div class="col-sm-4 input-sm">
+                  <input type="number" step="any" class="form-control" id="inputLaunchDay" name="day" placeholder="dd" required="required">
+                </div>
+                <div class="col-sm-4 input-sm">
+                  <select class="form-control" id="inputLaunchMonth" name="month" required="required">
+                    <option value="1">Jan</option>
+                    <option value="2">Feb</option>
+                    <option value="3">Mar</option>
+                    <option value="4">Apr</option>
+                    <option value="5">May</option>
+                    <option value="6">Jun</option>
+                    <option value="7">Jul</option>
+                    <option value="8">Aug</option>
+                    <option value="9">Sep</option>
+                    <option value="10">Oct</option>
+                    <option value="11">Nov</option>
+                    <option value="12">Dec</option>
+                  </select>
+                </div>
+                <div class="col-sm-4 input-sm">
+                  <input type="text" class="form-control" id="inputLaunchYear" name="year" placeholder="yyyy" required="required">
+                </div>
+              </div>
+            </div>
           </div>
-          <div id="hourly-time-slider-container">
-            <div id="hourly-time-slider"></div></div>
-          <div id="map-canvas"></div>
-        </div>
+          <div class="form-group">
+            <label for="inputLaunchTime" class="col-sm-3 control-label">Time</label>
+            <div class="col-sm-9">
+              <div class="row">
+                <div class="col-sm-6">
+                  <select id="inputLaunchHour" name="hour" class="form-control" required="required">
+                    <option value="00">00</option>
+                    <option value="01">01</option>
+                    <option value="02">02</option>
+                    <option value="03">03</option>
+                    <option value="04">04</option>
+                    <option value="05">05</option>
+                    <option value="06">06</option>
+                    <option value="07">07</option>
+                    <option value="08">08</option>
+                    <option value="09">09</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                  </select>
+                </div>
+                <div class="col-sm-6">
+                  <select id="inputLaunchMinute" name="min" class="form-control" required="required">
+                    <option value="00">00</option>
+                    <option value="01">01</option>
+                    <option value="02">02</option>
+                    <option value="03">03</option>
+                    <option value="04">04</option>
+                    <option value="05">05</option>
+                    <option value="06">06</option>
+                    <option value="07">07</option>
+                    <option value="08">08</option>
+                    <option value="09">09</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
+                    <option value="26">26</option>
+                    <option value="27">27</option>
+                    <option value="28">28</option>
+                    <option value="29">29</option>
+                    <option value="30">30</option>
+                    <option value="31">31</option>
+                    <option value="32">32</option>
+                    <option value="33">33</option>
+                    <option value="34">34</option>
+                    <option value="35">35</option>
+                    <option value="36">36</option>
+                    <option value="37">37</option>
+                    <option value="38">38</option>
+                    <option value="39">39</option>
+                    <option value="40">40</option>
+                    <option value="41">41</option>
+                    <option value="42">42</option>
+                    <option value="43">43</option>
+                    <option value="44">44</option>
+                    <option value="45">45</option>
+                    <option value="46">46</option>
+                    <option value="47">47</option>
+                    <option value="48">48</option>
+                    <option value="49">49</option>
+                    <option value="50">50</option>
+                    <option value="51">51</option>
+                    <option value="52">52</option>
+                    <option value="53">53</option>
+                    <option value="54">54</option>
+                    <option value="55">55</option>
+                    <option value="56">56</option>
+                    <option value="57">57</option>
+                    <option value="58">58</option>
+                    <option value="59">59</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h4>In flight parameters</h4>
+          <div class="form-group ">
+            <label for="inputLaunchAscentRate" class="col-sm-6 control-label">Ascent Rate</label>
+            <div class="col-sm-6">
+              <div class="input-group">
+                <input type="number" step="any" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="" required="required">
+                <span class="input-group-addon">m/s</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group ">
+            <label for="inputLaunchBurstAlt" class="col-sm-6 control-label">Burst Altitude</label>
+            <div class="col-sm-6">
+              <div class="input-group">
+                <input type="number" step="any" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="" required="required">
+                <span class="input-group-addon">m</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group ">
+            <label for="inputLaunchDescentRate" class="col-sm-6 control-label">Descent Rate</label>
+            <div class="col-sm-6">
+              <div class="input-group">
+                <input type="number" step="any" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="" required="required">
+                <span class="input-group-addon">m/s</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="col-sm-12">
+              <div class="checkbox pull-left">
+                <label>
+                  <input name="hourly" type="checkbox" checked="checked"> Hourly predictions
+                </label>
+              </div>
+              <button type="submit" class="btn btn-success pull-right">Predict</button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
 
+    <div class="tall" id="map-wrap">
+      <div id="progress-bar-wrapper">
+        <div id="progress-bar">
+          <div class="progress">
+            <div class="progress-bar progress-bar-success" role="progressbar">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="hourly-time-slider-container" data-toggle="popover" data-placement="left" data-content="Select a time to show corrosponding path">
+        <div id="hourly-time-slider"></div>
+      </div>
+      <div id="map-canvas"></div>
+    </div>
 
     <script src="js/bootstrap.min.js"></script>
   </body>
