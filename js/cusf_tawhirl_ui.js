@@ -4,7 +4,7 @@ function Request() {
     this.statusPollInterval = 500; //ms
     this.statusCheckTimeout = 5000; //ms
     this.numberOfFails = 0;
-    this.maxNumberOfFails = 5;
+    this.maxNumberOfFails = 3;
     this.status = 'running';
     this.numberOfReruns = 0;
     this.maxNumberOfReruns = 3;
@@ -16,7 +16,6 @@ function Request() {
 
     this.rerun = function() {
         this.numberOfFails = 0;
-        this.maxNumberOfFails = 10;
         this.status = 'running';
 
         this.submitForm(this.CSVParseCallback, this.args, this.data);
@@ -294,6 +293,9 @@ function Map() {
                     console.log("The elevation at this point is " + results[0].elevation + " meters.");
                     // set the result
                     $('#inputLaunchAltitude').val(results[0].elevation);
+                    // set units to m
+                    $('#unit-current-LaunchAltitude').html('m');
+                    $('input[name=unitLaunchAltitude]').val('m');
                 } else {
                     infoAlert("No elevation results found", 'error');
                 }
@@ -540,7 +542,7 @@ function Map() {
     };
 
     this.selectPath = function(path) {
-        console.log(path);
+        //console.log(path);
         parent.dimAllPaths();
         parent.unDimPath(path);
     };
@@ -595,6 +597,7 @@ function Map() {
                 if (parent.hourlyPrediction) {
                     hourlySlider = new HourlySlider(map.responsesReceived - 1);
                     hourlySlider.setValue(0);
+                    hourlySlider.showPopup();
                     //initHourlySlider(map.responsesReceived - 1);
                     //setHourlySlider(0);
                 } else {
@@ -635,7 +638,9 @@ function Form() {
         // ajax submission
         $('#prediction-form').submit(function(event) {
             event.preventDefault();
-            predict();
+            parent.submit();
+            //predict();
+            return false;
         });
 
         // setting position
@@ -672,7 +677,58 @@ function Form() {
             }
         });
 
+        // units
+        $('.unit-selection .dropdown-menu li a').click(function(event) {
+            event.preventDefault();
+            var unit = $(this);
+            var unit_selection = unit.closest('.unit-selection');
+            unit_selection.find('.unit-current').html(unit.html());
+            unit_selection.find('input').val(unit.html());
+            unit_selection.click();
+            return false;
+        });
+
     };
+
+    this.submit = function() {
+        var formData = parent.serializeToObject();
+
+        // convert to standard units (m, m/s)
+        console.log('unit conversion: ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
+        formData.initial_alt = parent.convertUnits(formData.initial_alt, formData.unitLaunchAltitude);
+        formData.ascent = parent.convertUnits(formData.ascent, formData.unitLaunchAscentRate);
+        formData.burst = parent.convertUnits(formData.burst, formData.unitLaunchBurstAlt);
+        formData.drag = parent.convertUnits(formData.drag, formData.unitLaunchDescentRate);
+        console.log('converted to   : ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
+
+        // remove unrequired fields
+        delete formData.unitLaunchAltitude;
+        delete formData.unitLaunchAscentRate;
+        delete formData.unitLaunchBurstAlt;
+        delete formData.unitLaunchDescentRate;
+
+        predict(formData);
+    };
+
+    this.convertUnits = function(value, fromUnits) {
+        switch (fromUnits) {
+            case 'm':
+                return value;
+                break;
+            case 'ft':
+                return feetToMeters(value);
+                break;
+            case 'm/s':
+                return value;
+                break;
+            case 'ft/s':
+                return feetToMeters(value);
+                break;
+            default:
+                infoAlert('Unrecognised units ' + fromUnits, 'error');
+        }
+    };
+
     this.onSwipe = function(direction) {
         if ((isMobile && direction == 'up') || (!isMobile && direction == 'left')) {
             parent.close();
@@ -729,6 +785,7 @@ function Form() {
     this.autoPopulateInputs();
     this.setUpEventHandling();
     // end init code
+
 }
 
 function Notifications() {
@@ -862,7 +919,7 @@ function HourlySlider(max) {
     this.init(max);
 }
 
-function predict() {
+function predict(formData) {
     notifications.closeAllNotifications();
     try {
         hourlySlider.remove();
@@ -871,7 +928,6 @@ function predict() {
     map.reset();
     showProgressBar();
     makeProgressBarAnimated();
-    var formData = form.serializeToObject();
     //console.log(formData);
     var runTime = new Date(
             formData.year,
@@ -886,13 +942,13 @@ function predict() {
         // is not an hourly prediction
         map.hourlyPrediction = false;
         map.totalResponsesExpected = 1;
-        map.plotPath($('#prediction-form').serialize(), runTime);
+        map.plotPath($.param(formData), runTime);
     } else {
         // is an hourly prediction
         map.hourlyPrediction = true;
         var i = 0;
         for (i; i < map.hourlyPredictionHours; i++) {
-            var predictionData = jQuery.extend({}, formData);
+            var predictionData = $.extend({}, formData);
             var d = new Date(runTime.getTime() + i * 1440000); // add i hours
             predictionData.year = d.getFullYear();
             predictionData.month = d.getMonth();

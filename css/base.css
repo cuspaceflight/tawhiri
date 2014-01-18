@@ -168,6 +168,15 @@ body { height: 100%; margin: 0; padding: 0 }
 }
 
 
+.unit-selection .dropdown-menu {
+    min-width: 50px;
+}
+
+.unit-selection .btn {
+    background-color: #EEEEEE;
+}
+
+
 
 @media (max-width: 500px){
     #form-wrap{

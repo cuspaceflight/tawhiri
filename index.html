@@ -66,7 +66,14 @@
             <div class="col-sm-9">
               <div class="input-group">
                 <input type="number" step="any" class="form-control" id="inputLaunchAltitude" name="initial_alt" value="0" placeholder="" required="required">
-                <span class="input-group-addon">m</span>
+                <div class="input-group-btn unit-selection">       
+                  <input type="hidden" name="unitLaunchAltitude" value="m"/>
+                  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span id="unit-current-LaunchAltitude" class="unit-current">m</span> <span class="caret"></span></button>
+                  <ul class="dropdown-menu pull-right">
+                    <li><a href="#">m</a></li>
+                    <li><a href="#">ft</a></li>
+                  </ul>
+                </div><!-- /btn-group -->
               </div>
             </div>
           </div>
@@ -205,7 +212,14 @@
             <div class="col-sm-6">
               <div class="input-group">
                 <input type="number" step="any" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="" required="required">
-                <span class="input-group-addon">m/s</span>
+                <div class="input-group-btn unit-selection">         
+                  <input type="hidden" name="unitLaunchAscentRate" value="m/s"/>
+                  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m/s</span> <span class="caret"></span></button>
+                  <ul class="dropdown-menu pull-right">
+                    <li><a href="#">m/s</a></li>
+                    <li><a href="#">ft/s</a></li>
+                  </ul>
+                </div><!-- /btn-group -->
               </div>
             </div>
           </div>
@@ -214,7 +228,14 @@
             <div class="col-sm-6">
               <div class="input-group">
                 <input type="number" step="any" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="" required="required">
-                <span class="input-group-addon">m</span>
+                <div class="input-group-btn unit-selection">    
+                  <input type="hidden" name="unitLaunchBurstAlt" value="m"/>
+                  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m</span> <span class="caret"></span></button>
+                  <ul class="dropdown-menu pull-right">
+                    <li><a href="#">m</a></li>
+                    <li><a href="#">ft</a></li>
+                  </ul>
+                </div><!-- /btn-group -->
               </div>
             </div>
           </div>
@@ -223,7 +244,14 @@
             <div class="col-sm-6">
               <div class="input-group">
                 <input type="number" step="any" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="" required="required">
-                <span class="input-group-addon">m/s</span>
+                <div class="input-group-btn unit-selection">  
+                  <input type="hidden" name="unitLaunchDescentRate" value="m/s"/>
+                  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m/s</span> <span class="caret"></span></button>
+                  <ul class="dropdown-menu pull-right">
+                    <li><a href="#">m/s</a></li>
+                    <li><a href="#">ft/s</a></li>
+                  </ul>
+                </div><!-- /btn-group -->
               </div>
             </div>
           </div>
