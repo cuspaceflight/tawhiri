@@ -8,8 +8,8 @@ function Request() {
     this.status = 'running';
     this.numberOfReruns = 0;
     this.maxNumberOfReruns = 3;
-    this.CSVParseCallback = null;
-    this.args = null;
+    this.CSVParseCallbackFunction = null;
+    this.CSVParseCallbackArgs = null;
     this.data = null;
 
     var parent = this;
@@ -18,25 +18,20 @@ function Request() {
         this.numberOfFails = 0;
         this.status = 'running';
 
-        this.submitForm(this.CSVParseCallback, this.args, this.data);
+        this.submitForm(this.CSVParseCallbackFunction, this.CSVParseCallbackArgs, this.data);
     };
 
-    this.pollForFinishedStatus = function(CSVParseCallback) {
+    this.pollForFinishedStatus = function() {
         this.shouldKeepPollingStatus = true;
         this.hasFinished = false;
-        this.setStatusCheck(CSVParseCallback);
+        this.setStatusCheck();
     };
 
 
     this.submitForm = function(CSVParseCallback, args, data) {
-        this.CSVParseCallback = CSVParseCallback;
-        this.args = args;
+        this.CSVParseCallbackFunction = CSVParseCallback;
+        this.CSVParseCallbackArgs = args;
         this.data = data;
-        var CSVParseCallbackInfo = {
-            func: CSVParseCallback,
-            args: args
-        };
-        //console.log($("#prediction-form").serialize());
 
         $.ajax({
             data: data || $("#prediction-form").serialize(),
@@ -51,14 +46,14 @@ function Request() {
             },
             success: function(data) {
                 console.log(data);
-                if (data.valid == 'false') {
+                if (data.valid === 'false') {
                     infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error, 'error');
                     parent.status = 'failed';
-                } else if (data.valid == 'true') {
+                } else if (data.valid === 'true') {
                     parent.uuid = data.uuid;
                     console.log('Prediction form submitted with uuid ' + parent.uuid);
                     parent.isBackendWorking = true;
-                    parent.pollForFinishedStatus(CSVParseCallbackInfo);
+                    parent.pollForFinishedStatus();
                 } else {
                     console.log('Error submitting prediction form, invalid data.valid');
                     parent.status = 'failed, should rerun';
@@ -67,25 +62,24 @@ function Request() {
         });
     };
 
-    this.setStatusCheck = function(CSVParseCallback) {
+    this.setStatusCheck = function() {
         window.setTimeout(function() {
-            parent.checkStatus(CSVParseCallback);
+            parent.checkStatus();
         }, parent.statusPollInterval);
     };
 
-    this.checkStatus = function(CSVParseCallback) {
-        var hasFinished = false;
+    this.checkStatus = function() {
         $.ajax({
             url: parent.base_url + 'preds/' + parent.uuid + '/progress.json',
             cache: false,
             dataType: 'json',
             timeout: parent.statusCheckTimeout,
             error: function(xhr, status, error) {
-                if (status == 'timeout') {
+                if (status === 'timeout') {
                     if (parent.numberOfFails <= parent.maxNumberOfFails) {
                         parent.numberOfFails++;
                         console.log('Status update failed, timeout (>5s). trying again', 'info', 'info');
-                        parent.setStatusCheck(CSVParseCallback);
+                        parent.setStatusCheck();
                     } else {
                         console.log('Status update failed, maximum number of attempts reached. Aborting.');
                         parent.status = 'failed, should rerun';
@@ -95,7 +89,7 @@ function Request() {
                     if (parent.numberOfFails <= parent.maxNumberOfFails) {
                         parent.numberOfFails++;
                         console.log('Status update failed. trying again; ' + status + '; ' + error, 'info', 'info');
-                        parent.setStatusCheck(CSVParseCallback);
+                        parent.setStatusCheck();
                     } else {
                         console.log('Status update failed, maximum number of attempts reached. Aborting.');
                         parent.status = 'failed, should rerun';
@@ -103,15 +97,15 @@ function Request() {
                 }
             },
             success: function(data) {
-                if (data.pred_complete == false) {
-                    if (data.pred_running == false) {
+                if (data.pred_complete === false) {
+                    if (data.pred_running === false) {
                         console.log('Error: predictor not finished but not running');
                         parent.status = 'failed, should rerun';
                         return;
                     }
-                    parent.setStatusCheck(CSVParseCallback);
-                } else if (data.pred_complete == true) {
-                    parent.getCSVData(CSVParseCallback);
+                    parent.setStatusCheck();
+                } else if (data.pred_complete === true) {
+                    parent.getCSVData();
                 } else {
                     console.log('Error: predictor status invalid');
                     parent.status = 'failed, should rerun';
@@ -120,11 +114,11 @@ function Request() {
         });
     };
 
-    this.getCSVData = function(CSVParseCallback) {
+    this.getCSVData = function() {
         $.get(parent.base_url + 'ajax.php', {action: 'getCSV', uuid: parent.uuid}, function(data) {
-            if (data != null) {
+            if (data !== null) {
                 //console.log('Got CSV data from server');
-                if (CSVParseCallback.func(data, CSVParseCallback.args)) {
+                if (parent.CSVParseCallbackFunction(data, parent.CSVParseCallbackArgs)) {
                     //console.log('Finished parsing CSV data');
                     parent.status = 'success';
                 } else {
@@ -225,6 +219,7 @@ function Map() {
     google.maps.event.addListener(this.map, 'rightclick', function(event) {
         console.log("Right click event", event);
         parent.setLaunch(event);
+        form.open();
     });
     // end init code
 
@@ -246,6 +241,7 @@ function Map() {
             parent.stopListeningForLeftClick();
             console.log("Left click event", event);
             parent.setLaunch(event);
+            form.open();
         });
     };
     this.stopListeningForLeftClick = function() {
@@ -269,14 +265,13 @@ function Map() {
     };
 
     this.setLaunch = function(event) {
-        console.log('Setting launch position and marker')
+        console.log('Setting launch position and marker');
         this.setLaunchPosition(event.latLng);
         this.placeMarker(event.latLng);
     };
 
     this.setLaunchPosition = function(latLng) {
         // set the lat long values
-        //console.log(latLng);
         $('#inputLaunchLat').val(latLng.lat());
         $('#inputLaunchLong').val(latLng.lng());
         // get and set the altitude
@@ -341,7 +336,6 @@ function Map() {
 
         var pathCollection = [poly, polyw];
 
-        var items = [];
         var time;
         var lat;
         var lng;
@@ -352,10 +346,11 @@ function Map() {
         var burst_lng;
         var burst_alt = -10;
         var burst_latlng;
+
         $.each(data, function(key, val) {
             // each location, time string
             var results = val.split(',');
-            if (results.length == 4) {
+            if (results.length === 4) {
                 time = new Date(parseInt(results[0]) * 1000); // convert to ms
                 lat = parseFloat(results[1]);
                 lng = parseFloat(results[2]);
@@ -370,7 +365,7 @@ function Map() {
                 //parent.plotPathInfoPoint(latlng, infostr, pathCollection);
                 //console.log(infostr);
 
-                if (key == 0) {
+                if (key === 0) {
                     // launch position
                     var marker = new google.maps.Marker({
                         position: latlng,
@@ -430,7 +425,6 @@ function Map() {
         };
         var polyw = new google.maps.Polyline(polywOptions);
         polyw.setMap(this.map);
-        var pathw = polyw.getPath();
         google.maps.event.addListener(polyw, 'click', function(event) {
             hourlySlider.setValue($.inArray(launchTime, parent.hourlyPredictionTimes));
             //setHourlySlider($.inArray(launchTime, parent.hourlyPredictionTimes));
@@ -550,7 +544,7 @@ function Map() {
     this.onHourlySliderSlide = function(event) {
         //console.log(event);
         var value = event.value;
-        if (value != parent.currentHourlySliderValue) {
+        if (value !== parent.currentHourlySliderValue) {
             parent.currentHourlySliderValue = value;
             //console.log(parent.hourlyPredictionTimes);
             parent.selectPath(parent.paths[parent.hourlyPredictionTimes[value]]);
@@ -561,11 +555,11 @@ function Map() {
         parent.hasChangedProgressBar = false;
         parent.runningRequests = $.grep(parent.runningRequests, function(request, index) {
             console.log(request.status);
-            if (request.status == 'success') {
+            if (request.status === 'success') {
                 return false;
-            } else if (request.status == 'running') {
+            } else if (request.status === 'running') {
                 return true;
-            } else if (request.status == 'failed, should rerun' && request.numberOfReruns <= request.maxNumberOfReruns) {
+            } else if (request.status === 'failed, should rerun' && request.numberOfReruns <= request.maxNumberOfReruns) {
                 console.log('Rerunning request:');
                 console.log(request);
                 request.numberOfReruns++;
@@ -617,7 +611,7 @@ function Map() {
 
 function Form() {
     this.isOpen = true;
-    this.canBeHoveredOver = true;
+    this.canBeOpened = true;
     var parent = this;
 
     this.autoPopulateInputs = function() {
@@ -625,8 +619,9 @@ function Form() {
         var currentTime = new Date();
         var d = new Date(currentTime.getTime() + 5 * 60000); // add 5 minutes into the future
 
+        var month = d.getMonth() + 1; // remove  +1 for new specification
         $('#inputLaunchDay').attr("value", d.getDate());
-        $('#inputLaunchMonth option[value=' + d.getMonth() + ']').attr("selected", "selected");
+        $('#inputLaunchMonth option[value=' + month + ']').attr("selected", "selected");
         $('#inputLaunchYear').attr("value", d.getFullYear());
         var hrs = padTwoDigits(d.getHours());
         var mins = padTwoDigits(d.getMinutes());
@@ -639,7 +634,6 @@ function Form() {
         $('#prediction-form').submit(function(event) {
             event.preventDefault();
             parent.submit();
-            //predict();
             return false;
         });
 
@@ -651,7 +645,7 @@ function Form() {
         });
 
         //Enable swiping...
-        $("#form-wrap .formToggleVisible-wrap").swipe({
+        $('#form-wrap .formToggleVisible-wrap').swipe({
             //Generic swipe handler for all directions
             swipe: function(event, direction, distance, duration, fingerCount) {
                 if (fingerCount > 0) {
@@ -664,18 +658,19 @@ function Form() {
         });
 
         //Clicking
-        $("#form-wrap .formToggleVisible-wrap").mousedown(function(event) {
+        $('#form-wrap .formToggleVisible-wrap').mousedown(function(event) {
             console.log('mousedown');
             parent.toggle();
         });
 
         // hover
-        $("#form-wrap .formToggleVisible-wrap").hover(function(event) {
-            if (parent.canBeHoveredOver) {
-                console.log('hover');
-                parent.open();
-            }
+        $('#form-wrap .formToggleVisible-wrap').hover(function(event) {
+            console.log('hover');
+            parent.open();
         });
+
+        // focus
+        $('#form-wrap').focus(parent.open);
 
         // units
         $('.unit-selection .dropdown-menu li a').click(function(event) {
@@ -730,14 +725,14 @@ function Form() {
     };
 
     this.onSwipe = function(direction) {
-        if ((isMobile && direction == 'up') || (!isMobile && direction == 'left')) {
+        if ((isMobile && direction === 'up') || (!isMobile && direction === 'left')) {
             parent.close();
-        } else if ((isMobile && direction == 'down') || (!isMobile && direction == 'right')) {
+        } else if ((isMobile && direction === 'down') || (!isMobile && direction === 'right')) {
             parent.open();
         }
     };
     this.open = function() {
-        if (parent.isOpen) {
+        if (parent.isOpen || !parent.canBeOpened) {
             return;
         }
         if (isMobile) {
@@ -751,10 +746,9 @@ function Form() {
         if (!parent.isOpen) {
             return;
         }
-
-        parent.canBeHoveredOver = false;
+        parent.canBeOpened = false;
         window.setTimeout(function() {
-            parent.canBeHoveredOver = true;
+            parent.canBeOpened = true;
         }, 500);
 
         if (isMobile) {
@@ -841,7 +835,7 @@ function Notifications() {
         $('#' + id).bind('close.bs.alert', function() {
             // remove from global openAlerts array
             parent.openNotifications = $.grep(parent.openNotifications, function(value) {
-                return value != notification;
+                return value !== notification;
             });
             parent.notificationArea.css({
                 height: parent.notificationArea.outerHeight() - notification.outerHeight(true)
@@ -968,7 +962,7 @@ function predict(formData) {
 
 function padTwoDigits(x) {
     x = x + "";
-    if (x.length == 1) {
+    if (x.length === 1) {
         x = "0" + x;
     }
     return x;
@@ -1023,13 +1017,23 @@ function onWindowSizeChange() {
     }
 }
 
-var openAlerts = {};
 var elevator;
 var map;
 var form;
 var notifications;
 var hourlySlider;
 var isMobile = false;
+
+function debug(msg) {
+    $('#debug').html(msg);
+}
+
+function debugAppend(msg) {
+    $('#debug').append('<br/>' + msg);
+}
+function debugClear() {
+    debug();
+}
 
 $(function() {
     elevator = new google.maps.ElevationService();

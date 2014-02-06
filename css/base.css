@@ -1,3 +1,15 @@
+#debug {
+    position: absolute;
+    color: red;
+    background: #FFED24;
+    bottom: 0;
+    right: 0;
+    display: block;
+    opacity: 0.5;
+    font-family: monospace;
+    font-weight: bold;
+}
+
 
 html { height: 100% }
 body { height: 100%; margin: 0; padding: 0 }

@@ -3,7 +3,9 @@
   <head>
     <!-- Matthew Judge, 2014 -->
     <title>Tawhirl</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
     <link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
     <link href="css/base.css" rel="stylesheet" media="screen">
     <link href="css/slider.css" rel="stylesheet" media="screen">
@@ -28,7 +30,7 @@
   </head>
 
   <body>
-    <div class="tall" id="form-wrap">
+    <div class="tall" id="form-wrap" tabindex="0">
       <div class="formToggleVisible-wrap">
         <span class="formToggleVisible">
           <span class="toggle-bar toggle-bar-1"></span>
@@ -285,8 +287,9 @@
       <div id="hourly-time-slider-container" data-toggle="popover" data-placement="left" data-content="Select a time to show corrosponding path">
         <div id="hourly-time-slider"></div>
       </div>
-      <div id="map-canvas"></div>
+      <div id="map-canvas" tabindex="-1"></div>
     </div>
+    <div id="debug"></div>
 
     <script src="js/bootstrap.min.js"></script>
   </body>
