@@ -10,7 +10,6 @@
     font-weight: bold;
 }
 
-
 html { height: 100% }
 body { height: 100%; margin: 0; padding: 0 }
 #map-canvas { height: 100% }
@@ -57,7 +56,7 @@ body { height: 100%; margin: 0; padding: 0 }
     bottom: 30px;
     display: block;
     width: 100%;
-    z-index: 80;
+    z-index: 800;
 }
 #notification-area{
     width: 80%;
@@ -67,7 +66,7 @@ body { height: 100%; margin: 0; padding: 0 }
     -webkit-transition: all .5s;
     -moz-transition: all .5s;
     transition: all .5s;/**/
-    
+
 }
 
 #map-col {
@@ -81,6 +80,7 @@ body { height: 100%; margin: 0; padding: 0 }
 
     background: white;
     opacity: 0.8;
+    padding-right: 40px;
     /*
     -webkit-transition: all .5s;
     -moz-transition: all .5s;
@@ -103,16 +103,27 @@ body { height: 100%; margin: 0; padding: 0 }
 .date-row > * {
     padding: 4px;
 }
-
+/*
 #form-wrap:hover, #form-wrap:active, #form-wrap:focus {
     opacity: 1;    
+}
+*/
+#map-wrap{
+    position: relative;
+}
+#map-wrap.tofront {
+    z-index: 1000;
+}
+
+#form-wrap.active {
+    opacity: 1;
 }
 
 #form-wrap .formToggleVisible-wrap {
     position: absolute;
-    right: -20px;
+    right: 0;
     display: block;
-    width: 20px;
+    width: 40px;
     height: 100%;
     background: white;
 }
@@ -127,6 +138,7 @@ body { height: 100%; margin: 0; padding: 0 }
     top: 50%;
     border-top-right-radius: 5px;
     border-bottom-right-radius: 5px;
+    right: 0;
 }
 
 .formToggleVisible .toggle-bar{
@@ -191,48 +203,57 @@ body { height: 100%; margin: 0; padding: 0 }
 
 
 @media (max-width: 500px){
+
     #form-wrap{
         width: 100%;
     }
 
     #form-wrap .formToggleVisible-wrap {
-        bottom: -20px;
-        width: 100%;
-        height: 20px;
-        left: 0;
+        width: 20px;
     }
 
-    .formToggleVisible {
-        height: 20px;
-        width: 50px;
-        left: 50%;
-        border-top-right-radius: 0;
-        border-bottom-left-radius: 5px;
-        border-bottom-right-radius: 5px;
+    #form-wrap {
+        padding-right: 40px;
     }
-
-    .formToggleVisible .toggle-bar{
-        left: 0;
-        height: 3px;
-        width: 100%;
-    }
-
-    .formToggleVisible .toggle-bar-1{   
-        top: 5px;
-    }
-    .formToggleVisible .toggle-bar-2{
-        bottom: 5px;
-    }
-
-    #map-wrap{
-        position: relative;
-    }
+    /*
+        #form-wrap .formToggleVisible-wrap {
+            bottom: -20px;
+            width: 100%;
+            height: 20px;
+            left: 0;
+        }
+    
+        .formToggleVisible {
+            height: 20px;
+            width: 50px;
+            left: 50%;
+            border-top-right-radius: 0;
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
+        }
+    
+        .formToggleVisible .toggle-bar{
+            left: 0;
+            height: 3px;
+            width: 100%;
+        }
+    
+        .formToggleVisible .toggle-bar-1{   
+            top: 5px;
+        }
+        .formToggleVisible .toggle-bar-2{
+            bottom: 5px;
+        }
+    
+        #map-wrap{
+            position: relative;
+        }*/
     #progress-bar{
         width: 300px;
     }
-    
+
     #progress-bar-wrapper{
         top: 50px;
     }
-    
+
 }

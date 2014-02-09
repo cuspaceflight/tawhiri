@@ -1,6 +1,7 @@
 
 function Request() {
-    this.base_url = 'http://predict.habhub.org/';
+    //this.base_url = 'http://predict.habhub.org/';
+    this.base_url = '';
     this.statusPollInterval = 500; //ms
     this.statusCheckTimeout = 5000; //ms
     this.numberOfFails = 0;
@@ -175,7 +176,7 @@ function Map() {
     this.markers = [];
     this.paths = {};
     this.pathPointInfoWindows = [];
-    this.hourlyPredictionHours = 50;
+    this.hourlyPredictionHours = 10;
     this.hourlyPrediction = false;
     this.hourlyPredictionTimes = [];
     this.mapBounds = [];
@@ -185,6 +186,7 @@ function Map() {
     this.shouldCheckForCompletion = true;
     this.runningRequests = [];
     this.currentHourlySliderValue = null;
+    this.selectedPath = null;
     // initialisation code
     this.mapOptions = {
         center: new google.maps.LatLng(52, 0),
@@ -231,12 +233,14 @@ function Map() {
         this.totalResponsesExpected = 1;
         this.willNotComplete = false;
         this.shouldCheckForCompletion = true;
-        this.runningRequests = [];
+        this.runningRequests.length = 0;
         this.currentHourlySliderValue = null;
-        this.hourlyPredictionTimes = [];
+        this.hourlyPredictionTimes.length = 0;
+        this.selectedPath = null;
     };
 
     this.listenForNextLeftClick = function() {
+        $('#map-wrap').addClass('tofront');
         google.maps.event.addListener(parent.map, 'click', function(event) {
             parent.stopListeningForLeftClick();
             console.log("Left click event", event);
@@ -245,6 +249,7 @@ function Map() {
         });
     };
     this.stopListeningForLeftClick = function() {
+        $('#map-wrap').removeClass('tofront');
         google.maps.event.clearListeners(parent.map, 'click');
     };
 
@@ -309,6 +314,7 @@ function Map() {
                 }
             }
         });
+        delete parent.paths;
         parent.paths = {};
     };
 
@@ -497,22 +503,26 @@ function Map() {
 
     this.dimAllPaths = function() {
         $.each(this.paths, function(key, val) {
-            if (parent.paths[key].pathCollection) {
-                for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
-                    parent.paths[key].pathCollection[j].setVisible(false);
-                }
+            parent.dimPath(parent.paths[key]);
+        });
+    };
+
+    this.dimPath = function(path) {
+        if (path.pathCollection) {
+            for (var j = 0; j < path.pathCollection.length; j++) {
+                path.pathCollection[j].setVisible(false);
             }
-            parent.paths[key].poly.setOptions({
-                visible: true,
-                strokeOpacity: 0.1,
-                strokeColor: '#000000',
-                zIndex: 20
-            });
-            parent.paths[key].polyw.setOptions({
-                visible: true,
-                strokeOpacity: 0.1,
-                zIndex: 30
-            });
+        }
+        path.poly.setOptions({
+            visible: true,
+            strokeOpacity: 0.1,
+            strokeColor: '#000000',
+            zIndex: 20
+        });
+        path.polyw.setOptions({
+            visible: true,
+            strokeOpacity: 0.1,
+            zIndex: 30
         });
     };
 
@@ -537,8 +547,13 @@ function Map() {
 
     this.selectPath = function(path) {
         //console.log(path);
-        parent.dimAllPaths();
+        if (parent.selectedPath) {
+            parent.dimPath(parent.selectedPath);
+        } else {
+            parent.dimAllPaths();
+        }
         parent.unDimPath(path);
+        parent.selectedPath = path;
     };
 
     this.onHourlySliderSlide = function(event) {
@@ -587,6 +602,7 @@ function Map() {
         if (parent.responsesReceived >= parent.totalResponsesExpected) {
             if (parent.responsesReceived > 0) {
                 // all responses received
+                console.log(currentTimeouts);
                 parent.centerMapToBounds();
                 if (parent.hourlyPrediction) {
                     hourlySlider = new HourlySlider(map.responsesReceived - 1);
@@ -609,11 +625,179 @@ function Map() {
     };
 }
 
-function Form() {
-    this.isOpen = true;
-    this.canBeOpened = true;
+function SlidingPanel(el) {
     var parent = this;
+    this.el = el;
+    this.toggleVisibleEl = this.el.children('.formToggleVisible-wrap');
+    this.width = null;
+    this.minMarginx = null;
+    this.snapVelocity = 0.1; // velocity (px/ms) to register as a final slide
+    this.x = null;
+    this.y = null;
+    this.deltax = 0;
+    this.deltay = 0;
+    this.hasFirstMoveOccured = false;
+    this.t = null;
+    this.deltat = null;
+    this.isOpen = false;
+    this.isBeingMoved = false;
+    this.canBeOpened = true;
+    this.minDeltax = 3; // min pixels moved to register as a sliding action
 
+    this.getMeasurements = function() {
+        this.width = this.el.outerWidth();
+        this.minMarginx = -(this.width - this.toggleVisibleEl.outerWidth());
+    };
+    this.init = function() {
+        this.getMeasurements();
+
+        this.toggleVisibleEl.on('touchend', function(e) {
+            if (!parent.hasFirstMoveOccured) {
+                e.preventDefault();
+                parent.isBeingMoved = false;
+                parent.toggle();
+            }
+        });
+        this.el.on('touchstart', function(e) {
+            if (parent.isBeingMoved) {
+                return;
+            }
+            console.log('touchstart');
+            parent.t = e.timeStamp;
+            var touchevent = e.originalEvent;
+            parent.x = touchevent.changedTouches[0].pageX;
+            parent.y = touchevent.changedTouches[0].pageY;
+            parent.deltax = 0;
+            parent.deltay = 0;
+            parent.isBeingMoved = true;
+            parent.hasFirstMoveOccured = false;
+        });
+        this.el.on('touchmove', function(e) {
+            if (!parent.isBeingMoved) {
+                return;
+            }
+            //console.log(e);
+            parent.deltat = e.timeStamp - parent.t;
+            parent.t = e.timeStamp;
+            var touchevent = e.originalEvent;
+            var newX = touchevent.changedTouches[0].pageX;
+            var newY = touchevent.changedTouches[0].pageY;
+            if (parent.x === null) {
+                parent.x = newX;
+                parent.deltax = parent.x;
+            } else {
+                parent.deltax = newX - parent.x;
+                parent.x = newX;
+            }
+            if (parent.y === null) {
+                parent.y = newY;
+                parent.deltay = parent.y;
+            } else {
+                parent.deltay = newY - parent.y;
+                parent.y = newY;
+            }
+            if (!parent.hasFirstMoveOccured) {
+                if (parent.deltax < -parent.minDeltax || parent.deltax > parent.minDeltax) {
+                    //console.log('being moved');
+                    e.preventDefault();
+                    //console.log('touchmove', parent.deltax, parent.deltay);
+                    parent.hasFirstMoveOccured = true;
+                } else {
+                    parent.isBeingMoved = false;
+                    return;
+                }
+            }
+            parent.el.css({'margin-left': parent._getBoundedMarginx(parent.getCurrentMarginX() + parent.deltax)});
+        });
+        this.el.on('touchend', function(e) {
+            if (!parent.isBeingMoved) {
+                return;
+            }
+            //console.log('touchend');
+            //console.log('touchend', e);
+            var velocity = parent.deltax / parent.deltat;
+            //console.log('velocity', velocity);
+            if (velocity < -parent.snapVelocity) {
+                parent.close();
+            } else if (velocity > parent.snapVelocity) {
+                parent.open();
+            } else {
+                parent.snapTo();
+            }
+            parent.isBeingMoved = false;
+        });
+
+        //Clicking
+        parent.toggleVisibleEl.click(function(event) {
+            event.preventDefault();
+            console.log('click');
+            parent.toggle();
+        });
+        // hover
+        parent.el.hover(function(event) {
+            event.preventDefault();
+            console.log('hover');
+            parent.open();
+        });
+    };
+    this.getCurrentMarginX = function() {
+        return parseInt(parent.el.css('margin-left'));
+    };
+    this._getBoundedMarginx = function(target) {
+        if (target < parent.minMarginx) {
+            return parent.minMarginx;
+        } else if (target > 0) {
+            return 0;
+        }
+        return target;
+    };
+    this.snapTo = function() {
+        var ml = parent.getCurrentMarginX();
+        var halfway = -(0.5 * parent.width);
+        if (ml < halfway) {
+            parent.close();
+        } else {
+            parent.open();
+        }
+    };
+    this.open = function() {
+        console.log('open called', parent.isBeingMoved, parent.isOpen, parent.canBeOpened);
+        console.log('will open', !((!parent.isBeingMoved) && (parent.isOpen || (!parent.canBeOpened))));
+        if (!parent.isBeingMoved && (parent.isOpen || !parent.canBeOpened)) {
+            return;
+        }
+        parent.el.animate({marginLeft: 0});
+        parent.isOpen = true;
+    };
+    this.close = function() {
+        //console.log('close called');
+        if (!parent.isBeingMoved && !parent.isOpen) {
+            return;
+        }
+        parent.canBeOpened = false;
+        window.setTimeout(function() {
+            parent.canBeOpened = true;
+        }, 800);
+
+        parent.el.animate({marginLeft: parent._getBoundedMarginx(-parent.width)});
+        //parent.el.css({'margin-left': parent._getBoundedMarginx(-parent.width)});
+        parent.isOpen = false;
+    };
+    this.toggle = function() {
+        //console.log('is open', parent.isOpen);
+        if (parent.isOpen) {
+            parent.close();
+        } else {
+            parent.open();
+        }
+    };
+    this.init();
+    return this;
+}
+
+function Form() {
+    this.slidingPanel = new SlidingPanel($('#form-wrap'));
+    var parent = this;
     this.autoPopulateInputs = function() {
         // date time
         var currentTime = new Date();
@@ -628,7 +812,6 @@ function Form() {
         $('#inputLaunchHour option[value=' + hrs + ']').attr("selected", "selected");
         $('#inputLaunchMinute option[value=' + mins + ']').attr("selected", "selected");
     };
-
     this.setUpEventHandling = function() {
         // ajax submission
         $('#prediction-form').submit(function(event) {
@@ -636,42 +819,16 @@ function Form() {
             parent.submit();
             return false;
         });
-
         // setting position
         $('#btn-set-position').click(function(event) {
             map.listenForNextLeftClick();
             parent.close();
             infoAlert('Now click anywhere on the map', 'info', 3000);
         });
-
-        //Enable swiping...
-        $('#form-wrap .formToggleVisible-wrap').swipe({
-            //Generic swipe handler for all directions
-            swipe: function(event, direction, distance, duration, fingerCount) {
-                if (fingerCount > 0) {
-                    // prevent mouse problems
-                    parent.onSwipe(direction);
-                }
-            },
-            //Default is 75px, set to 0 for demo so any distance triggers swipe
-            threshold: 5
-        });
-
-        //Clicking
-        $('#form-wrap .formToggleVisible-wrap').mousedown(function(event) {
-            console.log('mousedown');
-            parent.toggle();
-        });
-
-        // hover
-        $('#form-wrap .formToggleVisible-wrap').hover(function(event) {
-            console.log('hover');
-            parent.open();
-        });
-
-        // focus
-        $('#form-wrap').focus(parent.open);
-
+        /*
+         // focus
+         $('#form-wrap').focus(parent.open);
+         */
         // units
         $('.unit-selection .dropdown-menu li a').click(function(event) {
             event.preventDefault();
@@ -682,12 +839,9 @@ function Form() {
             unit_selection.click();
             return false;
         });
-
     };
-
     this.submit = function() {
         var formData = parent.serializeToObject();
-
         // convert to standard units (m, m/s)
         console.log('unit conversion: ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
         formData.initial_alt = parent.convertUnits(formData.initial_alt, formData.unitLaunchAltitude);
@@ -695,16 +849,13 @@ function Form() {
         formData.burst = parent.convertUnits(formData.burst, formData.unitLaunchBurstAlt);
         formData.drag = parent.convertUnits(formData.drag, formData.unitLaunchDescentRate);
         console.log('converted to   : ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
-
         // remove unrequired fields
         delete formData.unitLaunchAltitude;
         delete formData.unitLaunchAscentRate;
         delete formData.unitLaunchBurstAlt;
         delete formData.unitLaunchDescentRate;
-
         predict(formData);
     };
-
     this.convertUnits = function(value, fromUnits) {
         switch (fromUnits) {
             case 'm':
@@ -723,49 +874,9 @@ function Form() {
                 infoAlert('Unrecognised units ' + fromUnits, 'error');
         }
     };
-
-    this.onSwipe = function(direction) {
-        if ((isMobile && direction === 'up') || (!isMobile && direction === 'left')) {
-            parent.close();
-        } else if ((isMobile && direction === 'down') || (!isMobile && direction === 'right')) {
-            parent.open();
-        }
-    };
-    this.open = function() {
-        if (parent.isOpen || !parent.canBeOpened) {
-            return;
-        }
-        if (isMobile) {
-            $("#form-wrap").animate({marginTop: 0});
-        } else {
-            $("#form-wrap").animate({marginLeft: 0});
-        }
-        parent.isOpen = true;
-    };
-    this.close = function() {
-        if (!parent.isOpen) {
-            return;
-        }
-        parent.canBeOpened = false;
-        window.setTimeout(function() {
-            parent.canBeOpened = true;
-        }, 500);
-
-        if (isMobile) {
-            $("#form-wrap").animate({marginTop: -$("#form-wrap").outerHeight() + 'px'});
-        } else {
-            $("#form-wrap").animate({marginLeft: '-350px'});
-        }
-        parent.isOpen = false;
-    };
-    this.toggle = function() {
-        if (parent.isOpen) {
-            parent.close();
-        } else {
-            parent.open();
-        }
-    };
-
+    this.open = this.slidingPanel.open;
+    this.close = this.slidingPanel.close;
+    this.toggle = this.slidingPanel.toggle;
     this.serializeToObject = function() {
         var formObj = {};
         var inputs = $('#prediction-form').serializeArray();
@@ -774,7 +885,6 @@ function Form() {
         });
         return formObj;
     };
-
     // init code
     this.autoPopulateInputs();
     this.setUpEventHandling();
@@ -784,11 +894,9 @@ function Form() {
 
 function Notifications() {
     var parent = this;
-
     this.openNotifications = {};
     this.notificationArea = $('#notification-area');
     this.notificationAreaWrap = $('#notification-area-wrap');
-
     this.closeAllNotifications = function() {
         parent.openNotifications = {};
         parent.notificationArea.css({
@@ -796,19 +904,15 @@ function Notifications() {
         });
         parent.notificationArea.html('');
     };
-
     this.closeNotification = function(notification) {
         notification.alert('close');
     };
-
     this.new = function(msg, type, timeout) {
         var alertData = $.param({msg: msg, type: type});
-
         if (alertData in parent.openNotifications) {
             parent.closeNotification(parent.openNotifications[alertData]);
         }
         var alertClass, alertTitle;
-
         switch (type) {
             case 'error':
                 alertClass = 'danger';
@@ -830,7 +934,6 @@ function Notifications() {
         var notification = $('#' + id);
         //notification.hide();
         parent.notificationArea.css('height', oldHeight);
-
         // add alert close hook
         $('#' + id).bind('close.bs.alert', function() {
             // remove from global openAlerts array
@@ -841,12 +944,10 @@ function Notifications() {
                 height: parent.notificationArea.outerHeight() - notification.outerHeight(true)
             });
         });
-
         // display notification
         parent.notificationArea.animate({
             height: parent.notificationArea.outerHeight() + notification.outerHeight(true)
         });
-
         // set close timeout
         if (timeout) {
             window.setTimeout(function() {
@@ -854,7 +955,6 @@ function Notifications() {
             }, timeout);
         }
         parent.openNotifications[alertData] = notification;
-
     };
 }
 
@@ -864,9 +964,8 @@ function HourlySlider(max) {
     this.sliderContainer = $("#hourly-time-slider-container");
 
     this.init = function(max) {
-        parent.sliderContainer.html('<div id="hourly-time-slider"></div>');
-        this.sliderEl = $("#hourly-time-slider");
-
+        parent.sliderContainer.html('<input type="text" id="hourly-time-slider"/>');
+        parent.sliderEl = $("#hourly-time-slider");
         parent.sliderEl.slider({
             min: 0,
             max: max,
@@ -884,7 +983,7 @@ function HourlySlider(max) {
                 .css('right', '100%')
                 .css('margin-right', '3px');
     };
-
+    
     this.showPopup = function() {
         parent.sliderContainer.show();
         // show info popup
@@ -896,20 +995,16 @@ function HourlySlider(max) {
             parent.sliderContainer.popover('hide');
         });
     };
-
     this.hide = function() {
         parent.sliderContainer.hide();
     };
-
     this.remove = function() {
         $("#hourly-time-slider-container .slider").remove();
     };
-
     this.setValue = function(value) {
         parent.sliderEl.slider('setValue', value);
         map.onHourlySliderSlide({value: value});
     };
-
     this.init(max);
 }
 
@@ -1023,7 +1118,26 @@ var form;
 var notifications;
 var hourlySlider;
 var isMobile = false;
-
+var oldTimeout = setTimeout;
+var currentTimeouts = {};
+window.setTimeout = function(callback, timeout) {
+    //console.log("timeout started");
+    var funcstr = '' + callback;
+    funcstr = funcstr.split('\n')[0];
+    if (currentTimeouts[funcstr]) {
+        currentTimeouts[funcstr]++;
+    } else {
+        currentTimeouts[funcstr] = 1;
+    }
+    return oldTimeout(function() {
+        //console.log('timeout finished');
+        currentTimeouts[funcstr]--;
+        if (currentTimeouts[funcstr] <= 0) {
+            delete currentTimeouts[funcstr];
+        }
+        callback();
+    }, timeout);
+};
 function debug(msg) {
     $('#debug').html(msg);
 }
@@ -1042,7 +1156,6 @@ $(function() {
     notifications = new Notifications();
     $(window).resize(onWindowSizeChange);
     onWindowSizeChange();
-
     $('#hourly-time-slider-container').popover({
         placement: 'left',
         trigger: 'manual',
@@ -1060,4 +1173,5 @@ $(function() {
      infoAlert('hey');
      }, 3000);*/
     //$('#prediction-form').submit();
-});
+}
+);
