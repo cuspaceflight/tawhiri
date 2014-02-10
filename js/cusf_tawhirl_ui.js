@@ -1,5 +1,7 @@
 
 function Request() {
+    var _this = this;
+
     //this.base_url = 'http://predict.habhub.org/';
     this.base_url = '';
     this.statusPollInterval = 500; //ms
@@ -12,14 +14,13 @@ function Request() {
     this.CSVParseCallbackFunction = null;
     this.CSVParseCallbackArgs = null;
     this.data = null;
-
-    var parent = this;
+    this.checkStatusAjaxSettings = null;
 
     this.rerun = function() {
         this.numberOfFails = 0;
+        this.checkStatusAjaxSettings = null;
         this.status = 'running';
-
-        this.submitForm(this.CSVParseCallbackFunction, this.CSVParseCallbackArgs, this.data);
+        this.submit(this.CSVParseCallbackFunction, this.CSVParseCallbackArgs, this.data);
     };
 
     this.pollForFinishedStatus = function() {
@@ -29,35 +30,35 @@ function Request() {
     };
 
 
-    this.submitForm = function(CSVParseCallback, args, data) {
+    this.submit = function(CSVParseCallback, args, data) {
         this.CSVParseCallbackFunction = CSVParseCallback;
         this.CSVParseCallbackArgs = args;
         this.data = data;
 
         $.ajax({
-            data: data || $("#prediction-form").serialize(),
+            data: data,
             cache: false,
             url: this.base_url + 'ajax.php?action=submitForm',
             type: 'POST',
             dataType: 'json',
             error: function(xhr, status, error) {
                 console.log('sending form data failed; ' + status + '; ' + error);
-                parent.status = 'failed, should rerun';
+                _this.status = 'failed, should rerun';
                 console.log(xhr);
             },
             success: function(data) {
                 console.log(data);
                 if (data.valid === 'false') {
                     infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error, 'error');
-                    parent.status = 'failed';
+                    _this.status = 'failed';
                 } else if (data.valid === 'true') {
-                    parent.uuid = data.uuid;
-                    console.log('Prediction form submitted with uuid ' + parent.uuid);
-                    parent.isBackendWorking = true;
-                    parent.pollForFinishedStatus();
+                    _this.uuid = data.uuid;
+                    console.log('Prediction form submitted with uuid ' + _this.uuid);
+                    _this.isBackendWorking = true;
+                    _this.pollForFinishedStatus();
                 } else {
                     console.log('Error submitting prediction form, invalid data.valid');
-                    parent.status = 'failed, should rerun';
+                    _this.status = 'failed, should rerun';
                 }
             }
         });
@@ -65,70 +66,74 @@ function Request() {
 
     this.setStatusCheck = function() {
         window.setTimeout(function() {
-            parent.checkStatus();
-        }, parent.statusPollInterval);
+            _this.checkStatus();
+        }, _this.statusPollInterval);
     };
 
     this.checkStatus = function() {
-        $.ajax({
-            url: parent.base_url + 'preds/' + parent.uuid + '/progress.json',
-            cache: false,
-            dataType: 'json',
-            timeout: parent.statusCheckTimeout,
-            error: function(xhr, status, error) {
-                if (status === 'timeout') {
-                    if (parent.numberOfFails <= parent.maxNumberOfFails) {
-                        parent.numberOfFails++;
-                        console.log('Status update failed, timeout (>5s). trying again', 'info', 'info');
-                        parent.setStatusCheck();
+        // cache settings
+        if (this.checkStatusAjaxSettings === null) {
+            this.checkStatusAjaxSettings = {
+                url: _this.base_url + 'preds/' + _this.uuid + '/progress.json',
+                cache: false,
+                dataType: 'json',
+                timeout: _this.statusCheckTimeout,
+                error: function(xhr, status, error) {
+                    if (status === 'timeout') {
+                        if (_this.numberOfFails <= _this.maxNumberOfFails) {
+                            _this.numberOfFails++;
+                            console.log('Status update failed, timeout (>5s). trying again', 'info', 'info');
+                            _this.setStatusCheck();
+                        } else {
+                            console.log('Status update failed, maximum number of attempts reached. Aborting.');
+                            _this.status = 'failed, should rerun';
+                        }
                     } else {
-                        console.log('Status update failed, maximum number of attempts reached. Aborting.');
-                        parent.status = 'failed, should rerun';
+                        //alert(status);
+                        if (_this.numberOfFails <= _this.maxNumberOfFails) {
+                            _this.numberOfFails++;
+                            console.log('Status update failed. trying again; ' + status + '; ' + error, 'info', 'info');
+                            _this.setStatusCheck();
+                        } else {
+                            console.log('Status update failed, maximum number of attempts reached. Aborting.');
+                            _this.status = 'failed, should rerun';
+                        }
                     }
-                } else {
-                    //alert(status);
-                    if (parent.numberOfFails <= parent.maxNumberOfFails) {
-                        parent.numberOfFails++;
-                        console.log('Status update failed. trying again; ' + status + '; ' + error, 'info', 'info');
-                        parent.setStatusCheck();
+                },
+                success: function(data) {
+                    if (data.pred_complete === false) {
+                        if (data.pred_running === false) {
+                            console.log('Error: predictor not finished but not running');
+                            _this.status = 'failed, should rerun';
+                            return;
+                        }
+                        _this.setStatusCheck();
+                    } else if (data.pred_complete === true) {
+                        _this.getCSVData();
                     } else {
-                        console.log('Status update failed, maximum number of attempts reached. Aborting.');
-                        parent.status = 'failed, should rerun';
+                        console.log('Error: predictor status invalid');
+                        _this.status = 'failed, should rerun';
                     }
                 }
-            },
-            success: function(data) {
-                if (data.pred_complete === false) {
-                    if (data.pred_running === false) {
-                        console.log('Error: predictor not finished but not running');
-                        parent.status = 'failed, should rerun';
-                        return;
-                    }
-                    parent.setStatusCheck();
-                } else if (data.pred_complete === true) {
-                    parent.getCSVData();
-                } else {
-                    console.log('Error: predictor status invalid');
-                    parent.status = 'failed, should rerun';
-                }
-            }
-        });
+            };
+        }
+        $.ajax(this.checkStatusAjaxSettings);
     };
 
     this.getCSVData = function() {
-        $.get(parent.base_url + 'ajax.php', {action: 'getCSV', uuid: parent.uuid}, function(data) {
+        $.get(_this.base_url + 'ajax.php', {action: 'getCSV', uuid: _this.uuid}, function(data) {
             if (data !== null) {
                 //console.log('Got CSV data from server');
-                if (parent.CSVParseCallbackFunction(data, parent.CSVParseCallbackArgs)) {
+                if (_this.CSVParseCallbackFunction(data, _this.CSVParseCallbackArgs)) {
                     //console.log('Finished parsing CSV data');
-                    parent.status = 'success';
+                    _this.status = 'success';
                 } else {
                     console.log('Error: Parsing CSV data failed');
-                    parent.status = 'failed, should rerun';
+                    _this.status = 'failed, should rerun';
                 }
             } else {
                 console.log('Error: no CSV data actually returned');
-                parent.status = 'failed, should rerun';
+                _this.status = 'failed, should rerun';
             }
         }, 'json');
     };
@@ -171,12 +176,15 @@ var MapObjects = {
     }
 };
 
-function Map() {
-    var parent = this;
+function Map($wrapper) {
+    var _this = this;
+    this.$wrapper = $wrapper;
+    this.$canvas = this.$wrapper.children('.map-canvas');
+    this.canvas = this.$canvas[0];
     this.markers = [];
     this.paths = {};
     this.pathPointInfoWindows = [];
-    this.hourlyPredictionHours = 10;
+    this.hourlyPredictionHours = 50;
     this.hourlyPrediction = false;
     this.hourlyPredictionTimes = [];
     this.mapBounds = [];
@@ -216,11 +224,11 @@ function Map() {
         }
 
     };
-    this.map = new google.maps.Map(document.getElementById("map-canvas"),
-            this.mapOptions);
+    this.map = new google.maps.Map(this.canvas, this.mapOptions);
+
     google.maps.event.addListener(this.map, 'rightclick', function(event) {
         console.log("Right click event", event);
-        parent.setLaunch(event);
+        _this.setLaunch(event);
         form.open();
     });
     // end init code
@@ -240,17 +248,17 @@ function Map() {
     };
 
     this.listenForNextLeftClick = function() {
-        $('#map-wrap').addClass('tofront');
-        google.maps.event.addListener(parent.map, 'click', function(event) {
-            parent.stopListeningForLeftClick();
+        _this.$wrapper.addClass('tofront');
+        google.maps.event.addListener(_this.map, 'click', function(event) {
+            _this.stopListeningForLeftClick();
             console.log("Left click event", event);
-            parent.setLaunch(event);
+            _this.setLaunch(event);
             form.open();
         });
     };
     this.stopListeningForLeftClick = function() {
-        $('#map-wrap').removeClass('tofront');
-        google.maps.event.clearListeners(parent.map, 'click');
+        _this.$wrapper.removeClass('tofront');
+        google.maps.event.clearListeners(_this.map, 'click');
     };
 
     this.addMapBound = function(latlng) {
@@ -258,13 +266,14 @@ function Map() {
     };
 
     this.clearMapBounds = function() {
+        this.mapBounds.length = 0;
         this.mapBounds = [];
     };
 
     this.centerMapToBounds = function() {
         var bounds = new google.maps.LatLngBounds();
-        for (var i = 0; i < parent.mapBounds.length; i++) {
-            bounds.extend(parent.mapBounds[i]);
+        for (var i = 0; i < _this.mapBounds.length; i++) {
+            bounds.extend(_this.mapBounds[i]);
         }
         this.map.fitBounds(bounds);
     };
@@ -307,22 +316,22 @@ function Map() {
 
     this.removeAllPaths = function() {
         console.log('deleting all previous paths');
-        $.each(parent.paths, function(key, val) {
-            if (parent.paths[key].pathCollection) {
-                for (var j = 0; j < parent.paths[key].pathCollection.length; j++) {
-                    parent.paths[key].pathCollection[j].setMap(null);
+        $.each(_this.paths, function(key, val) {
+            if (_this.paths[key].pathCollection) {
+                for (var j = 0; j < _this.paths[key].pathCollection.length; j++) {
+                    _this.paths[key].pathCollection[j].setMap(null);
                 }
             }
         });
-        delete parent.paths;
-        parent.paths = {};
+        delete _this.paths;
+        _this.paths = {};
     };
 
     this.placeMarker = function(latLng) {
         this.removeAllMarkers();
         var marker = new google.maps.Marker({position: latLng,
             map: this.map,
-            title: 'Launch Position (Lat: ' + latLng.lb + ', Long: ' + latLng.mb + ')'
+            title: 'Launch Position (Lat: ' + latLng.lat() + ', Long: ' + latLng.lng() + ')'
         });
         this.markers.push(marker);
     };
@@ -331,12 +340,13 @@ function Map() {
         for (var i = 0; i < this.markers.length; i++) {
             this.markers[i].setMap(null);
         }
+        this.markers.length = 0;
     };
 
     this.parseDrawCSVData = function(data, launchTime) {
         //console.log(data);
-        var poly = parent.paths[launchTime].poly;
-        var polyw = parent.paths[launchTime].polyw;
+        var poly = _this.paths[launchTime].poly;
+        var polyw = _this.paths[launchTime].polyw;
         var path = poly.getPath();
         var pathw = polyw.getPath();
 
@@ -366,9 +376,9 @@ function Map() {
                 path.push(latlng);
                 pathw.push(latlng);
                 // add location to map bounds ready for recenter
-                parent.addMapBound(latlng);
+                _this.addMapBound(latlng);
                 //var infostr = '<span class="pathInfoPoint">' + formatTime(time) + "; Lat: " + lat + ", Long: " + lng + ", Alt: " + alt + "m</span>";
-                //parent.plotPathInfoPoint(latlng, infostr, pathCollection);
+                //_this.plotPathInfoPoint(latlng, infostr, pathCollection);
                 //console.log(infostr);
 
                 if (key === 0) {
@@ -376,7 +386,7 @@ function Map() {
                     var marker = new google.maps.Marker({
                         position: latlng,
                         icon: MapObjects.upArrow,
-                        map: parent.map,
+                        map: _this.map,
                         title: 'Launch position'
                     });
                     pathCollection.push(marker);
@@ -393,7 +403,7 @@ function Map() {
         var marker = new google.maps.Marker({
             position: latlng,
             icon: MapObjects.landCircle,
-            map: parent.map,
+            map: _this.map,
             title: 'Landing position',
             visible: false
         });
@@ -401,13 +411,13 @@ function Map() {
         var marker = new google.maps.Marker({
             position: burst_latlng,
             icon: MapObjects.burstCircle,
-            map: parent.map,
+            map: _this.map,
             title: 'Burst position',
             visible: false
         });
         pathCollection.push(marker);
-        parent.paths[launchTime].pathCollection = pathCollection;
-        parent.responsesReceived++;
+        _this.paths[launchTime].pathCollection = pathCollection;
+        _this.responsesReceived++;
         return true;
     };
 
@@ -422,7 +432,7 @@ function Map() {
         };
         var poly = new google.maps.Polyline(polyOptions);
         poly.setMap(this.map);
-        // thick transparent line
+        // thick trans_this line
         var polywOptions = {
             strokeColor: '#000000',
             strokeOpacity: 0.1, //0.3
@@ -432,8 +442,8 @@ function Map() {
         var polyw = new google.maps.Polyline(polywOptions);
         polyw.setMap(this.map);
         google.maps.event.addListener(polyw, 'click', function(event) {
-            hourlySlider.setValue($.inArray(launchTime, parent.hourlyPredictionTimes));
-            //setHourlySlider($.inArray(launchTime, parent.hourlyPredictionTimes));
+            hourlySlider.setValue($.inArray(launchTime, _this.hourlyPredictionTimes));
+            //setHourlySlider($.inArray(launchTime, _this.hourlyPredictionTimes));
         });
 
         var args = {
@@ -444,8 +454,8 @@ function Map() {
         this.paths[launchTime] = args;
 
         var request = new Request();
-        parent.runningRequests.push(request);
-        request.submitForm(
+        _this.runningRequests.push(request);
+        request.submit(
                 this.parseDrawCSVData,
                 launchTime,
                 formData
@@ -475,15 +485,15 @@ function Map() {
         google.maps.event.addListener(infoPoint, 'mouseover', function() {
             // show point details
             //displayInfoBox(text);
-            clearTimeout(parent.timeoutPathPoints);
-            parent.closeAllPathPointInfoWindows();
-            infowindow.open(parent.map);
-            parent.pathPointInfoWindows.push(infowindow);
+            clearTimeout(_this.timeoutPathPoints);
+            _this.closeAllPathPointInfoWindows();
+            infowindow.open(_this.map);
+            _this.pathPointInfoWindows.push(infowindow);
         });
         google.maps.event.addListener(infoPoint, 'mouseout', function() {
             //infowindow.close();
-            parent.timeoutPathPoints = setTimeout(function() {
-                parent.closeAllPathPointInfoWindows();
+            _this.timeoutPathPoints = setTimeout(function() {
+                _this.closeAllPathPointInfoWindows();
             }, 3000);
         });
     };
@@ -495,7 +505,7 @@ function Map() {
     this.getHourlySliderTooltip = function(value) {
         //console.log(value);
         try {
-            return parent.hourlyPredictionTimes[value].toUTCString();
+            return _this.hourlyPredictionTimes[value].toUTCString();
         } catch (e) {
             return ' ';
         }
@@ -503,7 +513,7 @@ function Map() {
 
     this.dimAllPaths = function() {
         $.each(this.paths, function(key, val) {
-            parent.dimPath(parent.paths[key]);
+            _this.dimPath(_this.paths[key]);
         });
     };
 
@@ -547,88 +557,90 @@ function Map() {
 
     this.selectPath = function(path) {
         //console.log(path);
-        if (parent.selectedPath) {
-            parent.dimPath(parent.selectedPath);
+        if (_this.selectedPath) {
+            if (_this.selectedPath === path) {
+                return;
+            }
+            _this.dimPath(_this.selectedPath);
         } else {
-            parent.dimAllPaths();
+            _this.dimAllPaths();
         }
-        parent.unDimPath(path);
-        parent.selectedPath = path;
+        _this.unDimPath(path);
+        _this.selectedPath = path;
     };
 
     this.onHourlySliderSlide = function(event) {
         //console.log(event);
         var value = event.value;
-        if (value !== parent.currentHourlySliderValue) {
-            parent.currentHourlySliderValue = value;
-            //console.log(parent.hourlyPredictionTimes);
-            parent.selectPath(parent.paths[parent.hourlyPredictionTimes[value]]);
+        if (value !== _this.currentHourlySliderValue) {
+            _this.currentHourlySliderValue = value;
+            //console.log(_this.hourlyPredictionTimes);
+            _this.selectPath(_this.paths[_this.hourlyPredictionTimes[value]]);
+        }
+    };
+
+    this._filterRunningRequests = function(request, index) {
+        console.log(request.status);
+        if (request.status === 'success') {
+            return false;
+        } else if (request.status === 'running') {
+            return true;
+        } else if (request.status === 'failed, should rerun' && request.numberOfReruns <= request.maxNumberOfReruns) {
+            console.log('Rerunning request:');
+            console.log(request);
+            request.numberOfReruns++;
+            request.rerun();
+            return true;
+        } else {
+            // either status is failed, or should rerun but max number
+            // of reruns has been reached
+            infoAlert('Request failed.', 'error');
+            _this.totalResponsesExpected--;
+            map.willNotComplete = true;
+            return false;
         }
     };
 
     this.checkForAllResponsesReceived = function() {
-        parent.hasChangedProgressBar = false;
-        parent.runningRequests = $.grep(parent.runningRequests, function(request, index) {
-            console.log(request.status);
-            if (request.status === 'success') {
-                return false;
-            } else if (request.status === 'running') {
-                return true;
-            } else if (request.status === 'failed, should rerun' && request.numberOfReruns <= request.maxNumberOfReruns) {
-                console.log('Rerunning request:');
-                console.log(request);
-                request.numberOfReruns++;
-                request.rerun();
-                return true;
-            } else {
-                // either status is failed, or should rerun but max number
-                // of reruns has been reached
-                infoAlert('Request failed.', 'error');
-                parent.totalResponsesExpected--;
-                map.willNotComplete = true;
-                return false;
-            }
-        });
-        if (parent.responsesReceived > 0) {
-            if (!parent.hasChangedProgressBar) {
+        _this.hasChangedProgressBar = false;
+        _this.runningRequests = $.grep(_this.runningRequests, _this._filterRunningRequests);
+        if (_this.responsesReceived > 0) {
+            if (!_this.hasChangedProgressBar) {
                 hideProgressBar();
                 makeProgressBarStatic();
                 setProgressBar(0);
                 showProgressBar();
             }
-            setProgressBar(100 * parent.responsesReceived / parent.totalResponsesExpected);
+            setProgressBar(100 * _this.responsesReceived / _this.totalResponsesExpected);
         }
-        console.log('checking for responses received' + parent.responsesReceived + parent.totalResponsesExpected);
-        if (parent.responsesReceived >= parent.totalResponsesExpected) {
-            if (parent.responsesReceived > 0) {
+        console.log('checking for responses received' + _this.responsesReceived + _this.totalResponsesExpected);
+        if (_this.responsesReceived >= _this.totalResponsesExpected) {
+            if (_this.responsesReceived > 0) {
                 // all responses received
                 console.log(currentTimeouts);
-                parent.centerMapToBounds();
-                if (parent.hourlyPrediction) {
+                _this.centerMapToBounds();
+                if (_this.hourlyPrediction) {
                     hourlySlider = new HourlySlider(map.responsesReceived - 1);
                     hourlySlider.setValue(0);
                     hourlySlider.showPopup();
-                    //initHourlySlider(map.responsesReceived - 1);
-                    //setHourlySlider(0);
                 } else {
-                    $.each(parent.paths, function(key, path) {
-                        parent.selectPath(path);
+                    $.each(_this.paths, function(key, path) {
+                        _this.selectPath(path);
                         return;
                     });
-
                 }
             }
             hideProgressBar();
-        } else if (parent.shouldCheckForCompletion && parent.totalResponsesExpected > 0) {
-            window.setTimeout(parent.checkForAllResponsesReceived, 1000);
+        } else if (_this.shouldCheckForCompletion && _this.totalResponsesExpected > 0) {
+            window.setTimeout(_this.checkForAllResponsesReceived, 1000);
         }
     };
 }
 
-function SlidingPanel(el) {
-    var parent = this;
-    this.el = el;
-    this.toggleVisibleEl = this.el.children('.formToggleVisible-wrap');
+function SlidingPanel($element) {
+    var _this = this;
+    this.$element = $element;
+    this.$toggleVisibleEl = this.$element.children('.formToggleVisible-wrap');
     this.width = null;
     this.minMarginx = null;
     this.snapVelocity = 0.1; // velocity (px/ms) to register as a final slide
@@ -645,150 +657,155 @@ function SlidingPanel(el) {
     this.minDeltax = 3; // min pixels moved to register as a sliding action
 
     this.getMeasurements = function() {
-        this.width = this.el.outerWidth();
-        this.minMarginx = -(this.width - this.toggleVisibleEl.outerWidth());
+        this.width = this.$element.outerWidth();
+        this.minMarginx = -(this.width - this.$toggleVisibleEl.outerWidth());
     };
     this.init = function() {
         this.getMeasurements();
 
-        this.toggleVisibleEl.on('touchend', function(e) {
-            if (!parent.hasFirstMoveOccured) {
+        $(window).resize(function() {
+            _this.getMeasurements(); // this can cause lag when resizing the window
+            _this.open();
+        });
+
+        this.$toggleVisibleEl.on('touchend', function(e) {
+            if (!_this.hasFirstMoveOccured) {
                 e.preventDefault();
-                parent.isBeingMoved = false;
-                parent.toggle();
+                _this.isBeingMoved = false;
+                _this.toggle();
             }
         });
-        this.el.on('touchstart', function(e) {
-            if (parent.isBeingMoved) {
+        this.$element.on('touchstart', function(e) {
+            if (_this.isBeingMoved) {
                 return;
             }
             console.log('touchstart');
-            parent.t = e.timeStamp;
+            _this.t = e.timeStamp;
             var touchevent = e.originalEvent;
-            parent.x = touchevent.changedTouches[0].pageX;
-            parent.y = touchevent.changedTouches[0].pageY;
-            parent.deltax = 0;
-            parent.deltay = 0;
-            parent.isBeingMoved = true;
-            parent.hasFirstMoveOccured = false;
+            _this.x = touchevent.changedTouches[0].pageX;
+            _this.y = touchevent.changedTouches[0].pageY;
+            _this.deltax = 0;
+            _this.deltay = 0;
+            _this.isBeingMoved = true;
+            _this.hasFirstMoveOccured = false;
         });
-        this.el.on('touchmove', function(e) {
-            if (!parent.isBeingMoved) {
+        this.$element.on('touchmove', function(e) {
+            if (!_this.isBeingMoved) {
                 return;
             }
             //console.log(e);
-            parent.deltat = e.timeStamp - parent.t;
-            parent.t = e.timeStamp;
+            _this.deltat = e.timeStamp - _this.t;
+            _this.t = e.timeStamp;
             var touchevent = e.originalEvent;
             var newX = touchevent.changedTouches[0].pageX;
             var newY = touchevent.changedTouches[0].pageY;
-            if (parent.x === null) {
-                parent.x = newX;
-                parent.deltax = parent.x;
+            if (_this.x === null) {
+                _this.x = newX;
+                _this.deltax = _this.x;
             } else {
-                parent.deltax = newX - parent.x;
-                parent.x = newX;
+                _this.deltax = newX - _this.x;
+                _this.x = newX;
             }
-            if (parent.y === null) {
-                parent.y = newY;
-                parent.deltay = parent.y;
+            if (_this.y === null) {
+                _this.y = newY;
+                _this.deltay = _this.y;
             } else {
-                parent.deltay = newY - parent.y;
-                parent.y = newY;
+                _this.deltay = newY - _this.y;
+                _this.y = newY;
             }
-            if (!parent.hasFirstMoveOccured) {
-                if (parent.deltax < -parent.minDeltax || parent.deltax > parent.minDeltax) {
+            if (!_this.hasFirstMoveOccured) {
+                if (_this.deltax < -_this.minDeltax || _this.deltax > _this.minDeltax) {
                     //console.log('being moved');
                     e.preventDefault();
-                    //console.log('touchmove', parent.deltax, parent.deltay);
-                    parent.hasFirstMoveOccured = true;
+                    //console.log('touchmove', _this.deltax, _this.deltay);
+                    _this.hasFirstMoveOccured = true;
                 } else {
-                    parent.isBeingMoved = false;
+                    _this.isBeingMoved = false;
                     return;
                 }
             }
-            parent.el.css({'margin-left': parent._getBoundedMarginx(parent.getCurrentMarginX() + parent.deltax)});
+            _this.$element.css({'margin-left': _this._getBoundedMarginx(_this.getCurrentMarginX() + _this.deltax)});
         });
-        this.el.on('touchend', function(e) {
-            if (!parent.isBeingMoved) {
+        this.$element.on('touchend', function(e) {
+            if (!_this.isBeingMoved) {
                 return;
             }
             //console.log('touchend');
             //console.log('touchend', e);
-            var velocity = parent.deltax / parent.deltat;
+            var velocity = _this.deltax / _this.deltat;
             //console.log('velocity', velocity);
-            if (velocity < -parent.snapVelocity) {
-                parent.close();
-            } else if (velocity > parent.snapVelocity) {
-                parent.open();
+            if (velocity < -_this.snapVelocity) {
+                _this.close();
+            } else if (velocity > _this.snapVelocity) {
+                _this.open();
             } else {
-                parent.snapTo();
+                _this.snapTo();
             }
-            parent.isBeingMoved = false;
+            _this.isBeingMoved = false;
         });
 
         //Clicking
-        parent.toggleVisibleEl.click(function(event) {
+        _this.$toggleVisibleEl.click(function(event) {
             event.preventDefault();
             console.log('click');
-            parent.toggle();
+            _this.toggle();
         });
         // hover
-        parent.el.hover(function(event) {
+        _this.$element.hover(function(event) {
             event.preventDefault();
             console.log('hover');
-            parent.open();
+            _this.open();
         });
     };
     this.getCurrentMarginX = function() {
-        return parseInt(parent.el.css('margin-left'));
+        return parseInt(_this.$element.css('margin-left'));
     };
     this._getBoundedMarginx = function(target) {
-        if (target < parent.minMarginx) {
-            return parent.minMarginx;
+        if (target < _this.minMarginx) {
+            return _this.minMarginx;
         } else if (target > 0) {
             return 0;
         }
         return target;
     };
     this.snapTo = function() {
-        var ml = parent.getCurrentMarginX();
-        var halfway = -(0.5 * parent.width);
+        var ml = _this.getCurrentMarginX();
+        var halfway = -(0.5 * _this.width);
         if (ml < halfway) {
-            parent.close();
+            _this.close();
         } else {
-            parent.open();
+            _this.open();
         }
     };
     this.open = function() {
-        console.log('open called', parent.isBeingMoved, parent.isOpen, parent.canBeOpened);
-        console.log('will open', !((!parent.isBeingMoved) && (parent.isOpen || (!parent.canBeOpened))));
-        if (!parent.isBeingMoved && (parent.isOpen || !parent.canBeOpened)) {
+        console.log('open called', _this.isBeingMoved, _this.isOpen, _this.canBeOpened);
+        console.log('will open', !((!_this.isBeingMoved) && (_this.isOpen || (!_this.canBeOpened))));
+        if (!_this.isBeingMoved && (_this.isOpen || !_this.canBeOpened)) {
             return;
         }
-        parent.el.animate({marginLeft: 0});
-        parent.isOpen = true;
+        _this.$element.animate({marginLeft: 0});
+        _this.isOpen = true;
     };
     this.close = function() {
         //console.log('close called');
-        if (!parent.isBeingMoved && !parent.isOpen) {
+        if (!_this.isBeingMoved && !_this.isOpen) {
             return;
         }
-        parent.canBeOpened = false;
+        _this.canBeOpened = false;
         window.setTimeout(function() {
-            parent.canBeOpened = true;
+            _this.canBeOpened = true;
         }, 800);
 
-        parent.el.animate({marginLeft: parent._getBoundedMarginx(-parent.width)});
-        //parent.el.css({'margin-left': parent._getBoundedMarginx(-parent.width)});
-        parent.isOpen = false;
+        _this.$element.animate({marginLeft: _this._getBoundedMarginx(-_this.width)});
+        //_this.$element.css({'margin-left': _this._getBoundedMarginx(-_this.width)});
+        _this.isOpen = false;
     };
     this.toggle = function() {
-        //console.log('is open', parent.isOpen);
-        if (parent.isOpen) {
-            parent.close();
+        //console.log('is open', _this.isOpen);
+        if (_this.isOpen) {
+            _this.close();
         } else {
-            parent.open();
+            _this.open();
         }
     };
     this.init();
@@ -797,7 +814,7 @@ function SlidingPanel(el) {
 
 function Form() {
     this.slidingPanel = new SlidingPanel($('#form-wrap'));
-    var parent = this;
+    var _this = this;
     this.autoPopulateInputs = function() {
         // date time
         var currentTime = new Date();
@@ -816,38 +833,34 @@ function Form() {
         // ajax submission
         $('#prediction-form').submit(function(event) {
             event.preventDefault();
-            parent.submit();
+            _this.submit();
             return false;
         });
         // setting position
         $('#btn-set-position').click(function(event) {
             map.listenForNextLeftClick();
-            parent.close();
+            _this.close();
             infoAlert('Now click anywhere on the map', 'info', 3000);
         });
-        /*
-         // focus
-         $('#form-wrap').focus(parent.open);
-         */
         // units
         $('.unit-selection .dropdown-menu li a').click(function(event) {
             event.preventDefault();
-            var unit = $(this);
-            var unit_selection = unit.closest('.unit-selection');
-            unit_selection.find('.unit-current').html(unit.html());
-            unit_selection.find('input').val(unit.html());
-            unit_selection.click();
+            var $unit = $(this);
+            var $unit_selection = $unit.closest('.unit-selection');
+            $unit_selection.find('.unit-current').html($unit.html());
+            $unit_selection.find('input').val($unit.html());
+            $unit_selection.click();
             return false;
         });
     };
     this.submit = function() {
-        var formData = parent.serializeToObject();
+        var formData = _this.serializeToObject();
         // convert to standard units (m, m/s)
         console.log('unit conversion: ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
-        formData.initial_alt = parent.convertUnits(formData.initial_alt, formData.unitLaunchAltitude);
-        formData.ascent = parent.convertUnits(formData.ascent, formData.unitLaunchAscentRate);
-        formData.burst = parent.convertUnits(formData.burst, formData.unitLaunchBurstAlt);
-        formData.drag = parent.convertUnits(formData.drag, formData.unitLaunchDescentRate);
+        formData.initial_alt = _this.convertUnits(formData.initial_alt, formData.unitLaunchAltitude);
+        formData.ascent = _this.convertUnits(formData.ascent, formData.unitLaunchAscentRate);
+        formData.burst = _this.convertUnits(formData.burst, formData.unitLaunchBurstAlt);
+        formData.drag = _this.convertUnits(formData.drag, formData.unitLaunchDescentRate);
         console.log('converted to   : ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
         // remove unrequired fields
         delete formData.unitLaunchAltitude;
@@ -879,9 +892,9 @@ function Form() {
     this.toggle = this.slidingPanel.toggle;
     this.serializeToObject = function() {
         var formObj = {};
-        var inputs = $('#prediction-form').serializeArray();
-        $.each(inputs, function(i, input) {
-            formObj[input.name] = input.value;
+        var $inputs = $('#prediction-form').serializeArray();
+        $.each($inputs, function(i, $input) {
+            formObj[$input.name] = $input.value;
         });
         return formObj;
     };
@@ -893,24 +906,24 @@ function Form() {
 }
 
 function Notifications() {
-    var parent = this;
+    var _this = this;
     this.openNotifications = {};
-    this.notificationArea = $('#notification-area');
-    this.notificationAreaWrap = $('#notification-area-wrap');
+    this.$notificationArea = $('#notification-area');
+    //this.$notificationAreaWrap = $('#notification-area-wrap');
     this.closeAllNotifications = function() {
-        parent.openNotifications = {};
-        parent.notificationArea.css({
+        _this.openNotifications = {};
+        _this.$notificationArea.css({
             height: 0
         });
-        parent.notificationArea.html('');
+        _this.$notificationArea.html('');
     };
     this.closeNotification = function(notification) {
         notification.alert('close');
     };
     this.new = function(msg, type, timeout) {
         var alertData = $.param({msg: msg, type: type});
-        if (alertData in parent.openNotifications) {
-            parent.closeNotification(parent.openNotifications[alertData]);
+        if (alertData in _this.openNotifications) {
+            _this.closeNotification(_this.openNotifications[alertData]);
         }
         var alertClass, alertTitle;
         switch (type) {
@@ -926,47 +939,47 @@ function Notifications() {
 
         var d = new Date();
         var id = 'alert-' + d.getTime();
-        var oldHeight = parent.notificationArea.outerHeight();
-        parent.notificationArea.append('<div id="' + id + '" class="alert alert-' + alertClass + ' alert-dismissable">' +
+        var oldHeight = _this.$notificationArea.outerHeight();
+        _this.$notificationArea.append('<div id="' + id + '" class="alert alert-' + alertClass + ' alert-dismissable">' +
                 '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' +
                 '<strong>' + alertTitle + '</strong> ' + msg +
                 '</div>');
-        var notification = $('#' + id);
+        var $notification = $('#' + id);
         //notification.hide();
-        parent.notificationArea.css('height', oldHeight);
+        _this.$notificationArea.css('height', oldHeight);
         // add alert close hook
         $('#' + id).bind('close.bs.alert', function() {
             // remove from global openAlerts array
-            parent.openNotifications = $.grep(parent.openNotifications, function(value) {
-                return value !== notification;
+            _this.openNotifications = $.grep(_this.openNotifications, function(value) {
+                return value !== $notification;
             });
-            parent.notificationArea.css({
-                height: parent.notificationArea.outerHeight() - notification.outerHeight(true)
+            _this.$notificationArea.css({
+                height: _this.$notificationArea.outerHeight() - $notification.outerHeight(true)
             });
         });
         // display notification
-        parent.notificationArea.animate({
-            height: parent.notificationArea.outerHeight() + notification.outerHeight(true)
+        _this.$notificationArea.animate({
+            height: _this.$notificationArea.outerHeight() + $notification.outerHeight(true)
         });
         // set close timeout
         if (timeout) {
             window.setTimeout(function() {
-                parent.closeNotification(notification);
+                _this.closeNotification($notification);
             }, timeout);
         }
-        parent.openNotifications[alertData] = notification;
+        _this.openNotifications[alertData] = $notification;
     };
 }
 
 function HourlySlider(max) {
-    var parent = this;
-    this.sliderEl = null;
-    this.sliderContainer = $("#hourly-time-slider-container");
+    var _this = this;
+    this.$sliderEl = null;
+    this.$sliderContainer = $("#hourly-time-slider-container");
 
     this.init = function(max) {
-        parent.sliderContainer.html('<input type="text" id="hourly-time-slider"/>');
-        parent.sliderEl = $("#hourly-time-slider");
-        parent.sliderEl.slider({
+        _this.$sliderContainer.html('<input type="text" id="hourly-time-slider"/>');
+        _this.$sliderEl = $("#hourly-time-slider");
+        _this.$sliderEl.slider({
             min: 0,
             max: max,
             step: 1,
@@ -983,26 +996,26 @@ function HourlySlider(max) {
                 .css('right', '100%')
                 .css('margin-right', '3px');
     };
-    
+
     this.showPopup = function() {
-        parent.sliderContainer.show();
+        _this.$sliderContainer.show();
         // show info popup
-        parent.sliderContainer.popover('show');
+        _this.$sliderContainer.popover('show');
         window.setTimeout(function() {
-            parent.sliderContainer.popover('hide');
+            _this.$sliderContainer.popover('hide');
         }, 5000);
-        parent.sliderContainer.mousedown(function(event) {
-            parent.sliderContainer.popover('hide');
+        _this.$sliderContainer.mousedown(function(event) {
+            _this.$sliderContainer.popover('hide');
         });
     };
     this.hide = function() {
-        parent.sliderContainer.hide();
+        _this.$sliderContainer.hide();
     };
     this.remove = function() {
         $("#hourly-time-slider-container .slider").remove();
     };
     this.setValue = function(value) {
-        parent.sliderEl.slider('setValue', value);
+        _this.$sliderEl.slider('setValue', value);
         map.onHourlySliderSlide({value: value});
     };
     this.init(max);
@@ -1100,17 +1113,7 @@ function infoAlert(msg, type, timeout) {
     notifications.new(msg, type, timeout);
 }
 
-function onWindowSizeChange() {
-    var wasMobile = isMobile;
-    isMobile = $(window).width() < 500;
-    if (!wasMobile && isMobile) {
-        $('#form-wrap').height($('#form-wrap').outerHeight() - 30 + 'px');
-    }
-    form.open();
-    if (wasMobile && !isMobile) {
-        $('#form-wrap').height('100%');
-    }
-}
+
 
 var elevator;
 var map;
@@ -1151,11 +1154,9 @@ function debugClear() {
 
 $(function() {
     elevator = new google.maps.ElevationService();
-    map = new Map();
+    map = new Map($('#map-wrap'));
     form = new Form();
     notifications = new Notifications();
-    $(window).resize(onWindowSizeChange);
-    onWindowSizeChange();
     $('#hourly-time-slider-container').popover({
         placement: 'left',
         trigger: 'manual',

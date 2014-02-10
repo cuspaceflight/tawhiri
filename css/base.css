@@ -12,7 +12,8 @@
 
 html { height: 100% }
 body { height: 100%; margin: 0; padding: 0 }
-#map-canvas { height: 100% }
+#map-wrap .map-canvas { height: 100% }
+#form-wrap { height: 100%; }
 
 .tall {
     height: 100%;
