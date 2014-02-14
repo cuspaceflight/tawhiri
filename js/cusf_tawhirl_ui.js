@@ -505,7 +505,16 @@ function Map($wrapper) {
     this.getHourlySliderTooltip = function(value) {
         //console.log(value);
         try {
-            return _this.hourlyPredictionTimes[value].toUTCString();
+            var time = _this.hourlyPredictionTimes[value];
+            var path = _this.paths[time].poly.getPath();
+            var len = path.getLength();
+            var launch_latlng = path.getAt(0);
+            var landing_latlng = path.getAt(len-1);
+            //console.log(landing_latlng.lat(), landing_latlng.lng());
+            return '<p>Launch: ' + time.toUTCString() + 
+                    '; at ' + launch_latlng.lat() + ', ' + launch_latlng.lng() + 
+                    '</p><p>Landing: ' + landing_latlng.lat() + ', ' + 
+                    landing_latlng.lng() + '</p>';
         } catch (e) {
             return ' ';
         }
@@ -975,6 +984,9 @@ function HourlySlider(max) {
     var _this = this;
     this.$sliderEl = null;
     this.$sliderContainer = $("#hourly-time-slider-container");
+    this.$infoBoxEl = null;
+    this.$infoBoxContainer = $("#current-launch-info-container");
+    this.value = null;
 
     this.init = function(max) {
         _this.$sliderContainer.html('<input type="text" id="hourly-time-slider"/>');
@@ -985,20 +997,25 @@ function HourlySlider(max) {
             step: 1,
             value: 0,
             orientation: 'vertical',
-            tooltip: 'show',
+            tooltip: 'hide',
             selection: 'before',
             formater: map.getHourlySliderTooltip
-        }).on('slide', map.onHourlySliderSlide);
-        $('#hourly-time-slider-container div.tooltip.right')
-                .addClass('left')
-                .removeClass('right')
-                .css('left', '')
-                .css('right', '100%')
-                .css('margin-right', '3px');
+        }).on('slide', function(event) {
+            map.onHourlySliderSlide(event);
+            _this.onSlide(event);
+        });
+        _this.$infoBoxContainer.html('<div id="current-launch-info"></div>');
+        _this.$infoBoxEl = $('#current-launch-info');
+        _this.$infoBoxContainer.show();
     };
 
+    this.onSlide = function(event) {
+        var text = map.getHourlySliderTooltip(event.value);
+        _this.setInfoBox(text);
+    };
     this.showPopup = function() {
         _this.$sliderContainer.show();
+        _this.$infoBoxContainer.show();
         // show info popup
         _this.$sliderContainer.popover('show');
         window.setTimeout(function() {
@@ -1010,13 +1027,24 @@ function HourlySlider(max) {
     };
     this.hide = function() {
         _this.$sliderContainer.hide();
+        _this.$infoBoxContainer.hide();
     };
     this.remove = function() {
         $("#hourly-time-slider-container .slider").remove();
+        _this.$infoBoxContainer.html('');
+    };
+    this.setInfoBox = function(html){
+        _this.$infoBoxEl.html(html);
+        _this.$infoBoxContainer.css('margin-left', -0.5 * _this.$infoBoxContainer.outerWidth());
     };
     this.setValue = function(value) {
+        _this.value = value;
         _this.$sliderEl.slider('setValue', value);
+        _this.setInfoBox(map.getHourlySliderTooltip(value));
         map.onHourlySliderSlide({value: value});
+    };
+    this.getValue = function(value) {
+        return _this.value;
     };
     this.init(max);
 }
@@ -1157,22 +1185,4 @@ $(function() {
     map = new Map($('#map-wrap'));
     form = new Form();
     notifications = new Notifications();
-    $('#hourly-time-slider-container').popover({
-        placement: 'left',
-        trigger: 'manual',
-        template: '<div class="popover hourlySliderInfoPopup"><div class="arrow"></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>'
-    });
-
-    /*
-     hourlySlider = new HourlySlider(2);
-     window.setTimeout(function() {
-     hourlySlider.remove();
-     hourlySlider = new HourlySlider(5);
-     }, 6000);*/
-    /*infoAlert('hey');
-     window.setTimeout(function() {
-     infoAlert('hey');
-     }, 3000);*/
-    //$('#prediction-form').submit();
-}
-);
+});
