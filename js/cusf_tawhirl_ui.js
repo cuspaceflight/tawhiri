@@ -193,8 +193,10 @@ function Map($wrapper) {
     this.willNotComplete = false;
     this.shouldCheckForCompletion = true;
     this.runningRequests = [];
+    this.hourlySlider = null;
     this.currentHourlySliderValue = null;
     this.selectedPath = null;
+    this.progressBar = ProgressBar($('#progress-bar-wrapper'));
     // initialisation code
     this.mapOptions = {
         center: new google.maps.LatLng(52, 0),
@@ -225,6 +227,7 @@ function Map($wrapper) {
 
     };
     this.map = new google.maps.Map(this.canvas, this.mapOptions);
+    this.elevator = new google.maps.ElevationService();
 
     google.maps.event.addListener(this.map, 'rightclick', function(event) {
         console.log("Right click event", event);
@@ -245,6 +248,12 @@ function Map($wrapper) {
         this.currentHourlySliderValue = null;
         this.hourlyPredictionTimes.length = 0;
         this.selectedPath = null;
+
+        if (this.hourlySlider !== null) {
+            this.hourlySlider.remove();
+            this.hourlySlider = null;
+        }
+
     };
 
     this.listenForNextLeftClick = function() {
@@ -293,7 +302,7 @@ function Map($wrapper) {
         var positionalRequest = {
             locations: locations
         };
-        elevator.getElevationForLocations(positionalRequest, function(results, status) {
+        _this.elevator.getElevationForLocations(positionalRequest, function(results, status) {
             if (status === google.maps.ElevationStatus.OK) {
                 // Retrieve the first result
                 if (results[0]) {
@@ -442,7 +451,8 @@ function Map($wrapper) {
         var polyw = new google.maps.Polyline(polywOptions);
         polyw.setMap(this.map);
         google.maps.event.addListener(polyw, 'click', function(event) {
-            hourlySlider.setValue($.inArray(launchTime, _this.hourlyPredictionTimes));
+            console.log('path clicked', event);
+            _this.hourlySlider.setValue($.inArray(launchTime, _this.hourlyPredictionTimes));
             //setHourlySlider($.inArray(launchTime, _this.hourlyPredictionTimes));
         });
 
@@ -509,11 +519,11 @@ function Map($wrapper) {
             var path = _this.paths[time].poly.getPath();
             var len = path.getLength();
             var launch_latlng = path.getAt(0);
-            var landing_latlng = path.getAt(len-1);
+            var landing_latlng = path.getAt(len - 1);
             //console.log(landing_latlng.lat(), landing_latlng.lng());
-            return '<p>Launch: ' + time.toUTCString() + 
-                    '; at ' + launch_latlng.lat() + ', ' + launch_latlng.lng() + 
-                    '</p><p>Landing: ' + landing_latlng.lat() + ', ' + 
+            return '<p>Launch: ' + time.toUTCString() +
+                    '; at ' + launch_latlng.lat() + ', ' + launch_latlng.lng() +
+                    '</p><p>Landing: ' + landing_latlng.lat() + ', ' +
                     landing_latlng.lng() + '</p>';
         } catch (e) {
             return ' ';
@@ -605,33 +615,30 @@ function Map($wrapper) {
             // of reruns has been reached
             infoAlert('Request failed.', 'error');
             _this.totalResponsesExpected--;
-            map.willNotComplete = true;
+            _this.willNotComplete = true;
             return false;
         }
     };
 
     this.checkForAllResponsesReceived = function() {
-        _this.hasChangedProgressBar = false;
         _this.runningRequests = $.grep(_this.runningRequests, _this._filterRunningRequests);
         if (_this.responsesReceived > 0) {
-            if (!_this.hasChangedProgressBar) {
-                hideProgressBar();
-                makeProgressBarStatic();
-                setProgressBar(0);
-                showProgressBar();
+            if (_this.progressBar.isAnimated) {
+                _this.progressBar.makeStatic();
             }
-            setProgressBar(100 * _this.responsesReceived / _this.totalResponsesExpected);
+            _this.progressBar.set(100 * _this.responsesReceived / _this.totalResponsesExpected);
         }
         console.log('checking for responses received' + _this.responsesReceived + _this.totalResponsesExpected);
         if (_this.responsesReceived >= _this.totalResponsesExpected) {
             if (_this.responsesReceived > 0) {
                 // all responses received
+                _this.progressBar.hide();
                 console.log(currentTimeouts);
                 _this.centerMapToBounds();
-                if (_this.hourlyPrediction) {
-                    hourlySlider = new HourlySlider(map.responsesReceived - 1);
-                    hourlySlider.setValue(0);
-                    hourlySlider.showPopup();
+                if (_this.responsesReceived > 1) {
+                    _this.hourlySlider = new HourlySlider(_this.responsesReceived - 1);
+                    _this.hourlySlider.setValue(0);
+                    _this.hourlySlider.showPopup();
                 } else {
                     $.each(_this.paths, function(key, path) {
                         _this.selectPath(path);
@@ -639,7 +646,6 @@ function Map($wrapper) {
                     });
                 }
             }
-            hideProgressBar();
         } else if (_this.shouldCheckForCompletion && _this.totalResponsesExpected > 0) {
             window.setTimeout(_this.checkForAllResponsesReceived, 1000);
         }
@@ -821,9 +827,65 @@ function SlidingPanel($element) {
     return this;
 }
 
-function Form() {
-    this.slidingPanel = new SlidingPanel($('#form-wrap'));
+function Form($wrapper) {
     var _this = this;
+    this.$wrapper = $wrapper;
+    this.slidingPanel = new SlidingPanel(this.$wrapper);
+    this.open = this.slidingPanel.open;
+    this.close = this.slidingPanel.close;
+    this.toggle = this.slidingPanel.toggle;
+
+    this.input_launch_day = $('#inputLaunchDay');
+    this.input_launch_month = $('#inputLaunchMonth');
+    this.input_launch_year = $('#inputLaunchYear');
+    this.input_launch_hour = $('#inputLaunchHour');
+    this.input_launch_minute = $('#inputLaunchMinute');
+
+    this.maxPredictionHours = 180;
+    this.currentDate = null;
+    this.maxPrediction = null;
+    
+    this.calculateAllowedDates = function(){
+        _this.currentDate = new Date();
+        _this.maxPrediction = new Date(this.currentDate.getTime() + this.maxPredictionHours * 1440000);
+        console.log(_this.maxPrediction);
+        
+        
+    };
+
+    this.predict = function(formData) {
+        map.reset();
+        notifications.closeAllNotifications();
+        map.progressBar.show();
+        map.progressBar.makeAnimated();
+        //console.log(formData);
+        var runTime = new Date(
+                formData.year,
+                formData.month,
+                formData.day,
+                formData.hour,
+                formData.min,
+                formData.second,
+                0 // ms
+                );
+
+        for (i = 0; i < formData.hourly; i++) {
+            var predictionData = $.extend({}, formData);
+            var d = new Date(runTime.getTime() + i * 1440000); // add i hours
+            predictionData.year = d.getFullYear();
+            predictionData.month = d.getMonth();
+            predictionData.day = d.getDate();
+            predictionData.hour = padTwoDigits(d.getHours());
+            predictionData.min = padTwoDigits(d.getMinutes());
+            //console.log($.param(predictionData));
+            map.hourlyPredictionTimes.push(d);
+            map.plotPath($.param(predictionData), d);
+        }
+        map.totalResponsesExpected = formData.hourly;
+        map.checkForAllResponsesReceived();
+        _this.close();
+    };
+
     this.autoPopulateInputs = function() {
         // date time
         var currentTime = new Date();
@@ -861,6 +923,24 @@ function Form() {
             $unit_selection.click();
             return false;
         });
+        
+        $('#inputLaunchDay, #inputLaunchMonth, #inputLaunchYear, #inputLaunchHour, #inputLaunchMinute, #hourly').change(function(e){
+            console.log(e);
+            console.log(_this.input_launch_month[0] === e.target);
+            switch (e.target){
+                case _this.input_launch_day[0]:
+                    break;
+                case _this.input_launch_month[0]:
+                    alert(_this.input_launch_month.val());
+                    break;
+                case _this.input_launch_year[0]:
+                    break;
+                case _this.input_launch_hour[0]:
+                    break;
+                case _this.input_launch_minute[0]:
+                    break;
+            }
+        });
     };
     this.submit = function() {
         var formData = _this.serializeToObject();
@@ -876,7 +956,7 @@ function Form() {
         delete formData.unitLaunchAscentRate;
         delete formData.unitLaunchBurstAlt;
         delete formData.unitLaunchDescentRate;
-        predict(formData);
+        _this.predict(formData);
     };
     this.convertUnits = function(value, fromUnits) {
         switch (fromUnits) {
@@ -896,9 +976,6 @@ function Form() {
                 infoAlert('Unrecognised units ' + fromUnits, 'error');
         }
     };
-    this.open = this.slidingPanel.open;
-    this.close = this.slidingPanel.close;
-    this.toggle = this.slidingPanel.toggle;
     this.serializeToObject = function() {
         var formObj = {};
         var $inputs = $('#prediction-form').serializeArray();
@@ -908,16 +985,17 @@ function Form() {
         return formObj;
     };
     // init code
+    this.calculateAllowedDates();
     this.autoPopulateInputs();
     this.setUpEventHandling();
     // end init code
 
 }
 
-function Notifications() {
+function Notifications($notificationArea) {
     var _this = this;
     this.openNotifications = {};
-    this.$notificationArea = $('#notification-area');
+    this.$notificationArea = $notificationArea;
     //this.$notificationAreaWrap = $('#notification-area-wrap');
     this.closeAllNotifications = function() {
         _this.openNotifications = {};
@@ -1032,8 +1110,9 @@ function HourlySlider(max) {
     this.remove = function() {
         $("#hourly-time-slider-container .slider").remove();
         _this.$infoBoxContainer.html('');
+        _this.$infoBoxContainer.hide();
     };
-    this.setInfoBox = function(html){
+    this.setInfoBox = function(html) {
         _this.$infoBoxEl.html(html);
         _this.$infoBoxContainer.css('margin-left', -0.5 * _this.$infoBoxContainer.outerWidth());
     };
@@ -1049,52 +1128,38 @@ function HourlySlider(max) {
     this.init(max);
 }
 
-function predict(formData) {
-    notifications.closeAllNotifications();
-    try {
-        hourlySlider.remove();
-    } catch (e) {
-    }
-    map.reset();
-    showProgressBar();
-    makeProgressBarAnimated();
-    //console.log(formData);
-    var runTime = new Date(
-            formData.year,
-            formData.month,
-            formData.day,
-            formData.hour,
-            formData.min,
-            formData.second,
-            0
-            );
-    if (formData.hourly !== 'on') {
-        // is not an hourly prediction
-        map.hourlyPrediction = false;
-        map.totalResponsesExpected = 1;
-        map.plotPath($.param(formData), runTime);
-    } else {
-        // is an hourly prediction
-        map.hourlyPrediction = true;
-        var i = 0;
-        for (i; i < map.hourlyPredictionHours; i++) {
-            var predictionData = $.extend({}, formData);
-            var d = new Date(runTime.getTime() + i * 1440000); // add i hours
-            predictionData.year = d.getFullYear();
-            predictionData.month = d.getMonth();
-            predictionData.day = d.getDate();
-            predictionData.hour = padTwoDigits(d.getHours());
-            predictionData.min = padTwoDigits(d.getMinutes());
-            //console.log($.param(predictionData));
-            map.hourlyPredictionTimes.push(d);
-            map.plotPath($.param(predictionData), d);
-        }
-        map.totalResponsesExpected = map.hourlyPredictionHours;
-    }
-    map.checkForAllResponsesReceived();
-    form.close();
-}
+function ProgressBar($wrapper) {
+    var _this = this;
+    this.$wrapper = $wrapper;
+    this.$element = this.$wrapper.children('.progress');
+    this.$bar = this.$element.children('.progress-bar');
+    this.isAnimated = false;
 
+    this.show = function() {
+        _this.$wrapper.show();
+    };
+
+    this.makeAnimated = function() {
+        _this.$element.addClass('progress-striped active');
+        set(100);
+        this.isAnimated = true;
+    };
+
+    this.makeStatic = function() {
+        _this.$element.removeClass('progress-striped active');
+        _this.isAnimated = false;
+    };
+
+    this.set = function(perc) {
+        _this.$bar.css('width', perc + '%');
+    };
+
+    this.hide = function() {
+        this.$wrapper.hide();
+    };
+
+    return this;
+}
 
 function padTwoDigits(x) {
     x = x + "";
@@ -1109,33 +1174,9 @@ function formatTime(d) {
 }
 
 function feetToMeters(feet) {
-// 1 meter == 0.3048 ft
+    // 1 meter == 0.3048 ft
     return 0.3048 * feet;
 }
-
-
-function showProgressBar() {
-    $('#progress-bar-wrapper').show();
-}
-
-function makeProgressBarAnimated() {
-    $('#progress-bar .progress').addClass('progress-striped active');
-    setProgressBar(100);
-}
-
-function makeProgressBarStatic() {
-    $('#progress-bar .progress').removeClass('progress-striped active');
-}
-
-function setProgressBar(perc) {
-    $('#progress-bar .progress-bar').css('width', perc + '%');
-}
-
-function hideProgressBar() {
-    $('#progress-bar-wrapper').hide();
-}
-
-//google.maps.event.addDomListener(window, 'load', initialize);
 
 function infoAlert(msg, type, timeout) {
     notifications.new(msg, type, timeout);
@@ -1143,12 +1184,11 @@ function infoAlert(msg, type, timeout) {
 
 
 
-var elevator;
+// GLOBALS
 var map;
 var form;
 var notifications;
-var hourlySlider;
-var isMobile = false;
+
 var oldTimeout = setTimeout;
 var currentTimeouts = {};
 window.setTimeout = function(callback, timeout) {
@@ -1181,8 +1221,7 @@ function debugClear() {
 }
 
 $(function() {
-    elevator = new google.maps.ElevationService();
     map = new Map($('#map-wrap'));
-    form = new Form();
-    notifications = new Notifications();
+    form = new Form($('#form-wrap'));
+    notifications = new Notifications($('#notification-area'));
 });

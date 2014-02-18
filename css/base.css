@@ -15,6 +15,10 @@ body { height: 100%; margin: 0; padding: 0 }
 #map-wrap .map-canvas { height: 100% }
 #form-wrap { height: 100%; }
 
+#prediction-form {
+    overflow-x: hidden;
+}
+
 .tall {
     height: 100%;
 }
@@ -83,7 +87,7 @@ body { height: 100%; margin: 0; padding: 0 }
     display: none;
 }
 
-#progress-bar {
+.progress {
     width: 500px;
     margin: auto;
 }

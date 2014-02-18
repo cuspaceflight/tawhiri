@@ -83,7 +83,7 @@
             <label for="inputLaunchDate" class="col-sm-3 control-label">Date</label>
             <div class="col-sm-9">
               <div class="row date-row">
-                <div class="col-sm-4 input-sm">
+                <div class="col-sm-3 input-sm">
                   <input type="number" step="any" class="form-control" id="inputLaunchDay" name="day" placeholder="dd" required="required">
                 </div>
                 <div class="col-sm-4 input-sm">
@@ -260,12 +260,22 @@
 
           <div class="form-group">
             <div class="col-sm-12">
-              <div class="checkbox pull-left">
-                <label>
-                  <input name="hourly" type="checkbox" checked="checked"> Hourly predictions
-                </label>
+              <label for="hourly" class="col-sm-3 control-label">Hourly</label>
+              <div class="col-sm-5">
+                <select class="form-control" id="hourly" name="hourly" required="required">
+                  <option value="1" selected="selected">1</option>
+                  <option value="12">12</option>
+                  <option value="24">24</option>
+                  <option value="36">36</option>
+                  <option value="48">48</option>
+                  <option value="72">72</option>
+                  <option value="80">80</option>
+                  <option value="100">100</option>
+                </select>
               </div>
-              <button type="submit" class="btn btn-success pull-right">Predict</button>
+              <div class="col-sm-4">
+                <button type="submit" class="btn btn-success">Predict</button>
+              </div>
             </div>
           </div>
         </form>
@@ -280,11 +290,9 @@
         <div id="notification-area"></div>
       </div>
       <div id="progress-bar-wrapper">
-        <div id="progress-bar">
           <div class="progress">
             <div class="progress-bar progress-bar-success" role="progressbar">
             </div>
-          </div>
         </div>
       </div>
       <div id="hourly-time-slider-container" data-toggle="popover" 
