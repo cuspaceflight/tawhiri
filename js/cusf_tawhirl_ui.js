@@ -232,6 +232,7 @@ function Map($wrapper) {
     google.maps.event.addListener(this.map, 'rightclick', function(event) {
         console.log("Right click event", event);
         _this.setLaunch(event);
+        _this.stopListeningForLeftClick();
         form.open();
     });
     // end init code
@@ -306,11 +307,11 @@ function Map($wrapper) {
             if (status === google.maps.ElevationStatus.OK) {
                 // Retrieve the first result
                 if (results[0]) {
-
+                    var elevation = results[0].elevation.toFixed(1);
                     // Open an info window indicating the elevation at the clicked position
-                    console.log("The elevation at this point is " + results[0].elevation + " meters.");
+                    console.log("The elevation at this point is " + elevation + " meters.");
                     // set the result
-                    $('#inputLaunchAltitude').val(results[0].elevation);
+                    $('#inputLaunchAltitude').val(elevation);
                     // set units to m
                     $('#unit-current-LaunchAltitude').html('m');
                     $('input[name=unitLaunchAltitude]').val('m');
@@ -827,6 +828,28 @@ function SlidingPanel($element) {
     return this;
 }
 
+function nearestMinute(date, minutes) {
+    if (minutes === null) {
+        mintues = 1;
+    }
+    var coeff = 1000 * 60 * minutes;
+    return new Date(Math.round(date.getTime() / coeff) * coeff);
+}
+function ceilMinute(date, minutes) {
+    if (minutes === null) {
+        mintues = 1;
+    }
+    var coeff = 1000 * 60 * minutes;
+    return new Date(Math.ceil(date.getTime() / coeff) * coeff);
+}
+function floorMinute(date, minutes) {
+    if (minutes === null) {
+        mintues = 1;
+    }
+    var coeff = 1000 * 60 * minutes;
+    return new Date(Math.floor(date.getTime() / coeff) * coeff);
+}
+
 function Form($wrapper) {
     var _this = this;
     this.$wrapper = $wrapper;
@@ -841,16 +864,76 @@ function Form($wrapper) {
     this.input_launch_hour = $('#inputLaunchHour');
     this.input_launch_minute = $('#inputLaunchMinute');
 
-    this.maxPredictionHours = 180;
+    this.maxPredictionHours = 180; // latest prediction available
+    this.minPredictionHours = 100; // earliest prediction permissible
     this.currentDate = null;
     this.maxPrediction = null;
-    
-    this.calculateAllowedDates = function(){
-        _this.currentDate = new Date();
-        _this.maxPrediction = new Date(this.currentDate.getTime() + this.maxPredictionHours * 1440000);
+    this.minPrediction = null;
+
+    this.calculateDates = function() {
+        var date = new Date();
+        _this.currentDate = ceilMinute(date, 5);
+        _this.minPrediction = new Date(_this.currentDate.getTime() - this.minPredictionHours * 1000*60*60);
+        _this.maxPrediction = floorMinute(new Date(date.getTime() + this.maxPredictionHours * 1000*60*60), 5);
         console.log(_this.maxPrediction);
-        
-        
+    };
+
+    this.isValidTime = function(date) {
+        return date >= _this.minPrediction && date >= _this.maxPrediction;
+    };
+
+    this.setUpDatePicker = function() {
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        var onSelectDate = function(dateTime) {
+            $("input[name='day']").val(dateTime.getDate());
+            $("input[name='month']").val(dateTime.getMonth() + 1);
+            $("input[name='year']").val(dateTime.getFullYear());
+
+            $('#displayLaunchDate').html(dateTime.getDate() + ' '
+                    + months[dateTime.getMonth()] + ' '
+                    + dateTime.getFullYear());
+            $('#dateTimePicker-wrapper').collapse('hide');
+
+            // sort out time pickers
+            var currentDateString = dateTime.toDateString();
+            if (currentDateString === _this.minPrediction.toDateString()) {
+                $('#inputLaunchHour option').each(function() {
+                    if ($(this).val() < _this.minPrediction.getHours()) {
+                        $(this).attr("disabled", "disabled");
+                    } else {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+            } else if (currentDateString === _this.maxPrediction.toDateString()) {
+                $('#inputLaunchHour option').each(function() {
+                    if ($(this).val() > _this.maxPrediction.getHours()) {
+                        $(this).attr("disabled", "disabled");
+                    } else {
+                        $(this).removeAttr('disabled');
+                    }
+                });
+            } else {
+                $('#inputLaunchHour option').removeAttr('disabled');
+            }
+        };
+
+        $('#dateTimePicker').datetimepicker({
+            inline: true,
+            minDate: _this.minPrediction.getFullYear() + '/' + (_this.minPrediction.getMonth() + 1) + '/' + _this.minPrediction.getDate(),
+            maxDate: _this.maxPrediction.getFullYear() + '/' + (_this.maxPrediction.getMonth() + 1) + '/' + _this.maxPrediction.getDate(),
+            //onChangeDateTime: logic,
+            //onShow: logic,
+            value: _this.currentDate.getFullYear() + '/' + (_this.currentDate.getMonth() + 1) + '/' + _this.currentDate.getDate(),
+            scrollMonth: false,
+            timepicker: false,
+            onSelectDate: onSelectDate
+        });
+        onSelectDate(_this.currentDate);
+        $('#displayLaunchDate').click(function() {
+            $('#dateTimePicker-wrapper').collapse('toggle');
+        });
     };
 
     this.predict = function(formData) {
@@ -887,16 +970,8 @@ function Form($wrapper) {
     };
 
     this.autoPopulateInputs = function() {
-        // date time
-        var currentTime = new Date();
-        var d = new Date(currentTime.getTime() + 5 * 60000); // add 5 minutes into the future
-
-        var month = d.getMonth() + 1; // remove  +1 for new specification
-        $('#inputLaunchDay').attr("value", d.getDate());
-        $('#inputLaunchMonth option[value=' + month + ']').attr("selected", "selected");
-        $('#inputLaunchYear').attr("value", d.getFullYear());
-        var hrs = padTwoDigits(d.getHours());
-        var mins = padTwoDigits(d.getMinutes());
+        var hrs = padTwoDigits(_this.currentDate.getHours());
+        var mins = padTwoDigits(_this.currentDate.getMinutes());
         $('#inputLaunchHour option[value=' + hrs + ']').attr("selected", "selected");
         $('#inputLaunchMinute option[value=' + mins + ']').attr("selected", "selected");
     };
@@ -923,11 +998,11 @@ function Form($wrapper) {
             $unit_selection.click();
             return false;
         });
-        
-        $('#inputLaunchDay, #inputLaunchMonth, #inputLaunchYear, #inputLaunchHour, #inputLaunchMinute, #hourly').change(function(e){
+
+        $('#inputLaunchDay, #inputLaunchMonth, #inputLaunchYear, #inputLaunchHour, #inputLaunchMinute, #hourly').change(function(e) {
             console.log(e);
             console.log(_this.input_launch_month[0] === e.target);
-            switch (e.target){
+            switch (e.target) {
                 case _this.input_launch_day[0]:
                     break;
                 case _this.input_launch_month[0]:
@@ -985,7 +1060,8 @@ function Form($wrapper) {
         return formObj;
     };
     // init code
-    this.calculateAllowedDates();
+    this.calculateDates();
+    this.setUpDatePicker();
     this.autoPopulateInputs();
     this.setUpEventHandling();
     // end init code

@@ -33,6 +33,16 @@ body { height: 100%; margin: 0; padding: 0 }
     text-align: center;
 }
 
+
+#dateTimePicker-wrapper .xdsoft_datetimepicker{
+    margin-top: 10px;
+    float: right;
+}
+
+#inputLaunchHour option[disabled=disabled], #inputLaunchMinute option[disabled=disabled] {
+    display: none;
+}
+
 #current-launch-info-container {
     position: absolute;
     top: 50px;
