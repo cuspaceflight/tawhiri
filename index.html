@@ -151,7 +151,7 @@
             <label for="inputLaunchAscentRate" class="col-sm-6 control-label">Ascent Rate</label>
             <div class="col-sm-6">
               <div class="input-group">
-                <input type="number" step="any" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="" required="required">
+                <input type="number" step="1" min="0" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="" required="required">
                 <div class="input-group-btn unit-selection">         
                   <input type="hidden" name="unitLaunchAscentRate" value="m/s"/>
                   <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m/s</span> <span class="caret"></span></button>
@@ -164,10 +164,10 @@
             </div>
           </div>
           <div class="form-group ">
-            <label for="inputLaunchBurstAlt" class="col-sm-6 control-label">Burst Altitude</label>
-            <div class="col-sm-6">
+            <label for="inputLaunchBurstAlt" class="col-sm-5 control-label">Burst Alt</label>
+            <div class="col-sm-7">
               <div class="input-group">
-                <input type="number" step="any" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="" required="required">
+                <input type="number" step="100" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="" required="required">
                 <div class="input-group-btn unit-selection">    
                   <input type="hidden" name="unitLaunchBurstAlt" value="m"/>
                   <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m</span> <span class="caret"></span></button>
@@ -183,7 +183,7 @@
             <label for="inputLaunchDescentRate" class="col-sm-6 control-label">Descent Rate</label>
             <div class="col-sm-6">
               <div class="input-group">
-                <input type="number" step="any" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="" required="required">
+                <input type="number" step="1" min="0" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="" required="required">
                 <div class="input-group-btn unit-selection">  
                   <input type="hidden" name="unitLaunchDescentRate" value="m/s"/>
                   <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m/s</span> <span class="caret"></span></button>

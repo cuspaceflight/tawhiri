@@ -972,8 +972,8 @@ function Form($wrapper) {
     this.autoPopulateInputs = function() {
         var hrs = padTwoDigits(_this.currentDate.getHours());
         var mins = padTwoDigits(_this.currentDate.getMinutes());
-        $('#inputLaunchHour option[value=' + hrs + ']').attr("selected", "selected");
-        $('#inputLaunchMinute option[value=' + mins + ']').attr("selected", "selected");
+        $('#inputLaunchHour option[value=' + hrs + ']').prop('selected', true);
+        $('#inputLaunchMinute option[value=' + mins + ']').prop('selected', true);
     };
     this.setUpEventHandling = function() {
         // ajax submission

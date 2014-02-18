@@ -39,6 +39,10 @@ body { height: 100%; margin: 0; padding: 0 }
     float: right;
 }
 
+#dateTimePicker {
+    display: none;
+}
+
 #inputLaunchHour option[disabled=disabled], #inputLaunchMinute option[disabled=disabled] {
     display: none;
 }
