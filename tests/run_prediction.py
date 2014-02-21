@@ -1,8 +1,7 @@
 import time
 from tawhiri import wind, solver, models
 
-ds = wind.Dataset()
-ds.open_dataset("/home/adam/Projects/tawhiri/datasets", 2014, 2, 3, 6)
+ds = wind.Dataset("/home/adam/Projects/tawhiri/datasets", 2014, 2, 3, 6)
 
 mods = [models.make_constant_ascent(5.0), models.wind_velocity]
 term = [models.make_burst_termination(30000.0)]

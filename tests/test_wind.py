@@ -2,9 +2,7 @@ from tawhiri.wind import Dataset
 
 class TestDataset(object):
     def setUp(self):
-        self.d = Dataset()
-        self.d.open_dataset("/home/adam/Projects/tawhiri/datasets",
-                            2014, 2, 3, 6)
+        self.d = Dataset("/home/adam/Projects/tawhiri/datasets", 2014, 2, 3, 6)
 
     def test_reads_var(self):
         v = self.d._read_var(10, 10, 1, 100, 100)

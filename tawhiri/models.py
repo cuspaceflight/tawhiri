@@ -10,12 +10,8 @@ def make_constant_ascent(ascent_rate):
     return constant_ascent
 
 
-pressure_heights = None
 def wind_velocity(t, lat, lng, alt, dataset):
-    global pressure_heights
-    if pressure_heights is None:
-        pressure_heights = dataset.get_pressure_heights(t / 3600.0, lat, lng)
-    u, v = dataset.get_wind(t / 3600.0, alt, lat, lng, pressure_heights)
+    u, v = dataset.get_wind(t / 3600.0, alt, lat, lng)
     R = 6371009 + alt
     dlat = _180_PI * v / R
     dlng = _180_PI * u / (R * math.cos(lat * _PI_180))
