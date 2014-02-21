@@ -6,6 +6,16 @@ import numpy as np
 
 cdef class Dataset:
 
+    cdef int[5] shape
+    cdef int item_size
+    cdef int t_idx
+    cdef int p_idx
+    cdef int v_idx
+    cdef int l_idx
+
+    cdef object fd
+    cdef object mm
+
     unpacker = struct.Struct("<d")
 
     def __init__(self):
