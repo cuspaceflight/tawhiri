@@ -4,23 +4,21 @@ import struct
 import bisect
 import numpy as np
 
-class Dataset:
-
-    # Datasets have dimensions
-    #     time, hours, 0 to 192, every 3
-    #     pressure level, mbar
-    #     variable [height, wind_u, wind_v]
-    #     latitude, -90 to 90, every 0.5
-    #     longitude, 0 to 360, every 0.5
-    shape = (65, 47, 3, 361, 720)
-    item_size = 8
-
-    t_idx = shape[4] * shape[3] * shape[2] * shape[1]
-    p_idx = shape[4] * shape[3] * shape[2]
-    v_idx = shape[4] * shape[3]
-    l_idx = shape[4]
+cdef class Dataset:
 
     unpacker = struct.Struct("<d")
+
+    def __init__(self):
+        self.shape[0] = 65
+        self.shape[1] = 47
+        self.shape[2] = 3
+        self.shape[3] = 361
+        self.shape[4] = 720
+        self.item_size = 8
+        self.t_idx = self.shape[4] * self.shape[3] * self.shape[2] * self.shape[1]
+        self.p_idx = self.shape[4] * self.shape[3] * self.shape[2]
+        self.v_idx = self.shape[4] * self.shape[3]
+        self.l_idx = self.shape[4]
 
     def open_dataset(self, directory, year, month, day, hour):
         """Open a dataset from a particular time that's in a directory."""
@@ -33,9 +31,10 @@ class Dataset:
         self.mm.close()
         os.close(self.fd)
 
-    def _read_var(self, time_idx, pressure_idx, var_idx, lat_idx, lng_idx):
+    cdef double _read_var(self, int time_idx, int pressure_idx,
+                          int var_idx, int lat_idx, int lng_idx):
         """Read one double from the mmap at the given index."""
-        offset = self.item_size * (
+        cdef int offset = self.item_size * (
             time_idx * self.t_idx + pressure_idx * self.p_idx +
             var_idx * self.v_idx + lat_idx * self.l_idx + lng_idx)
         self.mm.seek(offset)
@@ -49,7 +48,8 @@ class Dataset:
         return tuple(self._read_var(t_idx, i, 0, lat_idx, lng_idx)
                 for i in range(self.shape[1]))
     
-    def get_wind(self, time, alt, lat, lng, pressure_heights=None):
+    cpdef public object get_wind(self, double time, double alt, double lat,
+                                    double lng, object pressure_heights):
         """Return [u, v] wind components for the given position.
            Time is in fractional hours since the dataset starts.
            Alt is metres above sea level.
@@ -63,30 +63,47 @@ class Dataset:
            a suitable position. Calculated for current position if not
            specified.
         """
-        t_val = time / 3.0
-        t_idx = int(t_val)
-        t_lerp = t_val - t_idx
-        t_lerp_m = 1.0 - t_lerp
+        cdef double t_val = time / 3.0
+        cdef int t_idx = int(t_val)
+        cdef double t_lerp = t_val - t_idx
+        cdef double t_lerp_m = 1.0 - t_lerp
         
-        lat_val = (lat + 90.0) * 2.0
-        lat_idx = int(lat_val)
-        lat_lerp = lat_val - lat_idx
-        lat_lerp_m = 1.0 - lat_lerp
+        cdef double lat_val = (lat + 90.0) * 2.0
+        cdef int lat_idx = int(lat_val)
+        cdef double lat_lerp = lat_val - lat_idx
+        cdef double lat_lerp_m = 1.0 - lat_lerp
 
-        lng_val = lng * 2.0
-        lng_idx = int(lng_val)
-        lng_lerp = lng_val - lng_idx
-        lng_lerp_m = 1.0 - lng_lerp
+        cdef double lng_val = lng * 2.0
+        cdef int lng_idx = int(lng_val)
+        cdef double lng_lerp = lng_val - lng_idx
+        cdef double lng_lerp_m = 1.0 - lng_lerp
         
-        if pressure_heights is None:
-            pressure_heights = self.get_pressure_heights(time, lat, lng)
+        #if pressure_heights is None:
+            #pressure_heights = self.get_pressure_heights(time, lat, lng)
 
-        p_idx = bisect.bisect(pressure_heights, alt) - 1
+        cdef int p_idx = bisect.bisect(pressure_heights, alt) - 1
 
         if p_idx < 0:
             p_idx = 0
         elif p_idx > self.shape[1] - 1:
             p_idx = self.shape[1] - 2
+
+        cdef double a_llll, a_lllr, a_llrl, a_llrr, a_lrll, a_lrrl, a_lrrr
+        cdef double a_rlll, a_rllr, a_rlrl, a_rlrr, a_rrll, a_rrrl, a_rrrr
+        cdef double u_llll, u_lllr, u_llrl, u_llrr, u_lrll, u_lrrl, u_lrrr
+        cdef double u_rlll, u_rllr, u_rlrl, u_rlrr, u_rrll, u_rrrl, u_rrrr
+        cdef double v_llll, v_lllr, v_llrl, v_llrr, v_lrll, v_lrrl, v_lrrr
+        cdef double v_rlll, v_rllr, v_rlrl, v_rlrr, v_rrll, v_rrrl, v_rrrr
+        cdef double a_lll, a_llr, a_lrl, a_lrr
+        cdef double a_rll, a_rlr, a_rrl, a_rrr
+        cdef double u_lll, u_llr, u_lrl, u_lrr
+        cdef double u_rll, u_rlr, u_rrl, u_rrr
+        cdef double v_lll, v_llr, v_lrl, v_lrr
+        cdef double v_rll, v_rlr, v_rrl, v_rrr
+        cdef double a_ll, a_lr, a_rl, a_rr
+        cdef double u_ll, u_lr, u_rl, u_rr
+        cdef double v_ll, v_lr, v_rl, v_rr
+        cdef double u, v
 
         a_llll = self._read_var(t_idx, p_idx, 0, lat_idx, lng_idx)
         a_lllr = self._read_var(t_idx, p_idx, 0, lat_idx, lng_idx + 1)
@@ -193,8 +210,8 @@ class Dataset:
         v_l = v_ll * lng_lerp_m + v_lr * lng_lerp
         v_r = v_rl * lng_lerp_m + v_rr * lng_lerp
 
-        p_lerp = ((alt - a_l) / (a_r - a_l))
-        p_lerp_m = 1.0 - p_lerp
+        cdef double p_lerp = ((alt - a_l) / (a_r - a_l))
+        cdef double p_lerp_m = 1.0 - p_lerp
 
         u = u_l * p_lerp_m + u_r * p_lerp
         v = v_l * p_lerp_m + v_r * p_lerp

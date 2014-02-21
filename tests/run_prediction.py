@@ -13,10 +13,13 @@ lat0 = 52.0
 lng0 = 0.0
 alt0 = 0.0
 
-dt = 60.0
+dt = 1.0
 
 start_time = time.time()
 ts, lats, lngs, alts = solver.euler(t0, lat0, lng0, alt0, ds, f, mods, term, dt)
 end_time = time.time()
+
+#for idx, t in enumerate(ts):
+    #print(t, lats[idx], lngs[idx], alts[idx])
 
 print("Took {}s".format(end_time - start_time))
