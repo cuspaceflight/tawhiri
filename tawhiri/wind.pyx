@@ -29,12 +29,6 @@ cdef class Dataset:
         self.mm = mmap.mmap(self.fd, 0)
         self.data = memoryview(self.mm).cast("d", (65, 47, 3, 361, 720))
 
-    def __del__(self):
-        # do we really need to do this?
-        self.data.release()
-        self.mm.close()
-        os.close(self.fd)
-
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def get_wind(self, double time, double alt, double lat, double lng):
