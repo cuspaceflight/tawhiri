@@ -1,5 +1,6 @@
 import os
 import mmap
+cimport cython
 
 cdef class Dataset:
     cdef object fd
@@ -20,6 +21,8 @@ cdef class Dataset:
         self.mm.close()
         os.close(self.fd)
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def get_wind(self, double time, double alt, double lat, double lng):
         """Return [u, v] wind components for the given position.
            Time is in fractional hours since the dataset starts.
@@ -31,23 +34,23 @@ cdef class Dataset:
            points in time, latitude, longitude and altitude.
         """
         cdef double t_val = time / 3.0
-        cdef int t_idx = int(t_val)
+        cdef unsigned int t_idx = int(t_val)
         cdef double t_lerp = t_val - t_idx
         cdef double t_lerp_m = 1.0 - t_lerp
         
         cdef double lat_val = (lat + 90.0) * 2.0
-        cdef int lat_idx = int(lat_val)
+        cdef unsigned int lat_idx = int(lat_val)
         cdef double lat_lerp = lat_val - lat_idx
         cdef double lat_lerp_m = 1.0 - lat_lerp
 
         cdef double lng_val = lng * 2.0
-        cdef int lng_idx = int(lng_val)
+        cdef unsigned int lng_idx = int(lng_val)
         cdef double lng_lerp = lng_val - lng_idx
         cdef double lng_lerp_m = 1.0 - lng_lerp
 
         cdef double pressure_height
-        cdef int p_idx = 0
-        cdef int i
+        cdef unsigned int p_idx = 0
+        cdef unsigned int i
         for i in range(47):
             if self.data[t_idx, i, 0, lat_idx, lng_idx] > alt:
                 p_idx = i - 1
@@ -57,12 +60,18 @@ cdef class Dataset:
         elif p_idx > 46:
             p_idx = 45
 
-        cdef double a_llll, a_lllr, a_llrl, a_llrr, a_lrll, a_lrrl, a_lrrr
-        cdef double a_rlll, a_rllr, a_rlrl, a_rlrr, a_rrll, a_rrrl, a_rrrr
-        cdef double u_llll, u_lllr, u_llrl, u_llrr, u_lrll, u_lrrl, u_lrrr
-        cdef double u_rlll, u_rllr, u_rlrl, u_rlrr, u_rrll, u_rrrl, u_rrrr
-        cdef double v_llll, v_lllr, v_llrl, v_llrr, v_lrll, v_lrrl, v_lrrr
-        cdef double v_rlll, v_rllr, v_rlrl, v_rlrr, v_rrll, v_rrrl, v_rrrr
+        cdef double a_llll, a_lllr, a_llrl, a_llrr
+        cdef double a_lrll, a_lrlr, a_lrrl, a_lrrr
+        cdef double a_rlll, a_rllr, a_rlrl, a_rlrr
+        cdef double a_rrll, a_rrlr, a_rrrl, a_rrrr
+        cdef double u_llll, u_lllr, u_llrl, u_llrr
+        cdef double u_lrll, u_lrlr, u_lrrl, u_lrrr
+        cdef double u_rlll, u_rllr, u_rlrl, u_rlrr
+        cdef double u_rrll, u_rrlr, u_rrrl, u_rrrr
+        cdef double v_llll, v_lllr, v_llrl, v_llrr
+        cdef double v_lrll, v_lrlr, v_lrrl, v_lrrr
+        cdef double v_rlll, v_rllr, v_rlrl, v_rlrr
+        cdef double v_rrll, v_rrlr, v_rrrl, v_rrrr
         cdef double a_lll, a_llr, a_lrl, a_lrr
         cdef double a_rll, a_rlr, a_rrl, a_rrr
         cdef double u_lll, u_llr, u_lrl, u_lrr
