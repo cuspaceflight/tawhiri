@@ -25,6 +25,7 @@ def make_burst_termination(burst_altitude):
     return burst_termination
 
 
-def f(t, lat, lng, alt, dataset, models):
-    chunks = [model(t, lat, lng, alt, dataset) for model in models]
-    return [sum((chunk[i] for chunk in chunks)) for i in range(3)]
+def make_f(models, dataset):
+    def f(t, lat, lng, alt):
+        chunks = [model(t, lat, lng, alt, dataset) for model in models]
+        return [sum((chunk[i] for chunk in chunks)) for i in range(3)]
