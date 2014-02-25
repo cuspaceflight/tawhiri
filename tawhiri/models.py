@@ -46,6 +46,12 @@ def ground_termination(t, lat, lng, alt):
     if alt <= 0:
         return True
 
+def make_time_termination(max_time):
+    def time_termination(t, lat, lng, alt):
+        if t > max_time:
+            return true
+    return time_termination
+
 def make_f(models, dataset):
     def f(t, lat, lng, alt):
         chunks = [model(t, lat, lng, alt, dataset) for model in models]
