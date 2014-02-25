@@ -1,27 +1,10 @@
 import os
 import mmap
 
-DEF SHAPE_T = 65
-DEF SHAPE_P = 47
-DEF SHAPE_V = 3
-DEF SHAPE_LAT = 361
-DEF SHAPE_LNG = 720
-
-DEF OFFSET_T = SHAPE_LNG * SHAPE_LAT * SHAPE_V * SHAPE_P
-DEF OFFSET_P = SHAPE_LNG * SHAPE_LAT * SHAPE_V
-DEF OFFSET_V = SHAPE_LNG * SHAPE_LAT
-DEF OFFSET_LAT = SHAPE_LNG
-
-cdef inline double read_var(double[:] data, int t_idx, int p_idx, int v_idx,
-                            int lat_idx, int lng_idx):
-    cdef int offset = (t_idx * OFFSET_T + p_idx * OFFSET_P +
-                       v_idx * OFFSET_V + lat_idx * OFFSET_LAT + lng_idx)
-    return data[offset]
-
 cdef class Dataset:
     cdef object fd
     cdef object mm
-    cdef double[:] data
+    cdef double[:, :, :, :, :] data
 
     def __init__(self, directory, year, month, day, hour):
         """Open a dataset from a particular time that's in a directory."""
@@ -29,10 +12,11 @@ cdef class Dataset:
         path = os.path.join(directory, filename)
         self.fd = os.open(path, os.O_RDWR)
         self.mm = mmap.mmap(self.fd, 0)
-        self.data = memoryview(self.mm).cast("d")
+        self.data = memoryview(self.mm).cast("d", (65, 47, 3, 361, 720))
 
     def __del__(self):
         # do we really need to do this?
+        self.data.release()
         self.mm.close()
         os.close(self.fd)
 
@@ -65,13 +49,13 @@ cdef class Dataset:
         cdef int p_idx = 0
         cdef int i
         for i in range(47):
-            if read_var(self.data, t_idx, i, 0, lat_idx, lng_idx) > alt:
+            if self.data[t_idx, i, 0, lat_idx, lng_idx] > alt:
                 p_idx = i - 1
 
         if p_idx < 0:
             p_idx = 0
-        elif p_idx > SHAPE_P - 1:
-            p_idx = SHAPE_P - 2
+        elif p_idx > 46:
+            p_idx = 45
 
         cdef double a_llll, a_lllr, a_llrl, a_llrr, a_lrll, a_lrrl, a_lrrr
         cdef double a_rlll, a_rllr, a_rlrl, a_rlrr, a_rrll, a_rrrl, a_rrrr
@@ -90,59 +74,56 @@ cdef class Dataset:
         cdef double v_ll, v_lr, v_rl, v_rr
         cdef double u, v
 
-        a_llll = read_var(self.data, t_idx, p_idx, 0, lat_idx, lng_idx)
-        a_lllr = read_var(self.data, t_idx, p_idx, 0, lat_idx, lng_idx + 1)
-        a_llrl = read_var(self.data, t_idx, p_idx, 0, lat_idx + 1, lng_idx)
-        a_llrr = read_var(self.data, t_idx, p_idx, 0, lat_idx + 1, lng_idx + 1)
-        a_lrll = read_var(self.data, t_idx, p_idx + 1, 0, lat_idx, lng_idx)
-        a_lrlr = read_var(self.data, t_idx, p_idx + 1, 0, lat_idx, lng_idx + 1)
-        a_lrrl = read_var(self.data, t_idx, p_idx + 1, 0, lat_idx + 1, lng_idx)
-        a_lrrr = read_var(self.data, t_idx, p_idx + 1, 0, lat_idx + 1, lng_idx + 1)
-        a_rlll = read_var(self.data, t_idx + 1, p_idx, 0, lat_idx, lng_idx)
-        a_rllr = read_var(self.data, t_idx + 1, p_idx, 0, lat_idx, lng_idx + 1)
-        a_rlrl = read_var(self.data, t_idx + 1, p_idx, 0, lat_idx + 1, lng_idx)
-        a_rlrr = read_var(self.data, t_idx + 1, p_idx, 0, lat_idx + 1, lng_idx + 1)
-        a_rrll = read_var(self.data, t_idx + 1, p_idx + 1, 0, lat_idx, lng_idx)
-        a_rrlr = read_var(self.data, t_idx + 1, p_idx + 1, 0, lat_idx, lng_idx + 1)
-        a_rrrl = read_var(self.data, t_idx + 1, p_idx + 1, 0, lat_idx + 1, lng_idx)
-        a_rrrr = read_var(self.data, t_idx + 1, p_idx + 1, 0, lat_idx + 1,
-                                lng_idx + 1)
+        a_llll = self.data[t_idx, p_idx, 0, lat_idx, lng_idx]
+        a_lllr = self.data[t_idx, p_idx, 0, lat_idx, lng_idx + 1]
+        a_llrl = self.data[t_idx, p_idx, 0, lat_idx + 1, lng_idx]
+        a_llrr = self.data[t_idx, p_idx, 0, lat_idx + 1, lng_idx + 1]
+        a_lrll = self.data[t_idx, p_idx + 1, 0, lat_idx, lng_idx]
+        a_lrlr = self.data[t_idx, p_idx + 1, 0, lat_idx, lng_idx + 1]
+        a_lrrl = self.data[t_idx, p_idx + 1, 0, lat_idx + 1, lng_idx]
+        a_lrrr = self.data[t_idx, p_idx + 1, 0, lat_idx + 1, lng_idx + 1]
+        a_rlll = self.data[t_idx + 1, p_idx, 0, lat_idx, lng_idx]
+        a_rllr = self.data[t_idx + 1, p_idx, 0, lat_idx, lng_idx + 1]
+        a_rlrl = self.data[t_idx + 1, p_idx, 0, lat_idx + 1, lng_idx]
+        a_rlrr = self.data[t_idx + 1, p_idx, 0, lat_idx + 1, lng_idx + 1]
+        a_rrll = self.data[t_idx + 1, p_idx + 1, 0, lat_idx, lng_idx]
+        a_rrlr = self.data[t_idx + 1, p_idx + 1, 0, lat_idx, lng_idx + 1]
+        a_rrrl = self.data[t_idx + 1, p_idx + 1, 0, lat_idx + 1, lng_idx]
+        a_rrrr = self.data[t_idx + 1, p_idx + 1, 0, lat_idx + 1, lng_idx + 1]
 
-        u_llll = read_var(self.data, t_idx, p_idx, 1, lat_idx, lng_idx)
-        u_lllr = read_var(self.data, t_idx, p_idx, 1, lat_idx, lng_idx + 1)
-        u_llrl = read_var(self.data, t_idx, p_idx, 1, lat_idx + 1, lng_idx)
-        u_llrr = read_var(self.data, t_idx, p_idx, 1, lat_idx + 1, lng_idx + 1)
-        u_lrll = read_var(self.data, t_idx, p_idx + 1, 1, lat_idx, lng_idx)
-        u_lrlr = read_var(self.data, t_idx, p_idx + 1, 1, lat_idx, lng_idx + 1)
-        u_lrrl = read_var(self.data, t_idx, p_idx + 1, 1, lat_idx + 1, lng_idx)
-        u_lrrr = read_var(self.data, t_idx, p_idx + 1, 1, lat_idx + 1, lng_idx + 1)
-        u_rlll = read_var(self.data, t_idx + 1, p_idx, 1, lat_idx, lng_idx)
-        u_rllr = read_var(self.data, t_idx + 1, p_idx, 1, lat_idx, lng_idx + 1)
-        u_rlrl = read_var(self.data, t_idx + 1, p_idx, 1, lat_idx + 1, lng_idx)
-        u_rlrr = read_var(self.data, t_idx + 1, p_idx, 1, lat_idx + 1, lng_idx + 1)
-        u_rrll = read_var(self.data, t_idx + 1, p_idx + 1, 1, lat_idx, lng_idx)
-        u_rrlr = read_var(self.data, t_idx + 1, p_idx + 1, 1, lat_idx, lng_idx + 1)
-        u_rrrl = read_var(self.data, t_idx + 1, p_idx + 1, 1, lat_idx + 1, lng_idx)
-        u_rrrr = read_var(self.data, t_idx + 1, p_idx + 1, 1, lat_idx + 1,
-                                lng_idx + 1)
+        u_llll = self.data[t_idx, p_idx, 1, lat_idx, lng_idx]
+        u_lllr = self.data[t_idx, p_idx, 1, lat_idx, lng_idx + 1]
+        u_llrl = self.data[t_idx, p_idx, 1, lat_idx + 1, lng_idx]
+        u_llrr = self.data[t_idx, p_idx, 1, lat_idx + 1, lng_idx + 1]
+        u_lrll = self.data[t_idx, p_idx + 1, 1, lat_idx, lng_idx]
+        u_lrlr = self.data[t_idx, p_idx + 1, 1, lat_idx, lng_idx + 1]
+        u_lrrl = self.data[t_idx, p_idx + 1, 1, lat_idx + 1, lng_idx]
+        u_lrrr = self.data[t_idx, p_idx + 1, 1, lat_idx + 1, lng_idx + 1]
+        u_rlll = self.data[t_idx + 1, p_idx, 1, lat_idx, lng_idx]
+        u_rllr = self.data[t_idx + 1, p_idx, 1, lat_idx, lng_idx + 1]
+        u_rlrl = self.data[t_idx + 1, p_idx, 1, lat_idx + 1, lng_idx]
+        u_rlrr = self.data[t_idx + 1, p_idx, 1, lat_idx + 1, lng_idx + 1]
+        u_rrll = self.data[t_idx + 1, p_idx + 1, 1, lat_idx, lng_idx]
+        u_rrlr = self.data[t_idx + 1, p_idx + 1, 1, lat_idx, lng_idx + 1]
+        u_rrrl = self.data[t_idx + 1, p_idx + 1, 1, lat_idx + 1, lng_idx]
+        u_rrrr = self.data[t_idx + 1, p_idx + 1, 1, lat_idx + 1, lng_idx + 1]
 
-        v_llll = read_var(self.data, t_idx, p_idx, 2, lat_idx, lng_idx)
-        v_lllr = read_var(self.data, t_idx, p_idx, 2, lat_idx, lng_idx + 1)
-        v_llrl = read_var(self.data, t_idx, p_idx, 2, lat_idx + 1, lng_idx)
-        v_llrr = read_var(self.data, t_idx, p_idx, 2, lat_idx + 1, lng_idx + 1)
-        v_lrll = read_var(self.data, t_idx, p_idx + 1, 2, lat_idx, lng_idx)
-        v_lrlr = read_var(self.data, t_idx, p_idx + 1, 2, lat_idx, lng_idx + 1)
-        v_lrrl = read_var(self.data, t_idx, p_idx + 1, 2, lat_idx + 1, lng_idx)
-        v_lrrr = read_var(self.data, t_idx, p_idx + 1, 2, lat_idx + 1, lng_idx + 1)
-        v_rlll = read_var(self.data, t_idx + 1, p_idx, 2, lat_idx, lng_idx)
-        v_rllr = read_var(self.data, t_idx + 1, p_idx, 2, lat_idx, lng_idx + 1)
-        v_rlrl = read_var(self.data, t_idx + 1, p_idx, 2, lat_idx + 1, lng_idx)
-        v_rlrr = read_var(self.data, t_idx + 1, p_idx, 2, lat_idx + 1, lng_idx + 1)
-        v_rrll = read_var(self.data, t_idx + 1, p_idx + 1, 2, lat_idx, lng_idx)
-        v_rrlr = read_var(self.data, t_idx + 1, p_idx + 1, 2, lat_idx, lng_idx + 1)
-        v_rrrl = read_var(self.data, t_idx + 1, p_idx + 1, 2, lat_idx + 1, lng_idx)
-        v_rrrr = read_var(self.data, t_idx + 1, p_idx + 1, 2, lat_idx + 1,
-                                lng_idx + 1)
+        v_llll = self.data[t_idx, p_idx, 2, lat_idx, lng_idx]
+        v_lllr = self.data[t_idx, p_idx, 2, lat_idx, lng_idx + 1]
+        v_llrl = self.data[t_idx, p_idx, 2, lat_idx + 1, lng_idx]
+        v_llrr = self.data[t_idx, p_idx, 2, lat_idx + 1, lng_idx + 1]
+        v_lrll = self.data[t_idx, p_idx + 1, 2, lat_idx, lng_idx]
+        v_lrlr = self.data[t_idx, p_idx + 1, 2, lat_idx, lng_idx + 1]
+        v_lrrl = self.data[t_idx, p_idx + 1, 2, lat_idx + 1, lng_idx]
+        v_lrrr = self.data[t_idx, p_idx + 1, 2, lat_idx + 1, lng_idx + 1]
+        v_rlll = self.data[t_idx + 1, p_idx, 2, lat_idx, lng_idx]
+        v_rllr = self.data[t_idx + 1, p_idx, 2, lat_idx, lng_idx + 1]
+        v_rlrl = self.data[t_idx + 1, p_idx, 2, lat_idx + 1, lng_idx]
+        v_rlrr = self.data[t_idx + 1, p_idx, 2, lat_idx + 1, lng_idx + 1]
+        v_rrll = self.data[t_idx + 1, p_idx + 1, 2, lat_idx, lng_idx]
+        v_rrlr = self.data[t_idx + 1, p_idx + 1, 2, lat_idx, lng_idx + 1]
+        v_rrrl = self.data[t_idx + 1, p_idx + 1, 2, lat_idx + 1, lng_idx]
+        v_rrrr = self.data[t_idx + 1, p_idx + 1, 2, lat_idx + 1, lng_idx + 1]
 
         a_lll = a_llll * t_lerp_m + a_rlll * t_lerp
         a_llr = a_lllr * t_lerp_m + a_rllr * t_lerp
