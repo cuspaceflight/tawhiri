@@ -33,5 +33,5 @@ def make_f(models, dataset):
 
 def make_any_terminator(terminators):
     def terminator(t, lat, lng, alt):
-        return any(term(t, lat, lng, alt) for t in terminators)
+        return any(term(t, lat, lng, alt) for term in terminators)
     return terminator
