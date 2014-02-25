@@ -2,7 +2,7 @@ import os
 import mmap
 cimport cython
 
-DEF VAR_P = 0
+DEF VAR_A = 0
 DEF VAR_U = 1
 DEF VAR_V = 2
 
@@ -14,12 +14,12 @@ cdef class Dataset:
     cdef double _lerp_p(self, double, unsigned int, double, unsigned int,
                         double, unsigned int, double, unsigned int,
                         unsigned int)
-    cdef double _lerp_lng(self, double, unsigned int, double, unsigned int,
-                          double, unsigned int, unsigned int, unsigned int)
-    cdef double _lerp_lat(self, double, unsigned int, double, unsigned int,
-                          unsigned int, unsigned int, unsigned int)
-    cdef double _lerp_t(self, double, unsigned int, unsigned int,
-                        unsigned int, unsigned int, unsigned int)
+    cdef double _lerp_t(self, unsigned int, double, unsigned int, double,
+                        unsigned int, double, unsigned int, unsigned int)
+    cdef double _lerp_lat(self, unsigned int, unsigned int, double,
+                          unsigned int, double, unsigned int, unsigned int)
+    cdef double _lerp_lng(self, unsigned int, unsigned int,
+                          unsigned int, double, unsigned int, unsigned int)
 
     def __init__(self, directory, year, month, day, hour):
         """Open a dataset from a particular time that's in a directory."""
@@ -71,60 +71,69 @@ cdef class Dataset:
         elif p_idx > 46:
             p_idx = 45
 
-        cdef double a_l = self._lerp_lng(t_lerp, t_idx, lat_lerp, lat_idx,
-                                         lng_lerp, lng_idx, p_idx, VAR_P)
-        cdef double a_h = self._lerp_lng(t_lerp, t_idx, lat_lerp, lat_idx,
-                                         lng_lerp, lng_idx, p_idx + 1, VAR_P)
+        cdef double a_l = self._lerp_t(p_idx, t_lerp, t_idx,
+                                       lat_lerp, lat_idx, lng_lerp, lng_idx,
+                                       VAR_A)
+        cdef double a_h = self._lerp_t(p_idx + 1, t_lerp, t_idx,
+                                       lat_lerp, lat_idx, lng_lerp, lng_idx,
+                                       VAR_A)
         cdef double p_lerp = ((alt - a_l) / (a_h - a_l))
-        cdef double u = self._lerp_p(t_lerp, t_idx, lat_lerp, lat_idx,
-                                     lng_lerp, lng_idx, p_lerp, p_idx, VAR_U)
-        cdef double v = self._lerp_p(t_lerp, t_idx, lat_lerp, lat_idx,
-                                     lng_lerp, lng_idx, p_lerp, p_idx, VAR_V)
+
+        cdef double u = self._lerp_p(p_lerp, p_idx, t_lerp, t_idx,
+                                     lat_lerp, lat_idx, lng_lerp, lng_idx,
+                                     VAR_U)
+        cdef double v = self._lerp_p(p_lerp, p_idx, t_lerp, t_idx,
+                                     lat_lerp, lat_idx, lng_lerp, lng_idx,
+                                     VAR_V)
         return u, v
 
     cdef double _lerp_p(self,
+                        double p_lerp, unsigned int p_idx,
                         double t_lerp, unsigned int t_idx,
                         double lat_lerp, unsigned int lat_idx,
                         double lng_lerp, unsigned int lng_idx,
-                        double p_lerp, unsigned int p_idx, unsigned int var):
-        cdef double var_l = self._lerp_lng(t_lerp, t_idx, lat_lerp, lat_idx,
-                                           lng_lerp, lng_idx, p_idx, var)
-        cdef double var_h = self._lerp_lng(t_lerp, t_idx, lat_lerp, lat_idx,
-                                           lng_lerp, lng_idx, p_idx + 1, var)
+                        unsigned int var):
+        cdef double var_l = self._lerp_t(p_idx, t_lerp, t_idx,
+                                         lat_lerp, lat_idx, lng_lerp, lng_idx,
+                                         var)
+        cdef double var_h = self._lerp_t(p_idx + 1, t_lerp, t_idx,
+                                         lat_lerp, lat_idx, lng_lerp, lng_idx,
+                                         var)
         cdef double p_lerp_m = 1.0 - p_lerp
         return var_l * p_lerp_m + var_h * p_lerp
 
-    cdef double _lerp_lng(self,
-                          double t_lerp, unsigned int t_idx,
-                          double lat_lerp, unsigned int lat_idx,
-                          double lng_lerp, unsigned int lng_idx,
-                          unsigned int p_idx, unsigned int var):
-        cdef double var_l = self._lerp_lat(t_lerp, t_idx, lat_lerp, lat_idx,
-                                           lng_idx, p_idx, var)
-        cdef double var_h = self._lerp_lat(t_lerp, t_idx, lat_lerp, lat_idx,
-                                           lng_idx + 1, p_idx, var)
-        cdef double lng_lerp_m = 1.0 - lng_lerp
-        return var_l * lng_lerp_m + var_h * lng_lerp
+    cdef double _lerp_t(self,
+                        unsigned int p_idx,
+                        double t_lerp, unsigned int t_idx,
+                        double lat_lerp, unsigned int lat_idx,
+                        double lng_lerp, unsigned int lng_idx,
+                        unsigned int var):
+        cdef double var_l = self._lerp_lat(p_idx, t_idx, lat_lerp, lat_idx,
+                                           lng_lerp, lng_idx, var)
+        cdef double var_h = self._lerp_lat(p_idx, t_idx + 1, lat_lerp, lat_idx,
+                                           lng_lerp, lng_idx, var)
+        cdef double t_lerp_m = 1.0 - t_lerp
+        return var_l * t_lerp_m + var_h * t_lerp
 
     cdef double _lerp_lat(self,
-                          double t_lerp, unsigned int t_idx,
+                          unsigned int p_idx, unsigned int t_idx,
                           double lat_lerp, unsigned int lat_idx,
-                          unsigned int lng_idx, unsigned int p_idx,
+                          double lng_lerp, unsigned int lng_idx,
                           unsigned int var):
-        cdef double var_l = self._lerp_t(t_lerp, t_idx, lat_idx, lng_idx,
-                                         p_idx, var)
-        cdef double var_h = self._lerp_t(t_lerp, t_idx, lat_idx + 1, lng_idx,
-                                         p_idx, var)
+        cdef double var_l = self._lerp_lng(p_idx, t_idx, lat_idx,
+                                           lng_lerp, lng_idx, var)
+        cdef double var_h = self._lerp_lng(p_idx, t_idx, lat_idx + 1,
+                                           lng_lerp, lng_idx, var)
         cdef double lat_lerp_m = 1.0 - lat_lerp
         return var_l * lat_lerp_m + var_h * lat_lerp
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cdef double _lerp_t(self,
-                        double t_lerp, unsigned int t_idx,
-                        unsigned int lat_idx, unsigned int lng_idx,
-                        unsigned int p_idx, unsigned int var):
+    cdef double _lerp_lng(self,
+                          unsigned int p_idx, unsigned int t_idx,
+                          unsigned int lat_idx, double lng_lerp,
+                          unsigned int lng_idx, unsigned int var):
         cdef double var_l = self.data[t_idx, p_idx, var, lat_idx, lng_idx]
-        cdef double var_h = self.data[t_idx + 1, p_idx, var, lat_idx, lng_idx]
-        cdef double t_lerp_m = 1.0 - t_lerp
-        return var_l * t_lerp_m + var_h * t_lerp
+        cdef double var_h = self.data[t_idx, p_idx, var, lat_idx, lng_idx + 1]
+        cdef double lng_lerp_m = 1.0 - lng_lerp
+        return var_l * lng_lerp_m + var_h * lng_lerp

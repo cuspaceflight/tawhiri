@@ -18,7 +18,7 @@ n_repeats = 100
 
 start_time = time.time()
 for i in range(n_repeats):
-    ts, lats, lngs, alts = solver.euler(t0, lat0, lng0, alt0, ds, f, mods, term, dt)
+    result = solver.euler(t0, lat0, lng0, alt0, ds, f, mods, term, dt)
 end_time = time.time()
 
 #for idx, t in enumerate(ts):
