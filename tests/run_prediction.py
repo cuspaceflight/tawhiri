@@ -3,9 +3,9 @@ from tawhiri import wind, solver, models
 
 ds = wind.Dataset("/home/adam/Projects/tawhiri/datasets", 2014, 2, 3, 6)
 
-mods = [models.make_constant_ascent(5.0), models.wind_velocity]
-term = [models.make_burst_termination(30000.0)]
-f = models.make_f(mods, ds)
+f = models.make_f([models.make_constant_ascent(5.0), models.wind_velocity], ds)
+term = models.make_burst_termination(30000.0)
+
 
 t0 = 6.0 * 3600
 lat0 = 52.0

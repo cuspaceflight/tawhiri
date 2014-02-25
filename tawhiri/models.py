@@ -29,3 +29,9 @@ def make_f(models, dataset):
     def f(t, lat, lng, alt):
         chunks = [model(t, lat, lng, alt, dataset) for model in models]
         return [sum((chunk[i] for chunk in chunks)) for i in range(3)]
+    return f
+
+def make_any_terminator(terminators):
+    def terminator(t, lat, lng, alt):
+        return any(term(t, lat, lng, alt) for t in terminators)
+    return terminator
