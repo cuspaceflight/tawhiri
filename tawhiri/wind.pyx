@@ -11,16 +11,6 @@ cdef class Dataset:
     cdef object mm
     cdef double[:, :, :, :, :] data
 
-    cdef double _lerp_p(self, double, unsigned int, double, unsigned int,
-                        double, unsigned int, double, unsigned int,
-                        unsigned int)
-    cdef double _lerp_t(self, unsigned int, double, unsigned int, double,
-                        unsigned int, double, unsigned int, unsigned int)
-    cdef double _lerp_lat(self, unsigned int, unsigned int, double,
-                          unsigned int, double, unsigned int, unsigned int)
-    cdef double _lerp_lng(self, unsigned int, unsigned int,
-                          unsigned int, double, unsigned int, unsigned int)
-
     def __init__(self, directory, year, month, day, hour):
         """Open a dataset from a particular time that's in a directory."""
         filename = "{:04d}{:02d}{:02d}{:02d}".format(year, month, day, hour)
