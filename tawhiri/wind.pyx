@@ -48,6 +48,7 @@ cdef class Dataset:
         for i in range(47):
             if self.data[t_idx, i, VAR_A, lat_idx, lng_idx] > alt:
                 p_idx = i - 1
+                break
 
         if p_idx < 0:
             p_idx = 0
