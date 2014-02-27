@@ -54,8 +54,11 @@ def make_time_termination(max_time):
 
 def make_f(models, dataset):
     def f(t, lat, lng, alt):
-        chunks = [model(t, lat, lng, alt, dataset) for model in models]
-        return [sum((chunk[i] for chunk in chunks)) for i in range(3)]
+        dlat, dlng, dalt = 0.0, 0.0, 0.0
+        for model in models:
+            d = model(t, lat, lng, alt, dataset)
+            dlat, dlng, dalt = dlat + d[0], dlng + d[1], dalt + d[2]
+        return dlat, dlng, dalt
     return f
 
 def make_any_terminator(terminators):
