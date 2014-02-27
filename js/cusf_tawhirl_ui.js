@@ -42,18 +42,17 @@ function Request() {
             type: 'POST',
             dataType: 'json',
             error: function(xhr, status, error) {
-                console.log('sending form data failed; ' + status + '; ' + error);
+                console.log('sending form data failed; ' + status + '; ' + error, xhr);
                 _this.status = 'failed, should rerun';
-                console.log(xhr);
             },
             success: function(data) {
-                console.log(data);
+                //console.log(data);
                 if (data.valid === 'false') {
                     infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error, 'error');
                     _this.status = 'failed';
                 } else if (data.valid === 'true') {
                     _this.uuid = data.uuid;
-                    console.log('Prediction form submitted with uuid ' + _this.uuid);
+                    //console.log('Prediction form submitted with uuid ' + _this.uuid);
                     _this.isBackendWorking = true;
                     _this.pollForFinishedStatus();
                 } else {
@@ -432,7 +431,7 @@ function Map($wrapper) {
     };
 
     this.plotPath = function(formData, launchTime) {
-        console.log("plotting path");
+        //console.log("plotting path");
         // thin black line
         var polyOptions = {
             strokeColor: '#000000',
@@ -518,13 +517,15 @@ function Map($wrapper) {
         try {
             var time = _this.hourlyPredictionTimes[value];
             var path = _this.paths[time].poly.getPath();
+            time = new Date(time.getTime());
+            time.setMonth(time.getMonth() - 1); // -1 because we have to add 1 for the old api
             var len = path.getLength();
             var launch_latlng = path.getAt(0);
             var landing_latlng = path.getAt(len - 1);
             //console.log(landing_latlng.lat(), landing_latlng.lng());
-            return '<p>Launch: ' + time.toUTCString() +
-                    '; at ' + launch_latlng.lat() + ', ' + launch_latlng.lng() +
-                    '</p><p>Landing: ' + landing_latlng.lat() + ', ' +
+            return '<p>Launch: ' + time.toUTCString()
+                    + '; at ' + launch_latlng.lat() + ', ' + launch_latlng.lng()
+                    + '</p><p>Landing: ' + landing_latlng.lat() + ', ' +
                     landing_latlng.lng() + '</p>';
         } catch (e) {
             return ' ';
@@ -600,14 +601,13 @@ function Map($wrapper) {
     };
 
     this._filterRunningRequests = function(request, index) {
-        console.log(request.status);
+        //console.log(request.status);
         if (request.status === 'success') {
             return false;
         } else if (request.status === 'running') {
             return true;
         } else if (request.status === 'failed, should rerun' && request.numberOfReruns <= request.maxNumberOfReruns) {
-            console.log('Rerunning request:');
-            console.log(request);
+            console.log('Rerunning request:', request);
             request.numberOfReruns++;
             request.rerun();
             return true;
@@ -629,12 +629,12 @@ function Map($wrapper) {
             }
             _this.progressBar.set(100 * _this.responsesReceived / _this.totalResponsesExpected);
         }
-        console.log('checking for responses received' + _this.responsesReceived + _this.totalResponsesExpected);
+        //console.log('checking for responses received' + _this.responsesReceived + _this.totalResponsesExpected);
         if (_this.responsesReceived >= _this.totalResponsesExpected) {
             if (_this.responsesReceived > 0) {
                 // all responses received
                 _this.progressBar.hide();
-                console.log(currentTimeouts);
+                //console.log(currentTimeouts);
                 _this.centerMapToBounds();
                 if (_this.responsesReceived > 1) {
                     _this.hourlySlider = new HourlySlider(_this.responsesReceived - 1);
@@ -695,7 +695,7 @@ function SlidingPanel($element) {
             if (_this.isBeingMoved) {
                 return;
             }
-            console.log('touchstart');
+            //console.log('touchstart');
             _this.t = e.timeStamp;
             var touchevent = e.originalEvent;
             _this.x = touchevent.changedTouches[0].pageX;
@@ -763,13 +763,13 @@ function SlidingPanel($element) {
         //Clicking
         _this.$toggleVisibleEl.click(function(event) {
             event.preventDefault();
-            console.log('click');
+            //console.log('click');
             _this.toggle();
         });
         // hover
         _this.$element.hover(function(event) {
             event.preventDefault();
-            console.log('hover');
+            //console.log('hover');
             _this.open();
         });
     };
@@ -794,8 +794,8 @@ function SlidingPanel($element) {
         }
     };
     this.open = function() {
-        console.log('open called', _this.isBeingMoved, _this.isOpen, _this.canBeOpened);
-        console.log('will open', !((!_this.isBeingMoved) && (_this.isOpen || (!_this.canBeOpened))));
+        //console.log('open called', _this.isBeingMoved, _this.isOpen, _this.canBeOpened);
+        //console.log('will open', !((!_this.isBeingMoved) && (_this.isOpen || (!_this.canBeOpened))));
         if (!_this.isBeingMoved && (_this.isOpen || !_this.canBeOpened)) {
             return;
         }
@@ -873,19 +873,92 @@ function Form($wrapper) {
     this.calculateDates = function() {
         var date = new Date();
         _this.currentDate = ceilMinute(date, 5);
-        _this.minPrediction = new Date(_this.currentDate.getTime() - this.minPredictionHours * 1000*60*60);
-        _this.maxPrediction = floorMinute(new Date(date.getTime() + this.maxPredictionHours * 1000*60*60), 5);
-        console.log(_this.maxPrediction);
+        _this.minPrediction = new Date(_this.currentDate.getTime() - this.minPredictionHours * 1000 * 60 * 60);
+        _this.maxPrediction = floorMinute(new Date(date.getTime() + this.maxPredictionHours * 1000 * 60 * 60), 5);
+        //console.log(_this.maxPrediction);
     };
 
     this.isValidTime = function(date) {
         return date >= _this.minPrediction && date >= _this.maxPrediction;
     };
 
-    this.setUpDatePicker = function() {
-        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    this._validateMinutesHourly = function() {
+        var $date = $('#dateTimePicker').datetimepicker('getDate');
+        var selectedTime = new Date($date.val());
+        selectedTime.setHours($('#inputLaunchHour option:selected').val());
+        selectedTime.setMinutes($('#inputLaunchMinute option:selected').val());
 
+
+        $('#inputLaunchMinute option').removeAttr('disabled');
+
+        var $selectedHour = $('#inputLaunchHour option:selected');
+        if (selectedTime.toDateString() === _this.minPrediction.toDateString()
+                && $selectedHour.val() == _this.minPrediction.getHours()) {
+            var minMins = _this.minPrediction.getMinutes();
+            $('#inputLaunchMinute option').each(function() {
+                var $option = $(this);
+                if ($option.val() < minMins) {
+                    $option.attr("disabled", "disabled");
+                }
+            });
+            var $selected = $('#inputLaunchMinute option:selected');
+            if ($selected.val() < minMins) {
+                // deselect currently selected option
+                $selected.removeAttr('selected');
+                // select earliest allowed option
+                $('#inputLaunchMinute option:not(:disabled)').first().prop('selected', true);
+            }
+        } else if (selectedTime.toDateString() === _this.maxPrediction.toDateString()
+                && $selectedHour.val() == _this.maxPrediction.getHours()) {
+            var maxMins = _this.maxPrediction.getMinutes();
+            $('#inputLaunchMinute option').each(function() {
+                var $option = $(this);
+                if ($option.val() > maxMins) {
+                    $option.attr("disabled", "disabled");
+                }
+            });
+            var $selected = $('#inputLaunchMinute option:selected');
+            if ($selected.val() > maxMins) {
+                // deselect currently selected option
+                $selected.removeAttr('selected');
+                // select earliest allowed option
+                $('#inputLaunchMinute option:not(:disabled)').last().prop('selected', true);
+
+            }
+        }
+
+        // validate the hourly predictor
+        var d = _this.maxPrediction - selectedTime;// + (1000*60*60*24);
+        //console.log('max:', _this.maxPrediction, 'selected:', selectedTime, 'difference:', d);
+        var maxHourlyPrediction = Math.floor(d / (1000 * 60 * 60)) + 1;
+        // +1 hour because of the way the predictions are run later.
+        // i.e. 1 = current time
+        //console.log('maxHourlyPrediction', maxHourlyPrediction);
+        $('#hourly option').each(function() {
+            var $option = $(this);
+            if ($option.val() > maxHourlyPrediction) {
+                $option.attr("disabled", "disabled");
+            } else {
+                $option.removeAttr('disabled');
+            }
+        });
+        var $selected = $('#hourly option:selected');
+        if ($selected.val() > maxHourlyPrediction) {
+            // deselect currently selected option
+            $selected.removeAttr('selected');
+            // select max allowed option
+            $('#hourly option:not(:disabled)').last().prop('selected', true);
+        }
+        // remove old dynamically inserted max value
+        $('#hourly option.dynamicallyInsertedMaxValue').remove();
+        if (!($('#hourly option[value="' + maxHourlyPrediction + '"]').length)) {
+            // add an option for the latest permissible hourly prediction
+            $('#hourly').append('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
+        }
+    };
+
+
+    this.setUpDatePicker = function() {
         var onSelectDate = function(dateTime) {
             $("input[name='day']").val(dateTime.getDate());
             $("input[name='month']").val(dateTime.getMonth() + 1);
@@ -899,24 +972,43 @@ function Form($wrapper) {
             // sort out time pickers
             var currentDateString = dateTime.toDateString();
             if (currentDateString === _this.minPrediction.toDateString()) {
+                var minHours = _this.minPrediction.getHours();
                 $('#inputLaunchHour option').each(function() {
-                    if ($(this).val() < _this.minPrediction.getHours()) {
-                        $(this).attr("disabled", "disabled");
+                    var $option = $(this);
+                    if ($option.val() < minHours) {
+                        $option.attr("disabled", "disabled");
                     } else {
-                        $(this).removeAttr('disabled');
+                        $option.removeAttr('disabled');
                     }
                 });
+                var $selected = $('#inputLaunchHour option:selected');
+                if ($selected.val() < minHours) {
+                    // deselect currently selected option
+                    $selected.removeAttr('selected');
+                    // select earliest allowed option
+                    $('#inputLaunchHour option:not(:disabled)').first().prop('selected', true);
+                }
             } else if (currentDateString === _this.maxPrediction.toDateString()) {
+                var maxhours = _this.maxPrediction.getHours();
                 $('#inputLaunchHour option').each(function() {
-                    if ($(this).val() > _this.maxPrediction.getHours()) {
-                        $(this).attr("disabled", "disabled");
+                    var $option = $(this);
+                    if ($option.val() > maxhours) {
+                        $option.attr("disabled", "disabled");
                     } else {
-                        $(this).removeAttr('disabled');
+                        $option.removeAttr('disabled');
                     }
                 });
+                var $selected = $('#inputLaunchHour option:selected');
+                if ($selected.val() > maxhours) {
+                    $selected.removeAttr('selected');
+                    // select latest allowed option
+                    $('#inputLaunchHour option:not(:disabled)').last().prop('selected', true);
+                }
             } else {
                 $('#inputLaunchHour option').removeAttr('disabled');
+                $('#inputLaunchMinute option').removeAttr('disabled');
             }
+            _this._validateMinutesHourly();
         };
 
         $('#dateTimePicker').datetimepicker({
@@ -952,9 +1044,9 @@ function Form($wrapper) {
                 0 // ms
                 );
 
-        for (i = 0; i < formData.hourly; i++) {
+        for (var h = 0; h < formData.hourly; h++) { // < so that we don't add additional hours
             var predictionData = $.extend({}, formData);
-            var d = new Date(runTime.getTime() + i * 1440000); // add i hours
+            var d = new Date(runTime.getTime() + (h * 60 * 60 * 1000)); // add h hours
             predictionData.year = d.getFullYear();
             predictionData.month = d.getMonth();
             predictionData.day = d.getDate();
@@ -998,24 +1090,10 @@ function Form($wrapper) {
             $unit_selection.click();
             return false;
         });
+        // hour / minute time change
+        $('#inputLaunchHour').on('change.validateMinutesHourly', _this._validateMinutesHourly);
+        $('#inputLaunchMinute').on('change.validateMinutesHourly', _this._validateMinutesHourly);
 
-        $('#inputLaunchDay, #inputLaunchMonth, #inputLaunchYear, #inputLaunchHour, #inputLaunchMinute, #hourly').change(function(e) {
-            console.log(e);
-            console.log(_this.input_launch_month[0] === e.target);
-            switch (e.target) {
-                case _this.input_launch_day[0]:
-                    break;
-                case _this.input_launch_month[0]:
-                    alert(_this.input_launch_month.val());
-                    break;
-                case _this.input_launch_year[0]:
-                    break;
-                case _this.input_launch_hour[0]:
-                    break;
-                case _this.input_launch_minute[0]:
-                    break;
-            }
-        });
     };
     this.submit = function() {
         var formData = _this.serializeToObject();
@@ -1264,6 +1342,10 @@ function infoAlert(msg, type, timeout) {
 var map;
 var form;
 var notifications;
+
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+var shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 var oldTimeout = setTimeout;
 var currentTimeouts = {};

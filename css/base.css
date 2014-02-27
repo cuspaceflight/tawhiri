@@ -33,7 +33,6 @@ body { height: 100%; margin: 0; padding: 0 }
     text-align: center;
 }
 
-
 #dateTimePicker-wrapper .xdsoft_datetimepicker{
     margin-top: 10px;
     float: right;
@@ -43,8 +42,9 @@ body { height: 100%; margin: 0; padding: 0 }
     display: none;
 }
 
-#inputLaunchHour option[disabled=disabled], #inputLaunchMinute option[disabled=disabled] {
+#form option[disabled=disabled] {
     display: none;
+    background: #aaa;
 }
 
 #current-launch-info-container {
