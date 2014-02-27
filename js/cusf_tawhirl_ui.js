@@ -636,16 +636,7 @@ function Map($wrapper) {
                 _this.progressBar.hide();
                 //console.log(currentTimeouts);
                 _this.centerMapToBounds();
-                if (_this.responsesReceived > 1) {
-                    _this.hourlySlider = new HourlySlider(_this.responsesReceived - 1);
-                    _this.hourlySlider.setValue(0);
-                    _this.hourlySlider.showPopup();
-                } else {
-                    $.each(_this.paths, function(key, path) {
-                        _this.selectPath(path);
-                        return;
-                    });
-                }
+                _this.hourlySlider = new HourlySlider(_this.responsesReceived - 1);
             }
         } else if (_this.shouldCheckForCompletion && _this.totalResponsesExpected > 0) {
             window.setTimeout(_this.checkForAllResponsesReceived, 1000);
@@ -923,7 +914,6 @@ function Form($wrapper) {
                 $selected.removeAttr('selected');
                 // select earliest allowed option
                 $('#inputLaunchMinute option:not(:disabled)').last().prop('selected', true);
-
             }
         }
 
@@ -953,7 +943,7 @@ function Form($wrapper) {
         $('#hourly option.dynamicallyInsertedMaxValue').remove();
         if (!($('#hourly option[value="' + maxHourlyPrediction + '"]').length)) {
             // add an option for the latest permissible hourly prediction
-            $('#hourly').append('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
+            $('#hourly option:not(:disabled)').last().after('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
         }
     };
 
@@ -1239,6 +1229,13 @@ function HourlySlider(max) {
         _this.$infoBoxContainer.html('<div id="current-launch-info"></div>');
         _this.$infoBoxEl = $('#current-launch-info');
         _this.$infoBoxContainer.show();
+        _this.$sliderContainer.show();
+        _this.setValue(0);
+        if (max > 0) {
+            _this.showPopup();
+        }else{
+            _this.$sliderContainer.hide();
+        }
     };
 
     this.onSlide = function(event) {
@@ -1252,10 +1249,8 @@ function HourlySlider(max) {
         _this.$sliderContainer.popover('show');
         window.setTimeout(function() {
             _this.$sliderContainer.popover('hide');
-        }, 5000);
-        _this.$sliderContainer.mousedown(function(event) {
-            _this.$sliderContainer.popover('hide');
-        });
+            _this.$sliderContainer.popover('disable');
+        }, 3000);
     };
     this.hide = function() {
         _this.$sliderContainer.hide();
