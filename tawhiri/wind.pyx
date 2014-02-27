@@ -43,11 +43,10 @@ cdef class Dataset:
         cdef unsigned int lng_idx = int(lng_val)
         cdef double lng_lerp = lng_val - lng_idx
 
-        cdef double pressure_height
         cdef unsigned int p_idx = 0
         cdef unsigned int i, j, k
         for i in range(47):
-            if self.data[t_idx, i, 0, lat_idx, lng_idx] > alt:
+            if self.data[t_idx, i, VAR_A, lat_idx, lng_idx] > alt:
                 p_idx = i - 1
 
         if p_idx < 0:
