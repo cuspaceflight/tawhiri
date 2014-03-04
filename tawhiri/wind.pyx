@@ -1,3 +1,7 @@
+# Cython compiler directives:
+# cython: boundscheck=False
+# cython: wraparound=False
+
 import os
 import mmap
 
