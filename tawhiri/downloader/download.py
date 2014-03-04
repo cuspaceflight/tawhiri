@@ -32,7 +32,7 @@ import pygrib
 from . import Dataset, unpack_grib
 
 
-logger = logging.getLogger("tawhiri.wind.download")
+logger = logging.getLogger("tawhiri.downloader.download")
 assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
 
