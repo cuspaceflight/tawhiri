@@ -2,7 +2,7 @@
 <html>
   <head>
     <!-- Matthew Judge, 2014 -->
-    <title>Tawhirl</title>
+    <title>Tawhiri</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
@@ -17,10 +17,10 @@
 
     <!-- google maps -->
     <script type="text/javascript"
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCSRJ3tEmUoGQamARoT7VW68bUv29a_1Z0&sensor=true">
+            src="https://maps.googleapis.com/maps/api/js?libraries=places&key=AIzaSyCSRJ3tEmUoGQamARoT7VW68bUv29a_1Z0&sensor=true">
     </script>
 
-    <script src="js/cusf_tawhirl_ui.js"></script>
+    <script src="js/cusf_tawhiri_ui.js"></script>
     <!--<script src="js/test.js"></script>-->
 
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
@@ -40,8 +40,9 @@
         </span>
       </div>
       <div id="form">
-        <h1>Predictor</h1>
+        <h3>Tawhiri</h3>
         <hr/>
+            <input class="form-control" type="text" id="pac-input" placeholder="Search for a place"/>
         <form class="form-horizontal" id="prediction-form" role="form">
           <input type="hidden" name="launchsite" value="Other"/>
           <input type="hidden" name="second" value="0"/>
@@ -53,6 +54,9 @@
               </p>
             </small>
           </h4>
+          <div class="form-group">
+
+          </div>
           <div class="form-group">
             <label for="inputLaunchLat" class="col-sm-3 control-label">Lat</label>
             <div class="col-sm-9">
@@ -222,9 +226,7 @@
     </div>
 
     <div class="tall" id="map-wrap">
-      <div id="wrapper">
-
-      </div>
+      <div id="wrapper"></div>
       <div id="notification-area-wrap">
         <div id="notification-area"></div>
       </div>
