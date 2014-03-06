@@ -175,6 +175,18 @@ var MapObjects = {
     }
 };
 
+Services = {
+    Geolocation: {
+        getPosition: function(callback) {
+            $.get('http://freegeoip.net/json/', null, callback)
+                    .fail(function() {
+                        console.log('Geolocation position failed');
+                        callback(null);
+                    });
+        }
+    }
+};
+
 function Map($wrapper) {
     var _this = this;
     this.$wrapper = $wrapper;
@@ -196,50 +208,61 @@ function Map($wrapper) {
     this.currentHourlySliderValue = null;
     this.selectedPath = null;
     this.progressBar = ProgressBar($('#progress-bar-wrapper'));
-    // initialisation code
-    this.mapOptions = {
-        center: new google.maps.LatLng(52, 0),
-        zoom: 8,
-        mapTypeId: google.maps.MapTypeId.TERRAIN,
-        mapTypeControl: true,
-        mapTypeControlOptions: {
-            style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
-            position: google.maps.ControlPosition.TOP_CENTER
-        },
-        panControl: true,
-        panControlOptions: {
-            position: google.maps.ControlPosition.TOP_RIGHT
-        },
-        zoomControl: true,
-        zoomControlOptions: {
-            style: google.maps.ZoomControlStyle.LARGE,
-            position: google.maps.ControlPosition.TOP_RIGHT
-        },
-        scaleControl: true,
-        scaleControlOptions: {
-            position: google.maps.ControlPosition.TOP_RIGHT
-        },
-        streetViewControl: true,
-        streetViewControlOptions: {
-            position: google.maps.ControlPosition.TOP_RIGHT
-        }
+    this.map = null;
+    this.init = function() {
+        // initialisation code
 
+        var mapOptions = {
+            center: new google.maps.LatLng(52, 0), // defaults to Cambridge
+            zoom: 8,
+            mapTypeId: google.maps.MapTypeId.TERRAIN,
+            mapTypeControl: true,
+            mapTypeControlOptions: {
+                style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+                position: google.maps.ControlPosition.TOP_CENTER
+            },
+            panControl: true,
+            panControlOptions: {
+                position: google.maps.ControlPosition.TOP_RIGHT
+            },
+            zoomControl: true,
+            zoomControlOptions: {
+                style: google.maps.ZoomControlStyle.LARGE,
+                position: google.maps.ControlPosition.TOP_RIGHT
+            },
+            scaleControl: true,
+            scaleControlOptions: {
+                position: google.maps.ControlPosition.TOP_RIGHT
+            },
+            streetViewControl: true,
+            streetViewControlOptions: {
+                position: google.maps.ControlPosition.TOP_RIGHT
+            }
+        };
+        _this.map = new google.maps.Map(_this.canvas, mapOptions);
+        // map is now initialised
+
+        // guess location from users ip and set up maps
+        Services.Geolocation.getPosition(function(data) {
+            if (data !== null && isNumber(data.latitude) && isNumber(data.longitude)) {
+                _this.map.setCenter(new google.maps.LatLng(data.latitude, data.longitude));
+            }
+        });
+        // prepare elevation service
+        _this.elevator = new google.maps.ElevationService();
+        // start listening for right clicks to set position
+        google.maps.event.addListener(_this.map, 'rightclick', function(event) {
+            console.log("Right click event", event);
+            _this.setLaunch(event);
+            _this.stopListeningForLeftClick();
+            form.open();
+        });
+        // initialise the search box
+        _this.initSearchBox();
     };
-    this.map = new google.maps.Map(this.canvas, this.mapOptions);
-    this.elevator = new google.maps.ElevationService();
-
-    google.maps.event.addListener(this.map, 'rightclick', function(event) {
-        console.log("Right click event", event);
-        _this.setLaunch(event);
-        _this.stopListeningForLeftClick();
-        form.open();
-    });
-    // end init code
-
     this.reset = function() {
         this.removeAllPaths();
         this.clearMapBounds();
-
         this.responsesReceived = 0;
         this.totalResponsesExpected = 1;
         this.willNotComplete = false;
@@ -248,74 +271,85 @@ function Map($wrapper) {
         this.currentHourlySliderValue = null;
         this.hourlyPredictionTimes.length = 0;
         this.selectedPath = null;
-
         if (this.hourlySlider !== null) {
             this.hourlySlider.remove();
             this.hourlySlider = null;
         }
 
     };
-
     this.initSearchBox = function() {
-        
-        var markers = [];
+        _this.geocoder = new google.maps.Geocoder();
+        var pac_input = document.getElementById('pac-input');
+        var $pac_input = $(pac_input);
+        var $pac_input_submit = $('#pac-input-submit');
 
-        var defaultBounds = new google.maps.LatLngBounds(
-                new google.maps.LatLng(-33.8902, 151.1759),
-                new google.maps.LatLng(-33.8474, 151.2631));
-        _this.map.fitBounds(defaultBounds);
-        // Create the search box and link it to the UI element.
-        var input = (document.getElementById('pac-input'));
-        
-        //_this.map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+        var orig_listener;
 
-        var searchBox = new google.maps.places.SearchBox(input);
+        function searchAndCenter() {
+            var placename = $pac_input.val();
+            console.log('sending request for', placename);
+            _this.geocoder.geocode({"address": placename}, function(results, status) {
+                if (status == google.maps.GeocoderStatus.OK) {
+                    var lat = results[0].geometry.location.lat(),
+                            lng = results[0].geometry.location.lng(),
+                            placeName = results[0].address_components[0].long_name,
+                            latlng = new google.maps.LatLng(lat, lng);
+                    _this.map.setCenter(latlng);
+                    _this.map.fitBounds(results[0].geometry.viewport);
+                } else if (status == google.maps.GeocoderStatus.ZERO_RESULTS) {
+                    console.log('no results found for', placename);
+                } else {
+                    console.log('error submitting search for', placename);
+                }
+            });
+        }
 
-        // Listen for the event fired when the user selects an item from the
-        // pick list. Retrieve the matching places for that item.
-        google.maps.event.addListener(searchBox, 'places_changed', function() {
-            var places = searchBox.getPlaces();
-
-            for (var i = 0, marker; marker = markers[i]; i++) {
-                marker.setMap(null);
+        function selectNextAutoSuggestion() {
+            var suggestion_selected = $(".pac-item-selected").length > 0;
+            if (!suggestion_selected) {
+                var simulated_downarrow = $.Event("keydown", {keyCode: 40, which: 40});
+                orig_listener.apply(pac_input, [simulated_downarrow]);
             }
+        }
 
-            // For each place, get the icon, place name, and location.
-            markers = [];
-            var bounds = new google.maps.LatLngBounds();
-            for (var i = 0, place; place = places[i]; i++) {
-                var image = {
-                    url: place.icon,
-                    size: new google.maps.Size(71, 71),
-                    origin: new google.maps.Point(0, 0),
-                    anchor: new google.maps.Point(17, 34),
-                    scaledSize: new google.maps.Size(25, 25)
-                };
+        function closeAutoComplete() {
+            var simulated_enter = $.Event("keydown", {keyCode: 13, which: 13});
+            orig_listener.apply(pac_input, [simulated_enter]);
+        }
 
-                // Create a marker for each place.
-                var marker = new google.maps.Marker({
-                    map: _this.map,
-                    icon: image,
-                    title: place.name,
-                    position: place.geometry.location
-                });
+        (function pacSelectFirst(input) {
+            // store the original event binding function
+            var _addEventListener = (input.addEventListener) ? input.addEventListener : input.attachEvent;
 
-                markers.push(marker);
-
-                bounds.extend(place.geometry.location);
+            function addEventListenerWrapper(type, listener) {
+                // Simulate a 'down arrow' keypress on hitting 'return' when no pac suggestion is selected,
+                // and then trigger the original listener.
+                if (type == "keydown") {
+                    orig_listener = listener;
+                    listener = function(event) {
+                        if (event.which == 13) {
+                            selectNextAutoSuggestion();
+                            searchAndCenter();
+                        }
+                        orig_listener.apply(input, [event]);
+                    };
+                }
+                // add the modified listener
+                _addEventListener.apply(input, [type, listener]);
             }
+            if (input.addEventListener)
+                input.addEventListener = addEventListenerWrapper;
+            else if (input.attachEvent)
+                input.attachEvent = addEventListenerWrapper;
+        })(pac_input);
 
-            _this.map.fitBounds(bounds);
-        });
-
-        // Bias the SearchBox results towards places that are within the bounds of the
-        // current map's viewport.
-        google.maps.event.addListener(map, 'bounds_changed', function() {
-            var bounds = map.getBounds();
-            searchBox.setBounds(bounds);
+        var autocomplete = new google.maps.places.Autocomplete(pac_input);
+        $pac_input_submit.click(function(e) {
+            selectNextAutoSuggestion();
+            searchAndCenter();
+            closeAutoComplete();
         });
     };
-
     this.listenForNextLeftClick = function() {
         _this.$wrapper.addClass('tofront');
         google.maps.event.addListener(_this.map, 'click', function(event) {
@@ -329,16 +363,13 @@ function Map($wrapper) {
         _this.$wrapper.removeClass('tofront');
         google.maps.event.clearListeners(_this.map, 'click');
     };
-
     this.addMapBound = function(latlng) {
         this.mapBounds.push(latlng);
     };
-
     this.clearMapBounds = function() {
         this.mapBounds.length = 0;
         this.mapBounds = [];
     };
-
     this.centerMapToBounds = function() {
         var bounds = new google.maps.LatLngBounds();
         for (var i = 0; i < _this.mapBounds.length; i++) {
@@ -346,13 +377,11 @@ function Map($wrapper) {
         }
         this.map.fitBounds(bounds);
     };
-
     this.setLaunch = function(event) {
         console.log('Setting launch position and marker');
         this.setLaunchPosition(event.latLng);
         this.placeMarker(event.latLng);
     };
-
     this.setLaunchPosition = function(latLng) {
         // set the lat long values
         $('#inputLaunchLat').val(latLng.lat());
@@ -382,7 +411,6 @@ function Map($wrapper) {
             }
         });
     };
-
     this.removeAllPaths = function() {
         console.log('deleting all previous paths');
         $.each(_this.paths, function(key, val) {
@@ -395,7 +423,6 @@ function Map($wrapper) {
         delete _this.paths;
         _this.paths = {};
     };
-
     this.placeMarker = function(latLng) {
         this.removeAllMarkers();
         var marker = new google.maps.Marker({position: latLng,
@@ -404,23 +431,19 @@ function Map($wrapper) {
         });
         this.markers.push(marker);
     };
-
     this.removeAllMarkers = function() {
         for (var i = 0; i < this.markers.length; i++) {
             this.markers[i].setMap(null);
         }
         this.markers.length = 0;
     };
-
     this.parseDrawCSVData = function(data, launchTime) {
         //console.log(data);
         var poly = _this.paths[launchTime].poly;
         var polyw = _this.paths[launchTime].polyw;
         var path = poly.getPath();
         var pathw = polyw.getPath();
-
         var pathCollection = [poly, polyw];
-
         var time;
         var lat;
         var lng;
@@ -431,7 +454,6 @@ function Map($wrapper) {
         var burst_lng;
         var burst_alt = -10;
         var burst_latlng;
-
         $.each(data, function(key, val) {
             // each location, time string
             var results = val.split(',');
@@ -489,7 +511,6 @@ function Map($wrapper) {
         _this.responsesReceived++;
         return true;
     };
-
     this.plotPath = function(formData, launchTime) {
         //console.log("plotting path");
         // thin black line
@@ -515,14 +536,11 @@ function Map($wrapper) {
             _this.hourlySlider.setValue($.inArray(launchTime, _this.hourlyPredictionTimes));
             //setHourlySlider($.inArray(launchTime, _this.hourlyPredictionTimes));
         });
-
         var args = {
             poly: poly,
             polyw: polyw
         };
-
         this.paths[launchTime] = args;
-
         var request = new Request();
         _this.runningRequests.push(request);
         request.submit(
@@ -532,7 +550,6 @@ function Map($wrapper) {
                 //'launchsite=Churchill&second=0&submit=Run+Prediction&lat=52.109878940354896&lon=-0.38898468017578125&initial_alt=28&day=15&month=1&year=2014&hour=21&min=59&ascent=5&burst=3000&drag=5'
                 );
     };
-
     this.plotPathInfoPoint = function(latlng, text, pathCollection) {
         var circleOptions = {
             strokeColor: '#FF0000',
@@ -591,13 +608,11 @@ function Map($wrapper) {
             return ' ';
         }
     };
-
     this.dimAllPaths = function() {
         $.each(this.paths, function(key, val) {
             _this.dimPath(_this.paths[key]);
         });
     };
-
     this.dimPath = function(path) {
         if (path.pathCollection) {
             for (var j = 0; j < path.pathCollection.length; j++) {
@@ -616,7 +631,6 @@ function Map($wrapper) {
             zIndex: 30
         });
     };
-
     this.unDimPath = function(path) {
         //console.log(path);
         if (path.pathCollection) {
@@ -635,7 +649,6 @@ function Map($wrapper) {
             zIndex: 40
         });
     };
-
     this.selectPath = function(path) {
         //console.log(path);
         if (_this.selectedPath) {
@@ -649,7 +662,6 @@ function Map($wrapper) {
         _this.unDimPath(path);
         _this.selectedPath = path;
     };
-
     this.onHourlySliderSlide = function(event) {
         //console.log(event);
         var value = event.value;
@@ -659,7 +671,6 @@ function Map($wrapper) {
             _this.selectPath(_this.paths[_this.hourlyPredictionTimes[value]]);
         }
     };
-
     this._filterRunningRequests = function(request, index) {
         //console.log(request.status);
         if (request.status === 'success') {
@@ -680,7 +691,6 @@ function Map($wrapper) {
             return false;
         }
     };
-
     this.checkForAllResponsesReceived = function() {
         _this.runningRequests = $.grep(_this.runningRequests, _this._filterRunningRequests);
         if (_this.responsesReceived > 0) {
@@ -702,6 +712,8 @@ function Map($wrapper) {
             window.setTimeout(_this.checkForAllResponsesReceived, 1000);
         }
     };
+    this.init();
+    return this;
 }
 
 function SlidingPanel($element) {
@@ -729,12 +741,10 @@ function SlidingPanel($element) {
     };
     this.init = function() {
         this.getMeasurements();
-
         $(window).resize(function() {
             _this.getMeasurements(); // this can cause lag when resizing the window
             _this.open();
         });
-
         this.$toggleVisibleEl.on('touchend', function(e) {
             if (!_this.hasFirstMoveOccured) {
                 e.preventDefault();
@@ -810,7 +820,6 @@ function SlidingPanel($element) {
             }
             _this.isBeingMoved = false;
         });
-
         //Clicking
         _this.$toggleVisibleEl.click(function(event) {
             event.preventDefault();
@@ -862,7 +871,6 @@ function SlidingPanel($element) {
         window.setTimeout(function() {
             _this.canBeOpened = true;
         }, 800);
-
         _this.$element.animate({marginLeft: _this._getBoundedMarginx(-_this.width)});
         //_this.$element.css({'margin-left': _this._getBoundedMarginx(-_this.width)});
         _this.isOpen = false;
@@ -908,19 +916,16 @@ function Form($wrapper) {
     this.open = this.slidingPanel.open;
     this.close = this.slidingPanel.close;
     this.toggle = this.slidingPanel.toggle;
-
     this.input_launch_day = $('#inputLaunchDay');
     this.input_launch_month = $('#inputLaunchMonth');
     this.input_launch_year = $('#inputLaunchYear');
     this.input_launch_hour = $('#inputLaunchHour');
     this.input_launch_minute = $('#inputLaunchMinute');
-
     this.maxPredictionHours = 180; // latest prediction available
     this.minPredictionHours = 100; // earliest prediction permissible
     this.currentDate = null;
     this.maxPrediction = null;
     this.minPrediction = null;
-
     this.calculateDates = function() {
         var date = new Date();
         _this.currentDate = ceilMinute(date, 5);
@@ -928,20 +933,15 @@ function Form($wrapper) {
         _this.maxPrediction = floorMinute(new Date(date.getTime() + this.maxPredictionHours * 1000 * 60 * 60), 5);
         //console.log(_this.maxPrediction);
     };
-
     this.isValidTime = function(date) {
         return date >= _this.minPrediction && date >= _this.maxPrediction;
     };
-
     this._validateMinutesHourly = function() {
         var $date = $('#dateTimePicker').datetimepicker('getDate');
         var selectedTime = new Date($date.val());
         selectedTime.setHours($('#inputLaunchHour option:selected').val());
         selectedTime.setMinutes($('#inputLaunchMinute option:selected').val());
-
-
         $('#inputLaunchMinute option').removeAttr('disabled');
-
         var $selectedHour = $('#inputLaunchHour option:selected');
         if (selectedTime.toDateString() === _this.minPrediction.toDateString()
                 && $selectedHour.val() == _this.minPrediction.getHours()) {
@@ -978,7 +978,7 @@ function Form($wrapper) {
         }
 
         // validate the hourly predictor
-        var d = _this.maxPrediction - selectedTime;// + (1000*60*60*24);
+        var d = _this.maxPrediction - selectedTime; // + (1000*60*60*24);
         //console.log('max:', _this.maxPrediction, 'selected:', selectedTime, 'difference:', d);
         var maxHourlyPrediction = Math.floor(d / (1000 * 60 * 60)) + 1;
         // +1 hour because of the way the predictions are run later.
@@ -1006,19 +1006,15 @@ function Form($wrapper) {
             $('#hourly option:not(:disabled)').last().after('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
         }
     };
-
-
     this.setUpDatePicker = function() {
         var onSelectDate = function(dateTime) {
             $("input[name='day']").val(dateTime.getDate());
             $("input[name='month']").val(dateTime.getMonth() + 1);
             $("input[name='year']").val(dateTime.getFullYear());
-
             $('#displayLaunchDate').html(dateTime.getDate() + ' '
                     + months[dateTime.getMonth()] + ' '
                     + dateTime.getFullYear());
             $('#dateTimePicker-wrapper').collapse('hide');
-
             // sort out time pickers
             var currentDateString = dateTime.toDateString();
             if (currentDateString === _this.minPrediction.toDateString()) {
@@ -1060,7 +1056,6 @@ function Form($wrapper) {
             }
             _this._validateMinutesHourly();
         };
-
         $('#dateTimePicker').datetimepicker({
             inline: true,
             minDate: _this.minPrediction.getFullYear() + '/' + (_this.minPrediction.getMonth() + 1) + '/' + _this.minPrediction.getDate(),
@@ -1077,7 +1072,6 @@ function Form($wrapper) {
             $('#dateTimePicker-wrapper').collapse('toggle');
         });
     };
-
     this.predict = function(formData) {
         map.reset();
         notifications.closeAllNotifications();
@@ -1093,7 +1087,6 @@ function Form($wrapper) {
                 formData.second,
                 0 // ms
                 );
-
         for (var h = 0; h < formData.hourly; h++) { // < so that we don't add additional hours
             var predictionData = $.extend({}, formData);
             var d = new Date(runTime.getTime() + (h * 60 * 60 * 1000)); // add h hours
@@ -1110,7 +1103,6 @@ function Form($wrapper) {
         map.checkForAllResponsesReceived();
         _this.close();
     };
-
     this.autoPopulateInputs = function() {
         var hrs = padTwoDigits(_this.currentDate.getHours());
         var mins = padTwoDigits(_this.currentDate.getMinutes());
@@ -1143,7 +1135,6 @@ function Form($wrapper) {
         // hour / minute time change
         $('#inputLaunchHour').on('change.validateMinutesHourly', _this._validateMinutesHourly);
         $('#inputLaunchMinute').on('change.validateMinutesHourly', _this._validateMinutesHourly);
-
     };
     this.submit = function() {
         var formData = _this.serializeToObject();
@@ -1269,7 +1260,6 @@ function HourlySlider(max) {
     this.$infoBoxEl = null;
     this.$infoBoxContainer = $("#current-launch-info-container");
     this.value = null;
-
     this.init = function(max) {
         _this.$sliderContainer.html('<input type="text" id="hourly-time-slider"/>');
         _this.$sliderEl = $("#hourly-time-slider");
@@ -1297,7 +1287,6 @@ function HourlySlider(max) {
             _this.$sliderContainer.hide();
         }
     };
-
     this.onSlide = function(event) {
         var text = map.getHourlySliderTooltip(event.value);
         _this.setInfoBox(text);
@@ -1343,30 +1332,24 @@ function ProgressBar($wrapper) {
     this.$element = this.$wrapper.children('.progress');
     this.$bar = this.$element.children('.progress-bar');
     this.isAnimated = false;
-
     this.show = function() {
         _this.$wrapper.show();
     };
-
     this.makeAnimated = function() {
         _this.$element.addClass('progress-striped active');
         set(100);
         this.isAnimated = true;
     };
-
     this.makeStatic = function() {
         _this.$element.removeClass('progress-striped active');
         _this.isAnimated = false;
     };
-
     this.set = function(perc) {
         _this.$bar.css('width', perc + '%');
     };
-
     this.hide = function() {
         this.$wrapper.hide();
     };
-
     return this;
 }
 
@@ -1376,6 +1359,10 @@ function padTwoDigits(x) {
         x = "0" + x;
     }
     return x;
+}
+
+function isNumber(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
 }
 
 function formatTime(d) {
@@ -1397,11 +1384,9 @@ function infoAlert(msg, type, timeout) {
 var map;
 var form;
 var notifications;
-
 var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 var shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 var oldTimeout = setTimeout;
 var currentTimeouts = {};
 window.setTimeout = function(callback, timeout) {
@@ -1437,5 +1422,4 @@ $(function() {
     map = new Map($('#map-wrap'));
     form = new Form($('#form-wrap'));
     notifications = new Notifications($('#notification-area'));
-    map.initSearchBox();
 });

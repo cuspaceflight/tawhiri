@@ -42,7 +42,16 @@
       <div id="form">
         <h3>Tawhiri</h3>
         <hr/>
-            <input class="form-control" type="text" id="pac-input" placeholder="Search for a place"/>
+        <div class="row">
+          <div class="col-lg-12">
+            <div class="input-group">
+              <input class="form-control" type="text" id="pac-input" placeholder="Search for a place"/>
+              <span class="input-group-btn">
+                <button class="btn btn-default" id="pac-input-submit" type="button"><span class="glyphicon glyphicon-search"></span></button>
+              </span>
+            </div><!-- /input-group -->
+          </div>
+        </div><!-- /.row -->
         <form class="form-horizontal" id="prediction-form" role="form">
           <input type="hidden" name="launchsite" value="Other"/>
           <input type="hidden" name="second" value="0"/>
