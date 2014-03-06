@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 import pygrib
 
-logger = logging.getLogger("tawhiri.wind")
+logger = logging.getLogger("tawhiri.downloader")
 
 
 class Dataset(object):

@@ -32,3 +32,7 @@ $ pip install pygrib pyproj 'gevent<1.0'
 ```
 
 
+## Building the Cython extension
+```bash
+$ python setup.py build_ext --inplace
+```
