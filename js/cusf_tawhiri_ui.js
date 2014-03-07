@@ -141,6 +141,14 @@ function Request() {
 
 var MapObjects = {
     // svg symbols
+    GPSArrow: {
+        path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+        fillColor: 'blue',
+        fillOpacity: 1,
+        scale: 5,
+        strokeColor: 'black',
+        strokeWeight: 2
+    },
     upArrow: {
         path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
         fillColor: 'green',
@@ -208,10 +216,13 @@ function Map($wrapper) {
     this.currentHourlySliderValue = null;
     this.selectedPath = null;
     this.progressBar = ProgressBar($('#progress-bar-wrapper'));
+    this.isGpsTracking = false;
+    this.gpsTrackerTimeout = null;
+    this.gpsTrackerTimeoutInterval = 20 * 1000; // 2 seconds
+    this.gpsMarker = null;
     this.map = null;
     this.init = function() {
         // initialisation code
-
         var mapOptions = {
             center: new google.maps.LatLng(52, 0), // defaults to Cambridge
             zoom: 8,
@@ -248,6 +259,10 @@ function Map($wrapper) {
                 _this.map.setCenter(new google.maps.LatLng(data.latitude, data.longitude));
             }
         });
+
+        // set up html5 geolocation
+        $('#gps-locate').click(_this.toggleGpsTracker);
+
         // prepare elevation service
         _this.elevator = new google.maps.ElevationService();
         // start listening for right clicks to set position
@@ -275,7 +290,6 @@ function Map($wrapper) {
             this.hourlySlider.remove();
             this.hourlySlider = null;
         }
-
     };
     this.initSearchBox = function() {
         _this.geocoder = new google.maps.Geocoder();
@@ -350,6 +364,92 @@ function Map($wrapper) {
             closeAutoComplete();
         });
     };
+
+    this.toggleGpsTracker = function() {
+        if (_this.isGpsTracking) {
+            _this.stopGpsTracking();
+        } else {
+            _this.startGpsTracking();
+        }
+    };
+
+    this.placeGpsMarker = function(latLng) {
+        if (_this.gpsMarker === null) {
+            // add new
+            _this.gpsMarker = new google.maps.Marker({
+                icon: MapObjects.GPSArrow,
+                position: latLng,
+                map: _this.map,
+                title: 'Your Current Position (Lat: ' + latLng.lat() + ', Long: ' + latLng.lng() + ')'
+            });
+        } else {
+            // move old
+            _this.gpsMarker.setPosition(latLng);
+        }
+    };
+    this.removeGpsMarker = function(latLng) {
+        if (_this.gpsMarker !== null) {
+            _this.gpsMarker.setMap(null);
+            _this.gpsMarker = null;
+        }
+    };
+
+    this.startGpsTracking = function() {
+        console.log('Starting gps tracking');
+        _this.isGpsTracking = true;
+        $('#gps-locate').removeClass('btn-info').addClass('btn-warning');
+        _this.updateGpsPosition(function(position) {
+            // center
+            _this.map.setCenter(position);
+            // place marker
+            _this.placeGpsMarker(position);
+            // set timeout to run automatically
+            function onGpsTimeout() {
+                _this.updateGpsPosition(function(position) {
+                    // place a marker
+                    _this.placeGpsMarker(position);
+                });
+                _this.gpsTrackerTimeout = setTimeout(onGpsTimeout, _this.gpsTrackerTimeoutInterval);
+            }
+            _this.gpsTrackerTimeout = setTimeout(onGpsTimeout, _this.gpsTrackerTimeoutInterval); // every 2 seconds
+            $('#gps-locate').removeClass('btn-warning').addClass('btn-success');
+            console.log('Started gps tracking');
+        });
+    };
+    this.stopGpsTracking = function() {
+        console.log('Stopping gps tracking');
+        clearTimeout(_this.gpsTrackerTimeout);
+        _this.removeGpsMarker();
+        $('#gps-locate').removeClass('btn-success btn-warning').addClass('btn-info');
+        _this.isGpsTracking = false;
+        console.log('Stopped gps tracking');
+    };
+    this.updateGpsPosition = function(callback) {
+        console.log('Updating gps position');
+        function handleNoGeolocation(errorFlag) {
+            if (errorFlag) {
+                alert('Error: The Geolocation service failed.');
+                _this.stopGpsTracking();
+            } else {
+                alert('Error: Your browser doesn\'t support geolocation.');
+                _this.stopGpsTracking();
+            }
+        }
+        // Try HTML5 geolocation
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var pos = new google.maps.LatLng(position.coords.latitude,
+                        position.coords.longitude);
+                callback(pos);
+            }, function() {
+                handleNoGeolocation(true);
+            });
+        } else {
+            // Browser doesn't support Geolocation
+            handleNoGeolocation(false);
+        }
+    };
+
     this.listenForNextLeftClick = function() {
         _this.$wrapper.addClass('tofront');
         google.maps.event.addListener(_this.map, 'click', function(event) {
