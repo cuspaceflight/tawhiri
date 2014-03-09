@@ -20,6 +20,33 @@ body {
     margin: 0;
     padding: 0;
 }
+#main-wrap {
+    height: 100%;
+    position: relative;
+}
+#current-notifications{
+    width: 100%;
+}
+.notification-new {
+    z-index: -1;
+    position: relative;
+}
+.notification-close, .notification-count{
+    margin-right: 15px;
+}
+#notification-area{
+    width: 100%;
+    overflow: hidden;
+    position: absolute;
+    bottom: 0;
+    /*
+    -webkit-transition: all .5s;
+    -moz-transition: all .5s;
+    transition: all .5s;/**/
+}
+#notification-area .alert{
+    margin-bottom: 0;
+}
 #map-wrap .map-canvas { height: 100% }
 #form-wrap { height: 100%; }
 
@@ -112,24 +139,6 @@ body {
 .progress {
     width: 500px;
     margin: auto;
-}
-
-#notification-area-wrap {
-    position: absolute;
-    bottom: 30px;
-    display: block;
-    width: 100%;
-    z-index: 800;
-}
-#notification-area{
-    width: 80%;
-    margin: auto;
-    overflow: hidden;
-    /*
-    -webkit-transition: all .5s;
-    -moz-transition: all .5s;
-    transition: all .5s;/**/
-
 }
 
 #map-col {

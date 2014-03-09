@@ -1289,67 +1289,118 @@ function Form($wrapper) {
 
 function Notifications($notificationArea) {
     var _this = this;
-    this.openNotifications = {};
+    this.openNotifications = {_timeout: []};
     this.$notificationArea = $notificationArea;
-    //this.$notificationAreaWrap = $('#notification-area-wrap');
+    this.$currentNotifications = $('#current-notifications');
+    this.$mainWrap = $('#main-wrap');
     this.closeAllNotifications = function() {
-        _this.openNotifications = {};
-        _this.$notificationArea.css({
-            height: 0
+        $.each(_this.openNotifications._timeout, function(index, $notification) {
+            $notification.alert('close');
         });
-        _this.$notificationArea.html('');
-    };
-    this.closeNotification = function(notification) {
-        notification.alert('close');
-    };
-    this.new = function(msg, type, timeout) {
-        var alertData = $.param({msg: msg, type: type});
-        if (alertData in _this.openNotifications) {
-            _this.closeNotification(_this.openNotifications[alertData]);
+        delete _this.openNotifications._timeout;
+        for (var type in _this.openNotifications) {
+            if (_this.openNotifications.hasOwnProperty(type)) {
+                for (var msg in _this.openNotifications[type]) {
+                    if (_this.openNotifications[type].hasOwnProperty(msg)) {
+                        var $notification = _this.openNotifications[type][msg].alert('close');
+                    }
+                }
+            }
         }
-        var alertClass, alertTitle;
+        _this.openNotifications = {_timeout: []};
+    };
+    this.notificationCloseCleanup = function($notification, type, msg, timeout) {
+        _this.$mainWrap.height(_this.$mainWrap.outerHeight() + $notification.outerHeight());
+        if (!timeout) {
+            delete _this.openNotifications[type][msg];
+            if ($.isEmptyObject(_this.openNotifications[type])) {
+                delete _this.openNotifications[type];
+            }
+        } else {
+            _this.openNotifications._timeout = $.grep(_this.openNotifications._timeout, function(value) {
+                return value != $notification;
+            });
+        }
+    };
+    this.new = function(type, msg, timeout) {
+        // if no timeout, we append to any existing similar notifications; 
+        // if timeout, we add new to top of stack regardless
+
+        if (!timeout) {
+            if (_this.openNotifications[type] == undefined) {
+                // make new
+                _this.openNotifications[type] = {};
+            } else if (_this.openNotifications[type][msg] != undefined) {
+                // add to existing
+                var $notification = _this.openNotifications[type][msg];
+                var $notificationCountBadge = $notification.find('.notification-count');
+                var currentCount = parseInt($notificationCountBadge.html());
+                $notificationCountBadge
+                        .html(currentCount + 1)
+                        .show(); // it starts off hidden
+                $notification.prependTo(_this.$currentNotifications);
+                // do stuff to add a number onto the length
+                return $notification;
+            }
+        }
+
         switch (type) {
-            case 'error':
-                alertClass = 'danger';
-                alertTitle = 'Error';
+            case 'success':
+                var title = 'Success';
                 break;
-            default:
-                alertClass = 'info';
-                alertTitle = 'Info';
+            case 'warning':
+                var title = 'Warning';
+                break;
+            case 'danger':
+                var title = 'Error';
+                break;
+            default: // and 'info'
+                var title = 'Info';
                 break;
         }
 
-        var d = new Date();
-        var id = 'alert-' + d.getTime();
-        var oldHeight = _this.$notificationArea.outerHeight();
-        _this.$notificationArea.append('<div id="' + id + '" class="alert alert-' + alertClass + ' alert-dismissable">' +
-                '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' +
-                '<strong>' + alertTitle + '</strong> ' + msg +
+        // create the notification
+        var $notification = $('<div class="notification-new alert alert-' + type + ' alert-dismissable">' +
+                '<button type="button" class="notification-close btn btn-' + type + '" data-dismiss="alert" aria-hidden="true">&times;</button>' +
+                '<span class="notification-count label label-' + type + '" style="display:none;">1</span>' + // badge is hidden by default, start counting at 1
+                '<strong>' + title + '</strong> ' + msg +
                 '</div>');
-        var $notification = $('#' + id);
-        //notification.hide();
-        _this.$notificationArea.css('height', oldHeight);
+        // prepend it to the notification area
+        _this.$notificationArea.prepend($notification);
+        var notificationHeight = $notification.outerHeight();
+        // push it just below the others
+        $notification.css('top', notificationHeight);
         // add alert close hook
-        $('#' + id).bind('close.bs.alert', function() {
-            // remove from global openAlerts array
-            _this.openNotifications = $.grep(_this.openNotifications, function(value) {
-                return value !== $notification;
-            });
-            _this.$notificationArea.css({
-                height: _this.$notificationArea.outerHeight() - $notification.outerHeight(true)
-            });
+        $notification.bind('close.bs.alert', function() {
+            _this.notificationCloseCleanup($notification, type, msg, timeout);
         });
         // display notification
-        _this.$notificationArea.animate({
-            height: _this.$notificationArea.outerHeight() + $notification.outerHeight(true)
+        $notification.animate({
+            top: 0
+        });
+        _this.$mainWrap.animate({
+            height: _this.$mainWrap.outerHeight() - notificationHeight
+        }, {done: function() {
+                $notification
+                        .removeClass('notification-new')
+                        .prependTo(_this.$currentNotifications);
+            }
         });
         // set close timeout
         if (timeout) {
             window.setTimeout(function() {
-                _this.closeNotification($notification);
+                $notification.alert('close');
             }, timeout);
         }
-        _this.openNotifications[alertData] = $notification;
+
+        if (timeout) {
+            _this.openNotifications._timeout.push($notification);
+        } else {
+            _this.openNotifications[type][msg] = $notification;
+        }
+
+        //_this.openNotifications[alertData] = $notification;
+        return $notification;
     };
 }
 
@@ -1522,4 +1573,5 @@ $(function() {
     map = new Map($('#map-wrap'));
     form = new Form($('#form-wrap'));
     notifications = new Notifications($('#notification-area'));
+    notifications.new('info', 'test');
 });
