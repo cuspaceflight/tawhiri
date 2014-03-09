@@ -14,20 +14,9 @@ n_repeats = 100
 start_time = time.time()
 for i in range(n_repeats):
     ds = wind.Dataset("/home/adam/Projects/tawhiri/datasets", 2014, 2, 3, 6)
-    model1 = models.make_f(
-        [models.make_constant_ascent(5.0), models.wind_velocity], ds)
-    term1 = models.make_burst_termination(30000.0)
-
-    model2 = models.make_f(
-        [models.make_drag_descent(5.0), models.wind_velocity], ds)
-    term2 = models.ground_termination
-
-    result = solver.solve(t0, lat0, lng0, alt0,
-                          [model1, model2], [term1, term2], dt)
+    stages = models.make_standard_stages(5.0, 30000, 5.0, ds)
+    result = solver.solve(t0, lat0, lng0, alt0, stages)
 end_time = time.time()
-
-#for idx, t in enumerate(ts):
-    #print(t, lats[idx], lngs[idx], alts[idx])
 
 print("Averaged {:.1f}ms per prediction".format(
     ((end_time - start_time)/n_repeats)*1000.0))
