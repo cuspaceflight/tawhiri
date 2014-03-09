@@ -193,16 +193,25 @@ var MapObjects = {
     }
 };
 
-Services = {
-    Geolocation: {
-        getPosition: function(callback) {
-            $.get('http://freegeoip.net/json/', null, callback)
-                    .fail(function() {
-                        console.log('IP Geolocation position failed');
-                        callback(null);
-                    });
+services = {
+    geolocation: {
+        getIPPosition: function(callback) {
+            $.get('http://freegeoip.net/json/', null, function(data) {
+                if (isNumber(data.latitude) && isNumber(data.longitude)) {
+                    callback(new google.maps.LatLng(data.latitude, data.longitude));
+                }
+            }).fail(function() {
+                console.log('IP Geolocation position failed');
+                callback(null);
+            });
+        },
+        gpsGeolocation: navigator.geolocation,
+        getGPSPosition: function(callback) {
+            navigator.geolocation.getCurrentPosition(callback);
         }
-    }
+    },
+    // prepare elevation service
+    elevator: new google.maps.ElevationService()
 };
 
 function Map($wrapper) {
@@ -222,13 +231,14 @@ function Map($wrapper) {
     this.willNotComplete = false;
     this.shouldCheckForCompletion = true;
     this.runningRequests = [];
+    this.failedRequests = [];
     this.hourlySlider = null;
     this.currentHourlySliderValue = null;
     this.selectedPath = null;
     this.progressBar = ProgressBar($('#progress-bar-wrapper'));
     this.isGpsTracking = false;
     this.gpsTrackerTimeout = null;
-    this.gpsTrackerTimeoutInterval = 20 * 1000; // 2 seconds
+    this.gpsTrackerTimeoutInterval = 20 * 1000; // ms
     this.gpsMarker = null;
     this.map = null;
     this.init = function() {
@@ -264,17 +274,15 @@ function Map($wrapper) {
         // map is now initialised
 
         // guess location from users ip and set up maps
-        Services.Geolocation.getPosition(function(data) {
-            if (data !== null && isNumber(data.latitude) && isNumber(data.longitude)) {
-                _this.map.setCenter(new google.maps.LatLng(data.latitude, data.longitude));
+        services.geolocation.getIPPosition(function(position) {
+            if (position !== null) {
+                _this.map.setCenter(position);
             }
         });
 
         // set up html5 geolocation
         $('#gps-locate').click(_this.toggleGpsTracker);
 
-        // prepare elevation service
-        _this.elevator = new google.maps.ElevationService();
         // start listening for right clicks to set position
         google.maps.event.addListener(_this.map, 'rightclick', function(event) {
             console.log("Right click event", event);
@@ -377,6 +385,18 @@ function Map($wrapper) {
         });
     };
 
+    this.registerRequestSuccess = function(request) {
+
+    };
+
+    this.registerRequestFailure = function(request) {
+
+    };
+
+    this._onRequestFinish = function(request) {
+
+    };
+
     this.toggleGpsTracker = function() {
         if (_this.isGpsTracking) {
             _this.stopGpsTracking();
@@ -452,8 +472,8 @@ function Map($wrapper) {
             }
         }
         // Try HTML5 geolocation
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
+        if (services.geolocation.gpsGeolocation) {
+            services.geolocation.getGPSPosition(function(position) {
                 var pos = new google.maps.LatLng(position.coords.latitude,
                         position.coords.longitude);
                 callback(pos);
@@ -507,7 +527,7 @@ function Map($wrapper) {
         var positionalRequest = {
             locations: locations
         };
-        _this.elevator.getElevationForLocations(positionalRequest, function(results, status) {
+        services.elevator.getElevationForLocations(positionalRequest, function(results, status) {
             if (status === google.maps.ElevationStatus.OK) {
                 // Retrieve the first result
                 if (results[0]) {
@@ -1309,6 +1329,7 @@ function Notifications($notificationArea) {
     this.$notificationArea = $notificationArea;
     this.$currentNotifications = $('#current-notifications');
     this.$mainWrap = $('#main-wrap');
+    this.endMainWrapHeight = this.$mainWrap.outerHeight();
     this.closeAllNotifications = function() {
         $.each(_this.openNotifications._timeout, function(index, $notification) {
             $notification.alert('close');
@@ -1326,7 +1347,8 @@ function Notifications($notificationArea) {
         _this.openNotifications = {_timeout: []};
     };
     this.notificationCloseCleanup = function($notification, type, msg, timeout) {
-        _this.$mainWrap.height(_this.$mainWrap.outerHeight() + $notification.outerHeight());
+        _this.endMainWrapHeight += $notification.outerHeight();
+        _this.$mainWrap.height(_this.endMainWrapHeight);
         if (!timeout) {
             delete _this.openNotifications[type][msg];
             if ($.isEmptyObject(_this.openNotifications[type])) {
@@ -1394,8 +1416,9 @@ function Notifications($notificationArea) {
         $notification.animate({
             top: 0
         });
+        _this.endMainWrapHeight -= notificationHeight;
         _this.$mainWrap.animate({
-            height: _this.$mainWrap.outerHeight() - notificationHeight
+            height: _this.endMainWrapHeight
         }, {done: function() {
                 $notification
                         .removeClass('notification-new')
