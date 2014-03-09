@@ -4,8 +4,8 @@ function Request() {
 
     //this.base_url = 'http://predict.habhub.org/';
     this.base_url = '';
-    this.statusPollInterval = 500; //ms
-    this.statusCheckTimeout = 5000; //ms
+    this.statusPollInterval = 1000; //ms
+    this.statusCheckTimeout = 15000; //ms
     this.numberOfFails = 0;
     this.maxNumberOfFails = 3;
     this.status = 'running';
@@ -42,13 +42,14 @@ function Request() {
             type: 'POST',
             dataType: 'json',
             error: function(xhr, status, error) {
-                console.log('sending form data failed; ' + status + '; ' + error, xhr);
+                notifications.alert('Sending form data failed. Rerunning.; ' + status + '; ' + error);
+                console.log('sending form data failed. Rerunning.; ' + status + '; ' + error, xhr);
                 _this.status = 'failed, should rerun';
             },
             success: function(data) {
                 //console.log(data);
                 if (data.valid === 'false') {
-                    infoAlert('Error submitting prediction form, some of the submitted data appeared invalid <br/>' + data.error, 'error');
+                    notifications.error('Error submitting prediction form, some of the submitted data appeared invalid. Aborting.;' + data.error);
                     _this.status = 'failed';
                 } else if (data.valid === 'true') {
                     _this.uuid = data.uuid;
@@ -56,7 +57,8 @@ function Request() {
                     _this.isBackendWorking = true;
                     _this.pollForFinishedStatus();
                 } else {
-                    console.log('Error submitting prediction form, invalid data.valid');
+                    notifications.alert('Error submitting prediction form, invalid data.valid. Rerunning.');
+                    console.log('Error submitting prediction form, invalid data.valid. Rerunning.');
                     _this.status = 'failed, should rerun';
                 }
             }
@@ -81,9 +83,11 @@ function Request() {
                     if (status === 'timeout') {
                         if (_this.numberOfFails <= _this.maxNumberOfFails) {
                             _this.numberOfFails++;
-                            console.log('Status update failed, timeout (>5s). trying again', 'info', 'info');
+                            notifications.alert('Status update failed, timeout (>5s). Rerunning.');
+                            console.log('Status update failed, timeout (>5s). Rerunning.');
                             _this.setStatusCheck();
                         } else {
+                            notifications.error('Status update failed, maximum number of attempts reached. Aborting.');
                             console.log('Status update failed, maximum number of attempts reached. Aborting.');
                             _this.status = 'failed, should rerun';
                         }
@@ -91,9 +95,11 @@ function Request() {
                         //alert(status);
                         if (_this.numberOfFails <= _this.maxNumberOfFails) {
                             _this.numberOfFails++;
-                            console.log('Status update failed. trying again; ' + status + '; ' + error, 'info', 'info');
+                            notifications.alert('Status update failed. Rerunning.; ' + status + '; ' + error);
+                            console.log('Status update failed. trying again; ' + status + '; ' + error);
                             _this.setStatusCheck();
                         } else {
+                            notifications.error('Status update failed, maximum number of attempts reached. Aborting.');
                             console.log('Status update failed, maximum number of attempts reached. Aborting.');
                             _this.status = 'failed, should rerun';
                         }
@@ -102,6 +108,7 @@ function Request() {
                 success: function(data) {
                     if (data.pred_complete === false) {
                         if (data.pred_running === false) {
+                            notifications.alert('Error: predictor not finished but not running. Rerunning.');
                             console.log('Error: predictor not finished but not running');
                             _this.status = 'failed, should rerun';
                             return;
@@ -110,6 +117,7 @@ function Request() {
                     } else if (data.pred_complete === true) {
                         _this.getCSVData();
                     } else {
+                        notifications.alert('Error: predictor status invalid. Rerunning.');
                         console.log('Error: predictor status invalid');
                         _this.status = 'failed, should rerun';
                     }
@@ -127,11 +135,13 @@ function Request() {
                     //console.log('Finished parsing CSV data');
                     _this.status = 'success';
                 } else {
-                    console.log('Error: Parsing CSV data failed');
+                    notifications.alert('Error: Parsing CSV data failed. Rerunning.');
+                    console.log('Error: Parsing CSV data failed. Rerunning.');
                     _this.status = 'failed, should rerun';
                 }
             } else {
-                console.log('Error: no CSV data actually returned');
+                notifications.alert('Error: no CSV data actually returned. Rerunning.');
+                console.log('Error: no CSV data actually returned. Rerunning.');
                 _this.status = 'failed, should rerun';
             }
         }, 'json');
@@ -188,7 +198,7 @@ Services = {
         getPosition: function(callback) {
             $.get('http://freegeoip.net/json/', null, callback)
                     .fail(function() {
-                        console.log('Geolocation position failed');
+                        console.log('IP Geolocation position failed');
                         callback(null);
                     });
         }
@@ -311,8 +321,10 @@ function Map($wrapper) {
                     _this.map.setCenter(latlng);
                     _this.map.fitBounds(results[0].geometry.viewport);
                 } else if (status == google.maps.GeocoderStatus.ZERO_RESULTS) {
+                    notifications.alert('No results found for "' + placename + '"');
                     console.log('no results found for', placename);
                 } else {
+                    notifications.alert('Error submitting search for ' + placename + '"');
                     console.log('error submitting search for', placename);
                 }
             });
@@ -413,6 +425,7 @@ function Map($wrapper) {
             }
             _this.gpsTrackerTimeout = setTimeout(onGpsTimeout, _this.gpsTrackerTimeoutInterval); // every 2 seconds
             $('#gps-locate').removeClass('btn-warning').addClass('btn-success');
+            notifications.success('Started gps tracking', 3000);
             console.log('Started gps tracking');
         });
     };
@@ -422,16 +435,19 @@ function Map($wrapper) {
         _this.removeGpsMarker();
         $('#gps-locate').removeClass('btn-success btn-warning').addClass('btn-info');
         _this.isGpsTracking = false;
+        notifications.info('Stopped gps tracking', 3000);
         console.log('Stopped gps tracking');
     };
     this.updateGpsPosition = function(callback) {
         console.log('Updating gps position');
         function handleNoGeolocation(errorFlag) {
             if (errorFlag) {
-                alert('Error: The Geolocation service failed.');
+                notifications.error('The Geolocation service failed.');
+                console.log('Error: The Geolocation service failed.');
                 _this.stopGpsTracking();
             } else {
-                alert('Error: Your browser doesn\'t support geolocation.');
+                notifications.alert('Your browser doesn\'t support geolocation.');
+                console.log('Error: Your browser doesn\'t support geolocation.');
                 _this.stopGpsTracking();
             }
         }
@@ -504,10 +520,10 @@ function Map($wrapper) {
                     $('#unit-current-LaunchAltitude').html('m');
                     $('input[name=unitLaunchAltitude]').val('m');
                 } else {
-                    infoAlert("No elevation results found", 'error');
+                    notifications.error('No elevation results found');
                 }
             } else {
-                infoAlert("Elevation service failed due to: " + status, 'error');
+                notifications.error('Elevation service failed due to: ' + status);
             }
         });
     };
@@ -785,7 +801,7 @@ function Map($wrapper) {
         } else {
             // either status is failed, or should rerun but max number
             // of reruns has been reached
-            infoAlert('Request failed.', 'error');
+            notifications.error('Request failed.');
             _this.totalResponsesExpected--;
             _this.willNotComplete = true;
             return false;
@@ -1220,7 +1236,7 @@ function Form($wrapper) {
         $('#btn-set-position').click(function(event) {
             map.listenForNextLeftClick();
             _this.close();
-            infoAlert('Now click anywhere on the map', 'info', 3000);
+            notifications.info('Now click anywhere on the map', 2000);
         });
         // units
         $('.unit-selection .dropdown-menu li a').click(function(event) {
@@ -1267,7 +1283,7 @@ function Form($wrapper) {
                 return feetToMeters(value);
                 break;
             default:
-                infoAlert('Unrecognised units ' + fromUnits, 'error');
+                notifications.error('Unrecognised units ' + fromUnits);
         }
     };
     this.serializeToObject = function() {
@@ -1398,9 +1414,19 @@ function Notifications($notificationArea) {
         } else {
             _this.openNotifications[type][msg] = $notification;
         }
-
-        //_this.openNotifications[alertData] = $notification;
         return $notification;
+    };
+    this.alert = function(msg, timeout) {
+        _this.new('warning', msg, timeout);
+    };
+    this.error = function(msg, timeout) {
+        _this.new('danger', msg, timeout);
+    };
+    this.info = function(msg, timeout) {
+        _this.new('info', msg, timeout);
+    };
+    this.success = function(msg, timeout) {
+        _this.new('success', msg, timeout);
     };
 }
 
@@ -1511,25 +1537,16 @@ function padTwoDigits(x) {
     }
     return x;
 }
-
 function isNumber(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);
 }
-
 function formatTime(d) {
     return padTwoDigits(d.getHours()) + ":" + padTwoDigits(d.getMinutes());
 }
-
 function feetToMeters(feet) {
     // 1 meter == 0.3048 ft
     return 0.3048 * feet;
 }
-
-function infoAlert(msg, type, timeout) {
-    notifications.new(msg, type, timeout);
-}
-
-
 
 // GLOBALS
 var map;
@@ -1558,20 +1575,9 @@ window.setTimeout = function(callback, timeout) {
         callback();
     }, timeout);
 };
-function debug(msg) {
-    $('#debug').html(msg);
-}
-
-function debugAppend(msg) {
-    $('#debug').append('<br/>' + msg);
-}
-function debugClear() {
-    debug();
-}
 
 $(function() {
     map = new Map($('#map-wrap'));
     form = new Form($('#form-wrap'));
     notifications = new Notifications($('#notification-area'));
-    notifications.new('info', 'test');
 });
