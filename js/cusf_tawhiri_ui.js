@@ -1,156 +1,12 @@
+// Global static objects
+requestStatus = {
+    RUNNING: 1,
+    FAILED: 0,
+    FAILED_SHOULD_RERUN: 2,
+    FINISHED: 3
+};
 
-function Request() {
-    var _this = this;
-
-    //this.base_url = 'http://predict.habhub.org/';
-    this.base_url = '';
-    this.statusPollInterval = 1000; //ms
-    this.statusCheckTimeout = 15000; //ms
-    this.numberOfFails = 0;
-    this.maxNumberOfFails = 3;
-    this.status = 'running';
-    this.numberOfReruns = 0;
-    this.maxNumberOfReruns = 3;
-    this.CSVParseCallbackFunction = null;
-    this.CSVParseCallbackArgs = null;
-    this.data = null;
-    this.checkStatusAjaxSettings = null;
-
-    this.rerun = function() {
-        this.numberOfFails = 0;
-        this.checkStatusAjaxSettings = null;
-        this.status = 'running';
-        this.submit(this.CSVParseCallbackFunction, this.CSVParseCallbackArgs, this.data);
-    };
-
-    this.pollForFinishedStatus = function() {
-        this.shouldKeepPollingStatus = true;
-        this.hasFinished = false;
-        this.setStatusCheck();
-    };
-
-
-    this.submit = function(CSVParseCallback, args, data) {
-        this.CSVParseCallbackFunction = CSVParseCallback;
-        this.CSVParseCallbackArgs = args;
-        this.data = data;
-
-        $.ajax({
-            data: data,
-            cache: false,
-            url: this.base_url + 'ajax.php?action=submitForm',
-            type: 'POST',
-            dataType: 'json',
-            error: function(xhr, status, error) {
-                notifications.alert('Sending form data failed. Rerunning.; ' + status + '; ' + error);
-                console.log('sending form data failed. Rerunning.; ' + status + '; ' + error, xhr);
-                _this.status = 'failed, should rerun';
-            },
-            success: function(data) {
-                //console.log(data);
-                if (data.valid === 'false') {
-                    notifications.error('Error submitting prediction form, some of the submitted data appeared invalid. Aborting.;' + data.error);
-                    _this.status = 'failed';
-                } else if (data.valid === 'true') {
-                    _this.uuid = data.uuid;
-                    //console.log('Prediction form submitted with uuid ' + _this.uuid);
-                    _this.isBackendWorking = true;
-                    _this.pollForFinishedStatus();
-                } else {
-                    notifications.alert('Error submitting prediction form, invalid data.valid. Rerunning.');
-                    console.log('Error submitting prediction form, invalid data.valid. Rerunning.');
-                    _this.status = 'failed, should rerun';
-                }
-            }
-        });
-    };
-
-    this.setStatusCheck = function() {
-        window.setTimeout(function() {
-            _this.checkStatus();
-        }, _this.statusPollInterval);
-    };
-
-    this.checkStatus = function() {
-        // cache settings
-        if (this.checkStatusAjaxSettings === null) {
-            this.checkStatusAjaxSettings = {
-                url: _this.base_url + 'preds/' + _this.uuid + '/progress.json',
-                cache: false,
-                dataType: 'json',
-                timeout: _this.statusCheckTimeout,
-                error: function(xhr, status, error) {
-                    if (status === 'timeout') {
-                        if (_this.numberOfFails <= _this.maxNumberOfFails) {
-                            _this.numberOfFails++;
-                            notifications.alert('Status update failed, timeout (>5s). Rerunning.');
-                            console.log('Status update failed, timeout (>5s). Rerunning.');
-                            _this.setStatusCheck();
-                        } else {
-                            notifications.error('Status update failed, maximum number of attempts reached. Aborting.');
-                            console.log('Status update failed, maximum number of attempts reached. Aborting.');
-                            _this.status = 'failed, should rerun';
-                        }
-                    } else {
-                        //alert(status);
-                        if (_this.numberOfFails <= _this.maxNumberOfFails) {
-                            _this.numberOfFails++;
-                            notifications.alert('Status update failed. Rerunning.; ' + status + '; ' + error);
-                            console.log('Status update failed. trying again; ' + status + '; ' + error);
-                            _this.setStatusCheck();
-                        } else {
-                            notifications.error('Status update failed, maximum number of attempts reached. Aborting.');
-                            console.log('Status update failed, maximum number of attempts reached. Aborting.');
-                            _this.status = 'failed, should rerun';
-                        }
-                    }
-                },
-                success: function(data) {
-                    if (data.pred_complete === false) {
-                        if (data.pred_running === false) {
-                            notifications.alert('Error: predictor not finished but not running. Rerunning.');
-                            console.log('Error: predictor not finished but not running');
-                            _this.status = 'failed, should rerun';
-                            return;
-                        }
-                        _this.setStatusCheck();
-                    } else if (data.pred_complete === true) {
-                        _this.getCSVData();
-                    } else {
-                        notifications.alert('Error: predictor status invalid. Rerunning.');
-                        console.log('Error: predictor status invalid');
-                        _this.status = 'failed, should rerun';
-                    }
-                }
-            };
-        }
-        $.ajax(this.checkStatusAjaxSettings);
-    };
-
-    this.getCSVData = function() {
-        $.get(_this.base_url + 'ajax.php', {action: 'getCSV', uuid: _this.uuid}, function(data) {
-            if (data !== null) {
-                //console.log('Got CSV data from server');
-                if (_this.CSVParseCallbackFunction(data, _this.CSVParseCallbackArgs)) {
-                    //console.log('Finished parsing CSV data');
-                    _this.status = 'success';
-                } else {
-                    notifications.alert('Error: Parsing CSV data failed. Rerunning.');
-                    console.log('Error: Parsing CSV data failed. Rerunning.');
-                    _this.status = 'failed, should rerun';
-                }
-            } else {
-                notifications.alert('Error: no CSV data actually returned. Rerunning.');
-                console.log('Error: no CSV data actually returned. Rerunning.');
-                _this.status = 'failed, should rerun';
-            }
-        }, 'json');
-    };
-
-}
-
-var MapObjects = {
-    // svg symbols
+MapObjects = {
     GPSArrow: {
         path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
         fillColor: 'blue',
@@ -190,6 +46,34 @@ var MapObjects = {
         scale: 6,
         strokeColor: 'red',
         strokeWeight: 2
+    },
+    pathCenterUnselected: {
+        strokeColor: '#000000',
+        strokeOpacity: 0.1, //1.0
+        strokeWeight: 2,
+        zIndex: 10,
+        visible: true
+    },
+    pathCenterSelected: {
+        strokeColor: '#00FF5E',
+        strokeOpacity: 1.0,
+        strokeWeight: 2,
+        zIndex: 50,
+        visible: true
+    },
+    pathOverlayUnselected: {
+        strokeColor: '#000000',
+        strokeOpacity: 0.1, //0.3
+        strokeWeight: 8,
+        zIndex: 20,
+        visible: true
+    },
+    pathOverlaySelected: {
+        strokeColor: '#000000',
+        strokeOpacity: 0.3,
+        strokeWeight: 8,
+        zIndex: 40,
+        visible: true
     }
 };
 
@@ -214,28 +98,392 @@ services = {
     elevator: new google.maps.ElevationService()
 };
 
+// Global functions
+function nearestMinute(date, minutes) {
+    if (minutes === null) {
+        minutes = 1;
+    }
+    var coeff = 1000 * 60 * minutes;
+    return new Date(Math.round(date.getTime() / coeff) * coeff);
+}
+function ceilMinute(date, minutes) {
+    if (minutes === null) {
+        minutes = 1;
+    }
+    var coeff = 1000 * 60 * minutes;
+    return new Date(Math.ceil(date.getTime() / coeff) * coeff);
+}
+function floorMinute(date, minutes) {
+    if (minutes === null) {
+        minutes = 1;
+    }
+    var coeff = 1000 * 60 * minutes;
+    return new Date(Math.floor(date.getTime() / coeff) * coeff);
+}
+function padTwoDigits(x) {
+    x = x + "";
+    if (x.length === 1) {
+        x = "0" + x;
+    }
+    return x;
+}
+function isNumber(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+}
+function formatTime(d) {
+    return padTwoDigits(d.getHours()) + ":" + padTwoDigits(d.getMinutes());
+}
+function feetToMeters(feet) {
+    return 0.3048 * feet; // 1 meter == 0.3048 ft
+}
+
+// Global objects
+function Request() {
+    var _this = this;
+    //this.base_url = 'http://predict.habhub.org/';
+    this.base_url = '';
+    this.statusPollInterval = 1000; //ms
+    this.statusCheckTimeout = 15000; //ms
+    this.status = requestStatus.RUNNING;
+    this.numberOfReruns = 0;
+    this.maxNumberOfReruns = 3;
+    this.statusCheckFailCount = 0;
+    this.maxStatusCheckFails = 2;
+    this.data = null;
+    this.launchtime = null; // epoch
+    this.callback = null;
+    this.CSVData = null;
+    this.checkStatusAjaxSettings = null;
+    this.rerun = function() {
+        this.checkStatusAjaxSettings = null;
+        this.status = requestStatus.RUNNING;
+        this.submit();
+    };
+    this.submit = function(data, launchtime, callback) {
+        _this.data = (data === undefined ? this.data : data);
+        _this.launchtime = (launchtime === undefined ? this.launchtime : launchtime);
+        _this.callback = (callback === undefined ? this.callback : callback);
+        $.ajax({
+            data: data,
+            cache: false,
+            url: this.base_url + 'ajax.php?action=submitForm',
+            type: 'POST',
+            dataType: 'json',
+            error: function(xhr, status, error) {
+                notifications.alert('Sending form data failed. Rerunning.; ' + status + '; ' + error);
+                console.log('sending form data failed. Rerunning.; ' + status + '; ' + error, xhr);
+                _this.status = requestStatus.FAILED_SHOULD_RERUN;
+                _this.callback(_this);
+            },
+            success: function(data) {
+                //console.log(data);
+                if (data.valid === 'false') {
+                    notifications.error('Error submitting prediction form, some of the submitted data appeared invalid. Aborting.;' + data.error);
+                    _this.status = requestStatus.FAILED;
+                    _this.callback(_this);
+                } else if (data.valid === 'true') {
+                    _this.uuid = data.uuid;
+                    //console.log('Prediction form submitted with uuid ' + _this.uuid);
+                    _this.isBackendWorking = true;
+                    _this.setStatusCheck();
+                } else {
+                    notifications.alert('Error submitting prediction form, invalid data.valid. Rerunning.');
+                    console.log('Error submitting prediction form, invalid data.valid. Rerunning.');
+                    _this.status = requestStatus.FAILED_SHOULD_RERUN;
+                    _this.callback(_this);
+                }
+            }
+        });
+    };
+    this.setStatusCheck = function() {
+        window.setTimeout(function() {
+            _this.checkStatus();
+        }, _this.statusPollInterval);
+    };
+    this.checkStatus = function() {
+        // cache settings
+        if (_this.checkStatusAjaxSettings === null) {
+            _this.checkStatusAjaxSettings = {
+                url: _this.base_url + 'preds/' + _this.uuid + '/progress.json',
+                cache: false,
+                dataType: 'json',
+                timeout: _this.statusCheckTimeout,
+                error: function(xhr, status, error) {
+                    if (_this.statusCheckFailCount <= _this.maxStatusCheckFails) {
+                        _this.statusCheckFailCount++;
+                        if (status === 'timeout') {
+
+                            notifications.alert('Status update failed, timeout (>5s). Rerunning.');
+                            console.log('Status update failed, timeout (>5s). Rerunning.');
+                            _this.setStatusCheck();
+                        } else {
+                            notifications.alert('Status update failed. Rerunning.; ' + status + '; ' + error);
+                            console.log('Status update failed. Rerunning.; ' + status + '; ' + error);
+                            _this.setStatusCheck();
+                        }
+                    } else {
+                        notifications.error('Status update failed, maximum number of attempts reached. Aborting.');
+                        console.log('Status update failed, maximum number of attempts reached. Aborting.');
+                        _this.status = requestStatus.FAILED_SHOULD_RERUN;
+                        _this.callback(_this);
+                    }
+
+                },
+                success: function(data) {
+                    if (data.pred_complete === false) {
+                        if (data.pred_running === false) {
+                            notifications.alert('Error: predictor not finished but not running. Rerunning.');
+                            console.log('Error: predictor not finished but not running');
+                            _this.status = requestStatus.FAILED_SHOULD_RERUN;
+                            _this.callback(_this);
+                        } else {
+                            _this.setStatusCheck();
+                        }
+                    } else if (data.pred_complete === true) {
+                        _this.getCSVData();
+                    } else {
+                        notifications.alert('Error: predictor status neither true or false. Rerunning.; ' + data.pred_complete);
+                        console.log('Error: predictor status invalid');
+                        _this.status = requestStatus.FAILED_SHOULD_RERUN;
+                        _this.callback(_this);
+                    }
+                }
+            };
+        }
+        $.ajax(this.checkStatusAjaxSettings);
+    };
+    this.getCSVData = function() {
+        $.get(_this.base_url + 'ajax.php', {action: 'getCSV', uuid: _this.uuid}, function(data) {
+            if (data !== null) {
+                //console.log('Got CSV data from server');
+                _this.CSVData = data;
+                _this.status = requestStatus.FINISHED;
+                _this.callback(_this);
+            } else {
+                notifications.alert('Error: no CSV data actually returned. Rerunning.');
+                console.log('Error: no CSV data actually returned. Rerunning.');
+                _this.status = requestStatus.FAILED_SHOULD_RERUN;
+                _this.callback(_this);
+            }
+        }, 'json');
+    };
+}
+
+function Path(request) {
+    var _this = this;
+
+    this.CSVData = request.CSVData;
+    this.launchTime = request.launchtime;
+    this.pathCollection = [];
+    this.polyCenter = null;
+    this.polyOverlay = null;
+
+    this.init = function() {
+        var poly = new google.maps.Polyline(MapObjects.pathCenterUnselected);
+        poly.setMap(map.map);
+        var polyw = new google.maps.Polyline(MapObjects.pathOverlayUnselected);
+        polyw.setMap(map.map);
+        google.maps.event.addListener(polyw, 'click', function(event) {
+            //console.log('path clicked', event);
+            map.hourlySlider.setValueByLaunchtime(_this.launchTime);
+        });
+
+        var path = poly.getPath();
+        var pathw = polyw.getPath();
+        _this.pathCollection = [poly, polyw];
+        var time;
+        var lat;
+        var lng;
+        var alt;
+        var latlng;
+        var burst_time;
+        var burst_lat;
+        var burst_lng;
+        var burst_alt = -10;
+        var burst_latlng;
+        $.each(_this.CSVData, function(key, val) {
+            // each location, time string
+            var results = val.split(',');
+            if (results.length === 4) {
+                time = new Date(parseInt(results[0]) * 1000); // convert to ms
+                lat = parseFloat(results[1]);
+                lng = parseFloat(results[2]);
+                alt = parseFloat(results[3]);
+                //console.log("time: ", time, "; lat: ", lat, "; long: ", lng, "; alt: ", alt);
+                latlng = new google.maps.LatLng(lat, lng);
+                path.push(latlng);
+                pathw.push(latlng);
+                // add location to map bounds ready for recenter
+                map.addMapBound(latlng);
+
+                if (key === 0) {
+                    // launch position
+                    var marker = new google.maps.Marker({
+                        position: latlng,
+                        icon: MapObjects.upArrow,
+                        map: map.map,
+                        title: 'Launch position'
+                    });
+                    _this.pathCollection.push(marker);
+                }
+                if (alt > burst_alt) {
+                    burst_time = time;
+                    burst_lat = lat;
+                    burst_lng = lng;
+                    burst_alt = alt;
+                    burst_latlng = latlng;
+                }
+            }
+        });
+        var marker = new google.maps.Marker({
+            position: latlng,
+            icon: MapObjects.landCircle,
+            map: map.map,
+            title: 'Landing position',
+            visible: false
+        });
+        _this.pathCollection.push(marker);
+        var marker = new google.maps.Marker({
+            position: burst_latlng,
+            icon: MapObjects.burstCircle,
+            map: map.map,
+            title: 'Burst position',
+            visible: false
+        });
+        _this.pathCollection.push(marker);
+        _this.polyCenter = poly;
+        _this.polyOverlay = polyw;
+        return true;
+    };
+
+    this.dim = function() {
+        for (var j = 0; j < _this.pathCollection.length; j++) {
+            // hide eveything, including markers
+            _this.pathCollection[j].setVisible(false);
+        }
+        // make paths visible again
+        _this.polyCenter.setOptions(MapObjects.pathCenterUnselected);
+        _this.polyOverlay.setOptions(MapObjects.pathOverlayUnselected);
+    };
+    this.unDim = function() {
+        for (var j = 0; j < _this.pathCollection.length; j++) {
+            // make everything visible
+            _this.pathCollection[j].setVisible(true);
+        }
+        _this.polyCenter.setOptions(MapObjects.pathCenterSelected);
+        _this.polyOverlay.setOptions(MapObjects.pathOverlaySelected);
+    };
+
+    this.init();
+    return this;
+}
+
+function Prediction(predictionData) {
+    var _this = this;
+    this.predictionData = predictionData;
+    this.requests = [];
+    this.paths = {}; // time value: path
+    this.selectedPathLaunchtime = null;
+    this.runningRequests = 0;
+    this.totalResponsesExpected = 0;
+    this.progressBar = new ProgressBar($('#progress-bar-wrapper'));
+
+    this.init = function() {
+        _this.progressBar.show();
+        _this.progressBar.makeAnimated();
+    };
+
+    this.onRequestFinish = function(request) {
+        switch (request.status) {
+            case requestStatus.FINISHED:
+                // success, make a path
+                _this.runningRequests--;
+                _this.paths[request.launchtime] = new Path(request);
+                map.hourlySlider.registerTime(request.launchtime);
+                break;
+            case requestStatus.FAILED_SHOULD_RERUN:
+                if (request.numberOfReruns <= request.maxNumberOfReruns) {
+                    notifications.alert('Request rerunning', 1500);
+                    request.rerun();
+                    break;
+                }
+                // else...
+            case requestStatus.FAILED:
+                notifications.error('Request failed.');
+                _this.runningRequests--;
+                break;
+        }
+
+        if (_this.progressBar.isAnimated) {
+            _this.progressBar.makeStatic();
+        }
+        _this.progressBar.set(100 * (_this.totalResponsesExpected - _this.runningRequests) / _this.totalResponsesExpected);
+
+        if (_this.runningRequests === 0) {
+            // all responses received
+            _this.progressBar.hide();
+            //console.log(currentTimeouts);
+            map.centerMapToBounds();
+            map.hourlySlider.redraw();
+        }
+
+    };
+    this.addDataset = function(formData, launchTime) {
+        var request = new Request();
+        _this.requests.push(request);
+        _this.runningRequests++;
+        _this.totalResponsesExpected++;
+        request.submit(formData, launchTime, _this.onRequestFinish);
+    };
+
+    this.dimAllPaths = function() {
+        $.each(_this.paths, function(launchtime, path) {
+            path.dim();
+        });
+    };
+    this.selectPathByTime = function(launchtime) {
+        //console.log(launchtime, _this.selectedPathLaunchtime, _this.paths[launchtime]);
+        if (_this.selectedPathLaunchtime !== null) {
+            if (_this.selectedPathLaunchtime === launchtime) {
+                return;
+            }
+            _this.paths[_this.selectedPathLaunchtime].dim();
+        } else {
+            _this.dimAllPaths();
+        }
+        if (_this.paths[launchtime] != undefined) {
+            _this.paths[launchtime].unDim();
+            _this.selectedPathLaunchtime = launchtime;
+        } else {
+            _this.selectedPathLaunchtime = null;
+        }
+    };
+
+    this.remove = function() {
+        $.each(_this.paths, function(launchtime, path) {
+            if (path.pathCollection) {
+                for (var j = 0; j < path.pathCollection.length; j++) {
+                    path.pathCollection[j].setMap(null);
+                }
+            }
+        });
+        delete _this.paths;
+    };
+
+    this.init();
+    return this;
+}
+
 function Map($wrapper) {
     var _this = this;
     this.$wrapper = $wrapper;
     this.$canvas = this.$wrapper.children('.map-canvas');
     this.canvas = this.$canvas[0];
     this.markers = [];
-    this.paths = {};
-    this.pathPointInfoWindows = [];
-    this.hourlyPredictionHours = 50;
-    this.hourlyPrediction = false;
-    this.hourlyPredictionTimes = [];
     this.mapBounds = [];
-    this.responsesReceived = 0;
-    this.totalResponsesExpected = 1;
-    this.willNotComplete = false;
-    this.shouldCheckForCompletion = true;
-    this.runningRequests = [];
-    this.failedRequests = [];
-    this.hourlySlider = null;
-    this.currentHourlySliderValue = null;
-    this.selectedPath = null;
-    this.progressBar = ProgressBar($('#progress-bar-wrapper'));
+    this.predictions = [];
+    this.hourlySlider = new HourlySlider();
+    this.currentHourlyLaunchtime = null;
     this.isGpsTracking = false;
     this.gpsTrackerTimeout = null;
     this.gpsTrackerTimeoutInterval = 20 * 1000; // ms
@@ -279,10 +527,8 @@ function Map($wrapper) {
                 _this.map.setCenter(position);
             }
         });
-
         // set up html5 geolocation
         $('#gps-locate').click(_this.toggleGpsTracker);
-
         // start listening for right clicks to set position
         google.maps.event.addListener(_this.map, 'rightclick', function(event) {
             console.log("Right click event", event);
@@ -294,19 +540,13 @@ function Map($wrapper) {
         _this.initSearchBox();
     };
     this.reset = function() {
-        this.removeAllPaths();
-        this.clearMapBounds();
-        this.responsesReceived = 0;
-        this.totalResponsesExpected = 1;
-        this.willNotComplete = false;
-        this.shouldCheckForCompletion = true;
-        this.runningRequests.length = 0;
-        this.currentHourlySliderValue = null;
-        this.hourlyPredictionTimes.length = 0;
-        this.selectedPath = null;
-        if (this.hourlySlider !== null) {
-            this.hourlySlider.remove();
-            this.hourlySlider = null;
+        _this.removeAllPredictions();
+        _this.clearMapBounds();
+        _this.currentHourlyLaunchtime = null;
+        if (_this.hourlySlider !== null) {
+            _this.hourlySlider.remove();
+            delete _this.hourlySlider;
+            _this.hourlySlider = new HourlySlider();
         }
     };
     this.initSearchBox = function() {
@@ -314,9 +554,7 @@ function Map($wrapper) {
         var pac_input = document.getElementById('pac-input');
         var $pac_input = $(pac_input);
         var $pac_input_submit = $('#pac-input-submit');
-
         var orig_listener;
-
         function searchAndCenter() {
             var placename = $pac_input.val();
             console.log('sending request for', placename);
@@ -354,7 +592,6 @@ function Map($wrapper) {
         (function pacSelectFirst(input) {
             // store the original event binding function
             var _addEventListener = (input.addEventListener) ? input.addEventListener : input.attachEvent;
-
             function addEventListenerWrapper(type, listener) {
                 // Simulate a 'down arrow' keypress on hitting 'return' when no pac suggestion is selected,
                 // and then trigger the original listener.
@@ -376,7 +613,6 @@ function Map($wrapper) {
             else if (input.attachEvent)
                 input.attachEvent = addEventListenerWrapper;
         })(pac_input);
-
         var autocomplete = new google.maps.places.Autocomplete(pac_input);
         $pac_input_submit.click(function(e) {
             selectNextAutoSuggestion();
@@ -384,19 +620,9 @@ function Map($wrapper) {
             closeAutoComplete();
         });
     };
-
-    this.registerRequestSuccess = function(request) {
-
+    this.addPrediction = function(prediction) {
+        _this.predictions.push(prediction);
     };
-
-    this.registerRequestFailure = function(request) {
-
-    };
-
-    this._onRequestFinish = function(request) {
-
-    };
-
     this.toggleGpsTracker = function() {
         if (_this.isGpsTracking) {
             _this.stopGpsTracking();
@@ -404,7 +630,6 @@ function Map($wrapper) {
             _this.startGpsTracking();
         }
     };
-
     this.placeGpsMarker = function(latLng) {
         if (_this.gpsMarker === null) {
             // add new
@@ -425,7 +650,6 @@ function Map($wrapper) {
             _this.gpsMarker = null;
         }
     };
-
     this.startGpsTracking = function() {
         console.log('Starting gps tracking');
         _this.isGpsTracking = true;
@@ -485,7 +709,6 @@ function Map($wrapper) {
             handleNoGeolocation(false);
         }
     };
-
     this.listenForNextLeftClick = function() {
         _this.$wrapper.addClass('tofront');
         google.maps.event.addListener(_this.map, 'click', function(event) {
@@ -500,18 +723,18 @@ function Map($wrapper) {
         google.maps.event.clearListeners(_this.map, 'click');
     };
     this.addMapBound = function(latlng) {
-        this.mapBounds.push(latlng);
+        _this.mapBounds.push(latlng);
     };
     this.clearMapBounds = function() {
-        this.mapBounds.length = 0;
-        this.mapBounds = [];
+        _this.mapBounds.length = 0;
+        _this.mapBounds = [];
     };
     this.centerMapToBounds = function() {
         var bounds = new google.maps.LatLngBounds();
         for (var i = 0; i < _this.mapBounds.length; i++) {
             bounds.extend(_this.mapBounds[i]);
         }
-        this.map.fitBounds(bounds);
+        _this.map.fitBounds(bounds);
     };
     this.setLaunch = function(event) {
         console.log('Setting launch position and marker');
@@ -547,196 +770,41 @@ function Map($wrapper) {
             }
         });
     };
-    this.removeAllPaths = function() {
+    this.removeAllPredictions = function() {
         console.log('deleting all previous paths');
-        $.each(_this.paths, function(key, val) {
-            if (_this.paths[key].pathCollection) {
-                for (var j = 0; j < _this.paths[key].pathCollection.length; j++) {
-                    _this.paths[key].pathCollection[j].setMap(null);
-                }
-            }
+        $.each(_this.predictions, function(key, prediction) {
+            prediction.remove();
         });
-        delete _this.paths;
-        _this.paths = {};
+        delete _this.predictions;
+        _this.predictions = [];
     };
     this.placeMarker = function(latLng) {
-        this.removeAllMarkers();
+        _this.removeAllMarkers();
         var marker = new google.maps.Marker({position: latLng,
-            map: this.map,
+            map: _this.map,
             title: 'Launch Position (Lat: ' + latLng.lat() + ', Long: ' + latLng.lng() + ')'
         });
-        this.markers.push(marker);
+        _this.markers.push(marker);
     };
     this.removeAllMarkers = function() {
-        for (var i = 0; i < this.markers.length; i++) {
-            this.markers[i].setMap(null);
+        for (var i = 0; i < _this.markers.length; i++) {
+            _this.markers[i].setMap(null);
         }
-        this.markers.length = 0;
+        _this.markers.length = 0;
     };
-    this.parseDrawCSVData = function(data, launchTime) {
-        //console.log(data);
-        var poly = _this.paths[launchTime].poly;
-        var polyw = _this.paths[launchTime].polyw;
-        var path = poly.getPath();
-        var pathw = polyw.getPath();
-        var pathCollection = [poly, polyw];
-        var time;
-        var lat;
-        var lng;
-        var alt;
-        var latlng;
-        var burst_time;
-        var burst_lat;
-        var burst_lng;
-        var burst_alt = -10;
-        var burst_latlng;
-        $.each(data, function(key, val) {
-            // each location, time string
-            var results = val.split(',');
-            if (results.length === 4) {
-                time = new Date(parseInt(results[0]) * 1000); // convert to ms
-                lat = parseFloat(results[1]);
-                lng = parseFloat(results[2]);
-                alt = parseFloat(results[3]);
-                //console.log("time: ", time, "; lat: ", lat, "; long: ", lng, "; alt: ", alt);
-                latlng = new google.maps.LatLng(lat, lng);
-                path.push(latlng);
-                pathw.push(latlng);
-                // add location to map bounds ready for recenter
-                _this.addMapBound(latlng);
-                //var infostr = '<span class="pathInfoPoint">' + formatTime(time) + "; Lat: " + lat + ", Long: " + lng + ", Alt: " + alt + "m</span>";
-                //_this.plotPathInfoPoint(latlng, infostr, pathCollection);
-                //console.log(infostr);
 
-                if (key === 0) {
-                    // launch position
-                    var marker = new google.maps.Marker({
-                        position: latlng,
-                        icon: MapObjects.upArrow,
-                        map: _this.map,
-                        title: 'Launch position'
-                    });
-                    pathCollection.push(marker);
-                }
-                if (alt > burst_alt) {
-                    burst_time = time;
-                    burst_lat = lat;
-                    burst_lng = lng;
-                    burst_alt = alt;
-                    burst_latlng = latlng;
-                }
-            }
-        });
-        var marker = new google.maps.Marker({
-            position: latlng,
-            icon: MapObjects.landCircle,
-            map: _this.map,
-            title: 'Landing position',
-            visible: false
-        });
-        pathCollection.push(marker);
-        var marker = new google.maps.Marker({
-            position: burst_latlng,
-            icon: MapObjects.burstCircle,
-            map: _this.map,
-            title: 'Burst position',
-            visible: false
-        });
-        pathCollection.push(marker);
-        _this.paths[launchTime].pathCollection = pathCollection;
-        _this.responsesReceived++;
-        return true;
-    };
-    this.plotPath = function(formData, launchTime) {
-        //console.log("plotting path");
-        // thin black line
-        var polyOptions = {
-            strokeColor: '#000000',
-            strokeOpacity: 0.1, //1.0
-            strokeWeight: 2,
-            zIndex: 10
-        };
-        var poly = new google.maps.Polyline(polyOptions);
-        poly.setMap(this.map);
-        // thick trans_this line
-        var polywOptions = {
-            strokeColor: '#000000',
-            strokeOpacity: 0.1, //0.3
-            strokeWeight: 8,
-            zIndex: 20
-        };
-        var polyw = new google.maps.Polyline(polywOptions);
-        polyw.setMap(this.map);
-        google.maps.event.addListener(polyw, 'click', function(event) {
-            console.log('path clicked', event);
-            _this.hourlySlider.setValue($.inArray(launchTime, _this.hourlyPredictionTimes));
-            //setHourlySlider($.inArray(launchTime, _this.hourlyPredictionTimes));
-        });
-        var args = {
-            poly: poly,
-            polyw: polyw
-        };
-        this.paths[launchTime] = args;
-        var request = new Request();
-        _this.runningRequests.push(request);
-        request.submit(
-                this.parseDrawCSVData,
-                launchTime,
-                formData
-                //'launchsite=Churchill&second=0&submit=Run+Prediction&lat=52.109878940354896&lon=-0.38898468017578125&initial_alt=28&day=15&month=1&year=2014&hour=21&min=59&ascent=5&burst=3000&drag=5'
-                );
-    };
-    this.plotPathInfoPoint = function(latlng, text, pathCollection) {
-        var circleOptions = {
-            strokeColor: '#FF0000',
-            strokeOpacity: 0,
-            strokeWeight: 8,
-            fillColor: '#FF0000',
-            fillOpacity: 0,
-            map: this.map,
-            center: latlng,
-            radius: 8,
-            zIndex: 100
-        };
-        var infoPoint = new google.maps.Circle(circleOptions);
-        pathCollection.push(infoPoint);
-        var infowindow = new google.maps.InfoWindow({
-            content: text,
-            position: latlng
-        });
-        pathCollection.push(infowindow);
-        google.maps.event.addListener(infoPoint, 'mouseover', function() {
-            // show point details
-            //displayInfoBox(text);
-            clearTimeout(_this.timeoutPathPoints);
-            _this.closeAllPathPointInfoWindows();
-            infowindow.open(_this.map);
-            _this.pathPointInfoWindows.push(infowindow);
-        });
-        google.maps.event.addListener(infoPoint, 'mouseout', function() {
-            //infowindow.close();
-            _this.timeoutPathPoints = setTimeout(function() {
-                _this.closeAllPathPointInfoWindows();
-            }, 3000);
-        });
-    };
-    this.closeAllPathPointInfoWindows = function() {
-        $.each(this.pathPointInfoWindows, function(key, val) {
-            val.close();
-        });
-    };
-    this.getHourlySliderTooltip = function(value) {
+    this.getHourlySliderTooltip = function(launchtime) {
         //console.log(value);
         try {
-            var time = _this.hourlyPredictionTimes[value];
-            var path = _this.paths[time].poly.getPath();
-            time = new Date(time.getTime());
-            time.setMonth(time.getMonth() - 1); // -1 because we have to add 1 for the old api
+            var date = new Date(launchtime);
+            var path = _this.predictions[0].paths[launchtime].polyCenter.getPath(); // this should probably be abstracted slightly
+            date = new Date(date.getTime());
+            date.setMonth(date.getMonth() - 1); // -1 because we have to add 1 for the old api
             var len = path.getLength();
             var launch_latlng = path.getAt(0);
             var landing_latlng = path.getAt(len - 1);
             //console.log(landing_latlng.lat(), landing_latlng.lng());
-            return '<p>Launch: ' + time.toUTCString()
+            return '<p>Launch: ' + date.toUTCString()
                     + '; at ' + launch_latlng.lat() + ', ' + launch_latlng.lng()
                     + '</p><p>Landing: ' + landing_latlng.lat() + ', ' +
                     landing_latlng.lng() + '</p>';
@@ -744,112 +812,293 @@ function Map($wrapper) {
             return ' ';
         }
     };
-    this.dimAllPaths = function() {
-        $.each(this.paths, function(key, val) {
-            _this.dimPath(_this.paths[key]);
-        });
-    };
-    this.dimPath = function(path) {
-        if (path.pathCollection) {
-            for (var j = 0; j < path.pathCollection.length; j++) {
-                path.pathCollection[j].setVisible(false);
-            }
-        }
-        path.poly.setOptions({
-            visible: true,
-            strokeOpacity: 0.1,
-            strokeColor: '#000000',
-            zIndex: 20
-        });
-        path.polyw.setOptions({
-            visible: true,
-            strokeOpacity: 0.1,
-            zIndex: 30
-        });
-    };
-    this.unDimPath = function(path) {
-        //console.log(path);
-        if (path.pathCollection) {
-            for (var j = 0; j < path.pathCollection.length; j++) {
-                path.pathCollection[j].setVisible(true);
-            }
-        }
-        path.poly.setOptions({
-            strokeOpacity: 1.0,
-            strokeColor: '#00FF5E',
-            zIndex: 50
-        });
-        path.polyw.setOptions({
-            visible: true,
-            strokeOpacity: 0.3,
-            zIndex: 40
-        });
-    };
-    this.selectPath = function(path) {
-        //console.log(path);
-        if (_this.selectedPath) {
-            if (_this.selectedPath === path) {
-                return;
-            }
-            _this.dimPath(_this.selectedPath);
-        } else {
-            _this.dimAllPaths();
-        }
-        _this.unDimPath(path);
-        _this.selectedPath = path;
-    };
-    this.onHourlySliderSlide = function(event) {
+    this.onHourlySliderSlide = function(launchtime) {
         //console.log(event);
-        var value = event.value;
-        if (value !== _this.currentHourlySliderValue) {
-            _this.currentHourlySliderValue = value;
-            //console.log(_this.hourlyPredictionTimes);
-            _this.selectPath(_this.paths[_this.hourlyPredictionTimes[value]]);
+        if (launchtime !== _this.currentHourlyLaunchtime) {
+            _this.currentHourlyLaunchtime = launchtime;
+            $.each(_this.predictions, function(index, prediction) {
+                prediction.selectPathByTime(launchtime);
+            });
         }
     };
-    this._filterRunningRequests = function(request, index) {
-        //console.log(request.status);
-        if (request.status === 'success') {
-            return false;
-        } else if (request.status === 'running') {
-            return true;
-        } else if (request.status === 'failed, should rerun' && request.numberOfReruns <= request.maxNumberOfReruns) {
-            console.log('Rerunning request:', request);
-            request.numberOfReruns++;
-            request.rerun();
-            return true;
-        } else {
-            // either status is failed, or should rerun but max number
-            // of reruns has been reached
-            notifications.error('Request failed.');
-            _this.totalResponsesExpected--;
-            _this.willNotComplete = true;
-            return false;
-        }
-    };
-    this.checkForAllResponsesReceived = function() {
-        _this.runningRequests = $.grep(_this.runningRequests, _this._filterRunningRequests);
-        if (_this.responsesReceived > 0) {
-            if (_this.progressBar.isAnimated) {
-                _this.progressBar.makeStatic();
-            }
-            _this.progressBar.set(100 * _this.responsesReceived / _this.totalResponsesExpected);
-        }
-        //console.log('checking for responses received' + _this.responsesReceived + _this.totalResponsesExpected);
-        if (_this.responsesReceived >= _this.totalResponsesExpected) {
-            if (_this.responsesReceived > 0) {
-                // all responses received
-                _this.progressBar.hide();
-                //console.log(currentTimeouts);
-                _this.centerMapToBounds();
-                _this.hourlySlider = new HourlySlider(_this.responsesReceived - 1);
-            }
-        } else if (_this.shouldCheckForCompletion && _this.totalResponsesExpected > 0) {
-            window.setTimeout(_this.checkForAllResponsesReceived, 1000);
-        }
-    };
+
     this.init();
     return this;
+}
+
+function Form($wrapper) {
+    var _this = this;
+    this.$wrapper = $wrapper;
+    this.slidingPanel = new SlidingPanel(this.$wrapper);
+    this.open = this.slidingPanel.open;
+    this.close = this.slidingPanel.close;
+    this.toggle = this.slidingPanel.toggle;
+    this.input_launch_day = $('#inputLaunchDay');
+    this.input_launch_month = $('#inputLaunchMonth');
+    this.input_launch_year = $('#inputLaunchYear');
+    this.input_launch_hour = $('#inputLaunchHour');
+    this.input_launch_minute = $('#inputLaunchMinute');
+    this.maxPredictionHours = 180; // latest prediction available
+    this.minPredictionHours = 100; // earliest prediction permissible
+    this.currentDate = null;
+    this.maxPrediction = null;
+    this.minPrediction = null;
+    this.calculateDates = function() {
+        var date = new Date();
+        _this.currentDate = ceilMinute(date, 5);
+        _this.minPrediction = new Date(_this.currentDate.getTime() - this.minPredictionHours * 1000 * 60 * 60);
+        _this.maxPrediction = floorMinute(new Date(date.getTime() + this.maxPredictionHours * 1000 * 60 * 60), 5);
+        //console.log(_this.maxPrediction);
+    };
+    this.isValidTime = function(date) {
+        return date >= _this.minPrediction && date >= _this.maxPrediction;
+    };
+    this._validateMinutesHourly = function() {
+        var $date = $('#dateTimePicker').datetimepicker('getDate');
+        var selectedTime = new Date($date.val());
+        selectedTime.setHours($('#inputLaunchHour option:selected').val());
+        selectedTime.setMinutes($('#inputLaunchMinute option:selected').val());
+        $('#inputLaunchMinute option').removeAttr('disabled');
+        var $selectedHour = $('#inputLaunchHour option:selected');
+        if (selectedTime.toDateString() === _this.minPrediction.toDateString()
+                && $selectedHour.val() == _this.minPrediction.getHours()) {
+            var minMins = _this.minPrediction.getMinutes();
+            $('#inputLaunchMinute option').each(function() {
+                var $option = $(this);
+                if ($option.val() < minMins) {
+                    $option.attr("disabled", "disabled");
+                }
+            });
+            var $selected = $('#inputLaunchMinute option:selected');
+            if ($selected.val() < minMins) {
+                // deselect currently selected option
+                $selected.removeAttr('selected');
+                // select earliest allowed option
+                $('#inputLaunchMinute option:not(:disabled)').first().prop('selected', true);
+            }
+        } else if (selectedTime.toDateString() === _this.maxPrediction.toDateString()
+                && $selectedHour.val() == _this.maxPrediction.getHours()) {
+            var maxMins = _this.maxPrediction.getMinutes();
+            $('#inputLaunchMinute option').each(function() {
+                var $option = $(this);
+                if ($option.val() > maxMins) {
+                    $option.attr("disabled", "disabled");
+                }
+            });
+            var $selected = $('#inputLaunchMinute option:selected');
+            if ($selected.val() > maxMins) {
+                // deselect currently selected option
+                $selected.removeAttr('selected');
+                // select earliest allowed option
+                $('#inputLaunchMinute option:not(:disabled)').last().prop('selected', true);
+            }
+        }
+
+        // validate the hourly predictor
+        var d = _this.maxPrediction - selectedTime; // + (1000*60*60*24);
+        //console.log('max:', _this.maxPrediction, 'selected:', selectedTime, 'difference:', d);
+        var maxHourlyPrediction = Math.floor(d / (1000 * 60 * 60)) + 1;
+        // +1 hour because of the way the predictions are run later.
+        // i.e. 1 = current time
+        //console.log('maxHourlyPrediction', maxHourlyPrediction);
+        $('#hourly option').each(function() {
+            var $option = $(this);
+            if ($option.val() > maxHourlyPrediction) {
+                $option.attr("disabled", "disabled");
+            } else {
+                $option.removeAttr('disabled');
+            }
+        });
+        var $selected = $('#hourly option:selected');
+        if ($selected.val() > maxHourlyPrediction) {
+            // deselect currently selected option
+            $selected.removeAttr('selected');
+            // select max allowed option
+            $('#hourly option:not(:disabled)').last().prop('selected', true);
+        }
+        // remove old dynamically inserted max value
+        $('#hourly option.dynamicallyInsertedMaxValue').remove();
+        if (!($('#hourly option[value="' + maxHourlyPrediction + '"]').length)) {
+            // add an option for the latest permissible hourly prediction
+            $('#hourly option:not(:disabled)').last().after('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
+        }
+    };
+    this.setUpDatePicker = function() {
+        var onSelectDate = function(dateTime) {
+            $("input[name='day']").val(dateTime.getDate());
+            $("input[name='month']").val(dateTime.getMonth() + 1);
+            $("input[name='year']").val(dateTime.getFullYear());
+            $('#displayLaunchDate').html(dateTime.getDate() + ' '
+                    + months[dateTime.getMonth()] + ' '
+                    + dateTime.getFullYear());
+            $('#dateTimePicker-wrapper').collapse('hide');
+            // sort out time pickers
+            var currentDateString = dateTime.toDateString();
+            if (currentDateString === _this.minPrediction.toDateString()) {
+                var minHours = _this.minPrediction.getHours();
+                $('#inputLaunchHour option').each(function() {
+                    var $option = $(this);
+                    if ($option.val() < minHours) {
+                        $option.attr("disabled", "disabled");
+                    } else {
+                        $option.removeAttr('disabled');
+                    }
+                });
+                var $selected = $('#inputLaunchHour option:selected');
+                if ($selected.val() < minHours) {
+                    // deselect currently selected option
+                    $selected.removeAttr('selected');
+                    // select earliest allowed option
+                    $('#inputLaunchHour option:not(:disabled)').first().prop('selected', true);
+                }
+            } else if (currentDateString === _this.maxPrediction.toDateString()) {
+                var maxhours = _this.maxPrediction.getHours();
+                $('#inputLaunchHour option').each(function() {
+                    var $option = $(this);
+                    if ($option.val() > maxhours) {
+                        $option.attr("disabled", "disabled");
+                    } else {
+                        $option.removeAttr('disabled');
+                    }
+                });
+                var $selected = $('#inputLaunchHour option:selected');
+                if ($selected.val() > maxhours) {
+                    $selected.removeAttr('selected');
+                    // select latest allowed option
+                    $('#inputLaunchHour option:not(:disabled)').last().prop('selected', true);
+                }
+            } else {
+                $('#inputLaunchHour option').removeAttr('disabled');
+                $('#inputLaunchMinute option').removeAttr('disabled');
+            }
+            _this._validateMinutesHourly();
+        };
+        $('#dateTimePicker').datetimepicker({
+            inline: true,
+            minDate: _this.minPrediction.getFullYear() + '/' + (_this.minPrediction.getMonth() + 1) + '/' + _this.minPrediction.getDate(),
+            maxDate: _this.maxPrediction.getFullYear() + '/' + (_this.maxPrediction.getMonth() + 1) + '/' + _this.maxPrediction.getDate(),
+            //onChangeDateTime: logic,
+            //onShow: logic,
+            value: _this.currentDate.getFullYear() + '/' + (_this.currentDate.getMonth() + 1) + '/' + _this.currentDate.getDate(),
+            scrollMonth: false,
+            timepicker: false,
+            onSelectDate: onSelectDate
+        });
+        onSelectDate(_this.currentDate);
+        $('#displayLaunchDate').click(function() {
+            $('#dateTimePicker-wrapper').collapse('toggle');
+        });
+    };
+    this.predict = function(formData) {
+        map.reset();
+        notifications.closeAllNotifications();
+        //console.log(formData);
+        var runTime = new Date(
+                formData.year,
+                formData.month,
+                formData.day,
+                formData.hour,
+                formData.min,
+                formData.second,
+                0 // ms
+                );
+        var prediction = new Prediction();
+        map.addPrediction(prediction);
+        for (var h = 0; h < formData.hourly; h++) { // < so that we don't add additional hours
+            var predictionData = $.extend({}, formData);
+            var d = new Date(runTime.getTime() + (h * 60 * 60 * 1000)); // add h hours
+            predictionData.year = d.getFullYear();
+            predictionData.month = d.getMonth();
+            predictionData.day = d.getDate();
+            predictionData.hour = padTwoDigits(d.getHours());
+            predictionData.min = padTwoDigits(d.getMinutes());
+            //console.log($.param(predictionData));
+            prediction.addDataset(predictionData, d.getTime());
+        }
+        _this.close();
+    };
+    this.autoPopulateInputs = function() {
+        var hrs = padTwoDigits(_this.currentDate.getHours());
+        var mins = padTwoDigits(_this.currentDate.getMinutes());
+        $('#inputLaunchHour option[value=' + hrs + ']').prop('selected', true);
+        $('#inputLaunchMinute option[value=' + mins + ']').prop('selected', true);
+    };
+    this.setUpEventHandling = function() {
+        // ajax submission
+        $('#prediction-form').submit(function(event) {
+            event.preventDefault();
+            _this.submit();
+            return false;
+        });
+        // setting position
+        $('#btn-set-position').click(function(event) {
+            map.listenForNextLeftClick();
+            _this.close();
+            notifications.info('Now click anywhere on the map', 2000);
+        });
+        // units
+        $('.unit-selection .dropdown-menu li a').click(function(event) {
+            event.preventDefault();
+            var $unit = $(this);
+            var $unit_selection = $unit.closest('.unit-selection');
+            $unit_selection.find('.unit-current').html($unit.html());
+            $unit_selection.find('input').val($unit.html());
+            $unit_selection.click();
+            return false;
+        });
+        // hour / minute time change
+        $('#inputLaunchHour').on('change.validateMinutesHourly', _this._validateMinutesHourly);
+        $('#inputLaunchMinute').on('change.validateMinutesHourly', _this._validateMinutesHourly);
+    };
+    this.submit = function() {
+        var formData = _this.serializeToObject();
+        // convert to standard units (m, m/s)
+        console.log('unit conversion: ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
+        formData.initial_alt = _this.convertUnits(formData.initial_alt, formData.unitLaunchAltitude);
+        formData.ascent = _this.convertUnits(formData.ascent, formData.unitLaunchAscentRate);
+        formData.burst = _this.convertUnits(formData.burst, formData.unitLaunchBurstAlt);
+        formData.drag = _this.convertUnits(formData.drag, formData.unitLaunchDescentRate);
+        console.log('converted to   : ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
+        // remove unrequired fields
+        delete formData.unitLaunchAltitude;
+        delete formData.unitLaunchAscentRate;
+        delete formData.unitLaunchBurstAlt;
+        delete formData.unitLaunchDescentRate;
+        _this.predict(formData);
+    };
+    this.convertUnits = function(value, fromUnits) {
+        switch (fromUnits) {
+            case 'm':
+                return value;
+                break;
+            case 'ft':
+                return feetToMeters(value);
+                break;
+            case 'm/s':
+                return value;
+                break;
+            case 'ft/s':
+                return feetToMeters(value);
+                break;
+            default:
+                notifications.error('Unrecognised units ' + fromUnits);
+        }
+    };
+    this.serializeToObject = function() {
+        var formObj = {};
+        var $inputs = $('#prediction-form').serializeArray();
+        $.each($inputs, function(i, $input) {
+            formObj[$input.name] = $input.value;
+        });
+        return formObj;
+    };
+    // init code
+    this.calculateDates();
+    this.setUpDatePicker();
+    this.autoPopulateInputs();
+    this.setUpEventHandling();
+    // end init code
+
 }
 
 function SlidingPanel($element) {
@@ -1023,306 +1272,6 @@ function SlidingPanel($element) {
     return this;
 }
 
-function nearestMinute(date, minutes) {
-    if (minutes === null) {
-        mintues = 1;
-    }
-    var coeff = 1000 * 60 * minutes;
-    return new Date(Math.round(date.getTime() / coeff) * coeff);
-}
-function ceilMinute(date, minutes) {
-    if (minutes === null) {
-        mintues = 1;
-    }
-    var coeff = 1000 * 60 * minutes;
-    return new Date(Math.ceil(date.getTime() / coeff) * coeff);
-}
-function floorMinute(date, minutes) {
-    if (minutes === null) {
-        mintues = 1;
-    }
-    var coeff = 1000 * 60 * minutes;
-    return new Date(Math.floor(date.getTime() / coeff) * coeff);
-}
-
-function Form($wrapper) {
-    var _this = this;
-    this.$wrapper = $wrapper;
-    this.slidingPanel = new SlidingPanel(this.$wrapper);
-    this.open = this.slidingPanel.open;
-    this.close = this.slidingPanel.close;
-    this.toggle = this.slidingPanel.toggle;
-    this.input_launch_day = $('#inputLaunchDay');
-    this.input_launch_month = $('#inputLaunchMonth');
-    this.input_launch_year = $('#inputLaunchYear');
-    this.input_launch_hour = $('#inputLaunchHour');
-    this.input_launch_minute = $('#inputLaunchMinute');
-    this.maxPredictionHours = 180; // latest prediction available
-    this.minPredictionHours = 100; // earliest prediction permissible
-    this.currentDate = null;
-    this.maxPrediction = null;
-    this.minPrediction = null;
-    this.calculateDates = function() {
-        var date = new Date();
-        _this.currentDate = ceilMinute(date, 5);
-        _this.minPrediction = new Date(_this.currentDate.getTime() - this.minPredictionHours * 1000 * 60 * 60);
-        _this.maxPrediction = floorMinute(new Date(date.getTime() + this.maxPredictionHours * 1000 * 60 * 60), 5);
-        //console.log(_this.maxPrediction);
-    };
-    this.isValidTime = function(date) {
-        return date >= _this.minPrediction && date >= _this.maxPrediction;
-    };
-    this._validateMinutesHourly = function() {
-        var $date = $('#dateTimePicker').datetimepicker('getDate');
-        var selectedTime = new Date($date.val());
-        selectedTime.setHours($('#inputLaunchHour option:selected').val());
-        selectedTime.setMinutes($('#inputLaunchMinute option:selected').val());
-        $('#inputLaunchMinute option').removeAttr('disabled');
-        var $selectedHour = $('#inputLaunchHour option:selected');
-        if (selectedTime.toDateString() === _this.minPrediction.toDateString()
-                && $selectedHour.val() == _this.minPrediction.getHours()) {
-            var minMins = _this.minPrediction.getMinutes();
-            $('#inputLaunchMinute option').each(function() {
-                var $option = $(this);
-                if ($option.val() < minMins) {
-                    $option.attr("disabled", "disabled");
-                }
-            });
-            var $selected = $('#inputLaunchMinute option:selected');
-            if ($selected.val() < minMins) {
-                // deselect currently selected option
-                $selected.removeAttr('selected');
-                // select earliest allowed option
-                $('#inputLaunchMinute option:not(:disabled)').first().prop('selected', true);
-            }
-        } else if (selectedTime.toDateString() === _this.maxPrediction.toDateString()
-                && $selectedHour.val() == _this.maxPrediction.getHours()) {
-            var maxMins = _this.maxPrediction.getMinutes();
-            $('#inputLaunchMinute option').each(function() {
-                var $option = $(this);
-                if ($option.val() > maxMins) {
-                    $option.attr("disabled", "disabled");
-                }
-            });
-            var $selected = $('#inputLaunchMinute option:selected');
-            if ($selected.val() > maxMins) {
-                // deselect currently selected option
-                $selected.removeAttr('selected');
-                // select earliest allowed option
-                $('#inputLaunchMinute option:not(:disabled)').last().prop('selected', true);
-            }
-        }
-
-        // validate the hourly predictor
-        var d = _this.maxPrediction - selectedTime; // + (1000*60*60*24);
-        //console.log('max:', _this.maxPrediction, 'selected:', selectedTime, 'difference:', d);
-        var maxHourlyPrediction = Math.floor(d / (1000 * 60 * 60)) + 1;
-        // +1 hour because of the way the predictions are run later.
-        // i.e. 1 = current time
-        //console.log('maxHourlyPrediction', maxHourlyPrediction);
-        $('#hourly option').each(function() {
-            var $option = $(this);
-            if ($option.val() > maxHourlyPrediction) {
-                $option.attr("disabled", "disabled");
-            } else {
-                $option.removeAttr('disabled');
-            }
-        });
-        var $selected = $('#hourly option:selected');
-        if ($selected.val() > maxHourlyPrediction) {
-            // deselect currently selected option
-            $selected.removeAttr('selected');
-            // select max allowed option
-            $('#hourly option:not(:disabled)').last().prop('selected', true);
-        }
-        // remove old dynamically inserted max value
-        $('#hourly option.dynamicallyInsertedMaxValue').remove();
-        if (!($('#hourly option[value="' + maxHourlyPrediction + '"]').length)) {
-            // add an option for the latest permissible hourly prediction
-            $('#hourly option:not(:disabled)').last().after('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
-        }
-    };
-    this.setUpDatePicker = function() {
-        var onSelectDate = function(dateTime) {
-            $("input[name='day']").val(dateTime.getDate());
-            $("input[name='month']").val(dateTime.getMonth() + 1);
-            $("input[name='year']").val(dateTime.getFullYear());
-            $('#displayLaunchDate').html(dateTime.getDate() + ' '
-                    + months[dateTime.getMonth()] + ' '
-                    + dateTime.getFullYear());
-            $('#dateTimePicker-wrapper').collapse('hide');
-            // sort out time pickers
-            var currentDateString = dateTime.toDateString();
-            if (currentDateString === _this.minPrediction.toDateString()) {
-                var minHours = _this.minPrediction.getHours();
-                $('#inputLaunchHour option').each(function() {
-                    var $option = $(this);
-                    if ($option.val() < minHours) {
-                        $option.attr("disabled", "disabled");
-                    } else {
-                        $option.removeAttr('disabled');
-                    }
-                });
-                var $selected = $('#inputLaunchHour option:selected');
-                if ($selected.val() < minHours) {
-                    // deselect currently selected option
-                    $selected.removeAttr('selected');
-                    // select earliest allowed option
-                    $('#inputLaunchHour option:not(:disabled)').first().prop('selected', true);
-                }
-            } else if (currentDateString === _this.maxPrediction.toDateString()) {
-                var maxhours = _this.maxPrediction.getHours();
-                $('#inputLaunchHour option').each(function() {
-                    var $option = $(this);
-                    if ($option.val() > maxhours) {
-                        $option.attr("disabled", "disabled");
-                    } else {
-                        $option.removeAttr('disabled');
-                    }
-                });
-                var $selected = $('#inputLaunchHour option:selected');
-                if ($selected.val() > maxhours) {
-                    $selected.removeAttr('selected');
-                    // select latest allowed option
-                    $('#inputLaunchHour option:not(:disabled)').last().prop('selected', true);
-                }
-            } else {
-                $('#inputLaunchHour option').removeAttr('disabled');
-                $('#inputLaunchMinute option').removeAttr('disabled');
-            }
-            _this._validateMinutesHourly();
-        };
-        $('#dateTimePicker').datetimepicker({
-            inline: true,
-            minDate: _this.minPrediction.getFullYear() + '/' + (_this.minPrediction.getMonth() + 1) + '/' + _this.minPrediction.getDate(),
-            maxDate: _this.maxPrediction.getFullYear() + '/' + (_this.maxPrediction.getMonth() + 1) + '/' + _this.maxPrediction.getDate(),
-            //onChangeDateTime: logic,
-            //onShow: logic,
-            value: _this.currentDate.getFullYear() + '/' + (_this.currentDate.getMonth() + 1) + '/' + _this.currentDate.getDate(),
-            scrollMonth: false,
-            timepicker: false,
-            onSelectDate: onSelectDate
-        });
-        onSelectDate(_this.currentDate);
-        $('#displayLaunchDate').click(function() {
-            $('#dateTimePicker-wrapper').collapse('toggle');
-        });
-    };
-    this.predict = function(formData) {
-        map.reset();
-        notifications.closeAllNotifications();
-        map.progressBar.show();
-        map.progressBar.makeAnimated();
-        //console.log(formData);
-        var runTime = new Date(
-                formData.year,
-                formData.month,
-                formData.day,
-                formData.hour,
-                formData.min,
-                formData.second,
-                0 // ms
-                );
-        for (var h = 0; h < formData.hourly; h++) { // < so that we don't add additional hours
-            var predictionData = $.extend({}, formData);
-            var d = new Date(runTime.getTime() + (h * 60 * 60 * 1000)); // add h hours
-            predictionData.year = d.getFullYear();
-            predictionData.month = d.getMonth();
-            predictionData.day = d.getDate();
-            predictionData.hour = padTwoDigits(d.getHours());
-            predictionData.min = padTwoDigits(d.getMinutes());
-            //console.log($.param(predictionData));
-            map.hourlyPredictionTimes.push(d);
-            map.plotPath($.param(predictionData), d);
-        }
-        map.totalResponsesExpected = formData.hourly;
-        map.checkForAllResponsesReceived();
-        _this.close();
-    };
-    this.autoPopulateInputs = function() {
-        var hrs = padTwoDigits(_this.currentDate.getHours());
-        var mins = padTwoDigits(_this.currentDate.getMinutes());
-        $('#inputLaunchHour option[value=' + hrs + ']').prop('selected', true);
-        $('#inputLaunchMinute option[value=' + mins + ']').prop('selected', true);
-    };
-    this.setUpEventHandling = function() {
-        // ajax submission
-        $('#prediction-form').submit(function(event) {
-            event.preventDefault();
-            _this.submit();
-            return false;
-        });
-        // setting position
-        $('#btn-set-position').click(function(event) {
-            map.listenForNextLeftClick();
-            _this.close();
-            notifications.info('Now click anywhere on the map', 2000);
-        });
-        // units
-        $('.unit-selection .dropdown-menu li a').click(function(event) {
-            event.preventDefault();
-            var $unit = $(this);
-            var $unit_selection = $unit.closest('.unit-selection');
-            $unit_selection.find('.unit-current').html($unit.html());
-            $unit_selection.find('input').val($unit.html());
-            $unit_selection.click();
-            return false;
-        });
-        // hour / minute time change
-        $('#inputLaunchHour').on('change.validateMinutesHourly', _this._validateMinutesHourly);
-        $('#inputLaunchMinute').on('change.validateMinutesHourly', _this._validateMinutesHourly);
-    };
-    this.submit = function() {
-        var formData = _this.serializeToObject();
-        // convert to standard units (m, m/s)
-        console.log('unit conversion: ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
-        formData.initial_alt = _this.convertUnits(formData.initial_alt, formData.unitLaunchAltitude);
-        formData.ascent = _this.convertUnits(formData.ascent, formData.unitLaunchAscentRate);
-        formData.burst = _this.convertUnits(formData.burst, formData.unitLaunchBurstAlt);
-        formData.drag = _this.convertUnits(formData.drag, formData.unitLaunchDescentRate);
-        console.log('converted to   : ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
-        // remove unrequired fields
-        delete formData.unitLaunchAltitude;
-        delete formData.unitLaunchAscentRate;
-        delete formData.unitLaunchBurstAlt;
-        delete formData.unitLaunchDescentRate;
-        _this.predict(formData);
-    };
-    this.convertUnits = function(value, fromUnits) {
-        switch (fromUnits) {
-            case 'm':
-                return value;
-                break;
-            case 'ft':
-                return feetToMeters(value);
-                break;
-            case 'm/s':
-                return value;
-                break;
-            case 'ft/s':
-                return feetToMeters(value);
-                break;
-            default:
-                notifications.error('Unrecognised units ' + fromUnits);
-        }
-    };
-    this.serializeToObject = function() {
-        var formObj = {};
-        var $inputs = $('#prediction-form').serializeArray();
-        $.each($inputs, function(i, $input) {
-            formObj[$input.name] = $input.value;
-        });
-        return formObj;
-    };
-    // init code
-    this.calculateDates();
-    this.setUpDatePicker();
-    this.autoPopulateInputs();
-    this.setUpEventHandling();
-    // end init code
-
-}
-
 function Notifications($notificationArea) {
     var _this = this;
     this.openNotifications = {_timeout: []};
@@ -1453,19 +1402,21 @@ function Notifications($notificationArea) {
     };
 }
 
-function HourlySlider(max) {
+function HourlySlider() {
     var _this = this;
     this.$sliderEl = null;
     this.$sliderContainer = $("#hourly-time-slider-container");
     this.$infoBoxEl = null;
     this.$infoBoxContainer = $("#current-launch-info-container");
     this.value = null;
-    this.init = function(max) {
+    this.valuesTimes = [];
+    this.redraw = function() {
+        var maxValue = _this.valuesTimes.length - 1;
         _this.$sliderContainer.html('<input type="text" id="hourly-time-slider"/>');
         _this.$sliderEl = $("#hourly-time-slider");
         _this.$sliderEl.slider({
             min: 0,
-            max: max,
+            max: maxValue,
             step: 1,
             value: 0,
             orientation: 'vertical',
@@ -1473,7 +1424,7 @@ function HourlySlider(max) {
             selection: 'before',
             formater: map.getHourlySliderTooltip
         }).on('slide', function(event) {
-            map.onHourlySliderSlide(event);
+            map.onHourlySliderSlide(_this.valuesTimes[event.value]);
             _this.onSlide(event);
         });
         _this.$infoBoxContainer.html('<div id="current-launch-info"></div>');
@@ -1481,14 +1432,21 @@ function HourlySlider(max) {
         _this.$infoBoxContainer.show();
         _this.$sliderContainer.show();
         _this.setValue(0);
-        if (max > 0) {
+        if (maxValue > 0) {
             _this.showPopup();
         } else {
             _this.$sliderContainer.hide();
         }
     };
+    this.registerTime = function(time) {
+        if ($.inArray(time, _this.valuesTimes) === -1) {
+            // not in valuesTimes
+            _this.valuesTimes.push(time);
+            _this.valuesTimes.sort();
+        }
+    };
     this.onSlide = function(event) {
-        var text = map.getHourlySliderTooltip(event.value);
+        var text = map.getHourlySliderTooltip(_this.valuesTimes[event.value]);
         _this.setInfoBox(text);
     };
     this.showPopup = function() {
@@ -1517,13 +1475,17 @@ function HourlySlider(max) {
     this.setValue = function(value) {
         _this.value = value;
         _this.$sliderEl.slider('setValue', value);
-        _this.setInfoBox(map.getHourlySliderTooltip(value));
-        map.onHourlySliderSlide({value: value});
+        _this.setInfoBox(map.getHourlySliderTooltip(_this.valuesTimes[value]));
+        map.onHourlySliderSlide(_this.valuesTimes[value]);
+    };
+    this.setValueByLaunchtime = function(launchtime) {
+        _this.setValue($.inArray(launchtime, _this.valuesTimes));
     };
     this.getValue = function(value) {
         return _this.value;
     };
-    this.init(max);
+
+    return this;
 }
 
 function ProgressBar($wrapper) {
@@ -1537,8 +1499,8 @@ function ProgressBar($wrapper) {
     };
     this.makeAnimated = function() {
         _this.$element.addClass('progress-striped active');
-        set(100);
-        this.isAnimated = true;
+        _this.set(100);
+        _this.isAnimated = true;
     };
     this.makeStatic = function() {
         _this.$element.removeClass('progress-striped active');
@@ -1548,27 +1510,9 @@ function ProgressBar($wrapper) {
         _this.$bar.css('width', perc + '%');
     };
     this.hide = function() {
-        this.$wrapper.hide();
+        _this.$wrapper.hide();
     };
     return this;
-}
-
-function padTwoDigits(x) {
-    x = x + "";
-    if (x.length === 1) {
-        x = "0" + x;
-    }
-    return x;
-}
-function isNumber(n) {
-    return !isNaN(parseFloat(n)) && isFinite(n);
-}
-function formatTime(d) {
-    return padTwoDigits(d.getHours()) + ":" + padTwoDigits(d.getMinutes());
-}
-function feetToMeters(feet) {
-    // 1 meter == 0.3048 ft
-    return 0.3048 * feet;
 }
 
 // GLOBALS
