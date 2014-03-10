@@ -1372,6 +1372,7 @@ function Notifications($notificationArea) {
                 $notification
                         .removeClass('notification-new')
                         .prependTo(_this.$currentNotifications);
+                _this.$mainWrap.height($('body').outerHeight() - _this.$currentNotifications.outerHeight());
             }
         });
         // set close timeout
