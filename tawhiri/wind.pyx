@@ -2,23 +2,23 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
-import os
 import mmap
+import os.path
 
 DEF VAR_A = 0
 DEF VAR_U = 1
 DEF VAR_V = 2
 
 cdef class Dataset:
-    cdef object fd, mm
+    cdef object mm
     cdef double[:, :, :, :, :] data
 
     def __init__(self, directory, year, month, day, hour):
         """Open a dataset from a particular time that's in a directory."""
         filename = "{:04d}{:02d}{:02d}{:02d}".format(year, month, day, hour)
         path = os.path.join(directory, filename)
-        self.fd = os.open(path, os.O_RDWR)
-        self.mm = mmap.mmap(self.fd, 0)
+        with open(path, "wb") as f:
+            self.mm = mmap.mmap(f.fileno(), 0)
         self.data = memoryview(self.mm).cast("d", (65, 47, 3, 361, 720))
 
     def get_wind(self, double time, double alt, double lat, double lng):
