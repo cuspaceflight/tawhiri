@@ -20,22 +20,19 @@ Perform numerical integration of the balloon state.
 """
 
 
-def solve(t, lat, lng, alt, fs, terms, dt):
-    """Solve from initial conditions `t`, `lat`, `lng`, and `alt`, using a list
-       or iterable of model functions `fs` and corresponding termination
-       criteria `terms`, with timestep `dt`.
-
-       Currently uses forward Euler integration so dt should probably be
-       kept respectably small.
+def solve(t, lat, lng, alt, stages):
+    """Solve from initial conditions `t`, `lat`, `lng`, and `alt`, using
+       models and termination criteria from `stages`, an iterable of (model,
+       terminator) pairs which make up each stage of the flight.
     """
     results = [(t, lat, lng, alt)]
-    for f, term in zip(fs, terms):
-        results += euler(t, lat, lng, alt, f, term, dt)
+    for model, terminator in stages:
+        results += euler(t, lat, lng, alt, model, terminator)
         t, lat, lng, alt = results[-1]
     return results
 
 
-def euler(t, lat, lng, alt, f, terminator, dt):
+def euler(t, lat, lng, alt, model, terminator, dt=1.0):
     """Perform forward Euler integration from initial conditions `t`, `lat`,
        `lng` and `alt`, using model `f` and termination criteria `terminator`,
        at timestep `dt`.
@@ -43,7 +40,7 @@ def euler(t, lat, lng, alt, f, terminator, dt):
     result = []
     while not terminator(t, lat, lng, alt):
         t += dt
-        df = f(t, lat, lng, alt)
+        df = model(t, lat, lng, alt)
         lat += df[0] * dt
         lng += df[1] * dt
         alt += df[2] * dt

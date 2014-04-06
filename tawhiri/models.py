@@ -111,16 +111,16 @@ def make_time_termination(max_time):
     return time_termination
 
 
-def make_f(models):
+def make_linear_model(models):
     """Return a model that returns the sum of all the models in `models`.
     """
-    def f(t, lat, lng, alt):
+    def linear_model(t, lat, lng, alt):
         dlat, dlng, dalt = 0.0, 0.0, 0.0
         for model in models:
             d = model(t, lat, lng, alt)
             dlat, dlng, dalt = dlat + d[0], dlng + d[1], dalt + d[2]
         return dlat, dlng, dalt
-    return f
+    return linear_model
 
 
 def make_any_terminator(terminators):
@@ -130,3 +130,27 @@ def make_any_terminator(terminators):
     def terminator(t, lat, lng, alt):
         return any(term(t, lat, lng, alt) for term in terminators)
     return terminator
+
+
+def make_standard_stages(ascent_rate, burst_altitude, descent_rate,
+                         dataset):
+    """Make a model chain for the standard high altitude balloon situation of
+       ascent at a constant rate followed by burst and subsequent descent
+       at terminal velocity under parachute with a predetermined sea level
+       descent rate.
+
+       Requires the balloon `ascent_rate`, `burst_altitude` and `descent_rate`,
+       and additionally requires the dataset to use for wind velocities.
+
+       Returns a tuple of (model, terminator) pairs.
+    """
+
+    model_up = make_linear_model([make_constant_ascent(ascent_rate),
+                                  make_wind_velocity(dataset)])
+    term_up = make_burst_termination(burst_altitude)
+
+    model_down = make_linear_model([make_drag_descent(descent_rate),
+                                    make_wind_velocity(dataset)])
+    term_down = ground_termination
+
+    return ((model_up, term_up), (model_down, term_down))
