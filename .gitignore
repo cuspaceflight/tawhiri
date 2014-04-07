@@ -1,7 +1,8 @@
-/datasets/
 venv*/
 __pycache__/
 *.pyc
 *.so
 build/
 tawhiri/*.c
+dist/
+Tawhiri.egg-info/
