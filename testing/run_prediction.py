@@ -1,5 +1,9 @@
+import sys
 import time
 from tawhiri import wind, solver, models
+
+if len(sys.argv) != 2:
+    print("Usage: {} <path to datasets>".format(sys.argv[0]))
 
 
 t0 = 6.0 * 3600
@@ -13,7 +17,7 @@ n_repeats = 100
 
 start_time = time.time()
 for i in range(n_repeats):
-    ds = wind.Dataset("/home/adam/Projects/tawhiri/datasets", 2014, 2, 3, 6)
+    ds = wind.Dataset(sys.argv[1], 2014, 2, 3, 6)
     stages = models.make_standard_stages(5.0, 30000, 5.0, ds)
     result = solver.solve(t0, lat0, lng0, alt0, stages)
 end_time = time.time()
