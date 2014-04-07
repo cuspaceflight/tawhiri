@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 from Cython.Build import cythonize
 
 try:
@@ -22,7 +22,7 @@ setup(
     packages=['tawhiri'],
     ext_modules = cythonize("tawhiri/*.pyx"),
     url='http://www.cusf.co.uk/wiki/tawhiri:start',
-    licence='GPLv3+',
+    license='GPLv3+',
     description='High Altitude Balloon Landing Prediction Software',
     long_description=long_description,
     test_suite='nose.collector',
