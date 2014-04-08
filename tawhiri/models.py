@@ -20,7 +20,11 @@ Provide all the balloon models, termination conditions and
 functions to combine models and termination conditions.
 """
 
+import calendar
 import math
+
+from . import interpolate
+
 
 _PI_180 = math.pi / 180.0
 _180_PI = 180.0 / math.pi
@@ -69,8 +73,11 @@ def make_wind_velocity(dataset):
        the wind velocity for the current time, latitude, longitude and
        altitude. The `dataset` argument is the wind dataset in use.
     """
+    get_wind = interpolate.make_interpolator(dataset)
+    dataset_epoch = calendar.timegm(dataset.ds_time.timetuple())
     def wind_velocity(t, lat, lng, alt):
-        u, v = dataset.get_wind(t / 3600.0, alt, lat, lng)
+        t -= dataset_epoch
+        u, v = get_wind(t / 3600.0, alt, lat, lng)
         R = 6371009 + alt
         dlat = _180_PI * v / R
         dlng = _180_PI * u / (R * math.cos(lat * _PI_180))
@@ -100,11 +107,10 @@ def ground_termination(t, lat, lng, alt):
 
 def make_time_termination(max_time):
     """A time based termination criteria, which terminates integration when
-       the current time is greater than `max_time`.
-
-       Currently `max_time` is specified in seconds since the dataset began,
-       so should probably be computed accordingly before creating this model.
+       the current time is greater than `max_time` (a naive datetime object
+       in UTC).
     """
+    max_time = calendar.timegm(max_time.timetuple())
     def time_termination(t, lat, lng, alt):
         if t > max_time:
             return True
