@@ -1,23 +1,29 @@
-# Copyright 2014 (C) Adam Greig
+# Copyright 2014 (C) Adam Greig, Daniel Richman
 #
 # This file is part of Tawhiri.
 #
-# habitat is free software: you can redistribute it and/or modify
+# Tawhiri is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# habitat is distributed in the hope that it will be useful,
+# Tawhiri is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with habitat.  If not, see <http://www.gnu.org/licenses/>.
+# along with Tawhiri.  If not, see <http://www.gnu.org/licenses/>.
 
 # Cython compiler directives:
+#
+# pick(...) is careful in what it returns:
 # cython: boundscheck=False
 # cython: wraparound=False
+#
+# We check for division by zero, and don't divide by negative values
+# (unless the dataset is really dodgy!):
+# cython: cdivision=True
 
 """
 Interpolation to determine wind velocity at any given time,
@@ -27,119 +33,135 @@ Note that this module is compiled with Cython to enable fast
 memory access.
 """
 
+
 # These need to match Dataset.axes.variable
 DEF VAR_A = 0
 DEF VAR_U = 1
 DEF VAR_V = 2
+
+
+ctypedef double[:, :, :, :, :] dataset
+
+cdef struct Lerp1:
+    int index
+    double lerp
+
+cdef struct Lerp3:
+    int hour, lat, lng
+    double lerp
+
 
 def make_interpolator(dataset):
     cdef double[:, :, :, :, :] data
 
     data = memoryview(dataset.array).cast("d", (65, 47, 3, 361, 720))
 
-    def f(time, alt, lat, lng):
-        return get_wind(data, time, alt, lat, lng)
+    def f(hour, alt, lat, lng):
+        return get_wind(data, hour, alt, lat, lng)
 
     return f
 
-cdef get_wind(double[:, :, :, :, :] dataset,
-              double time, double alt, double lat, double lng):
-    """Return [u, v] wind components for the given position.
-       Time is in fractional hours since the dataset starts.
-       Alt is metres above sea level.
-       Lat is latitude in decimal degrees, -90 to +90.
-       Lng is longitude in decimal degrees, 0 to 360.
 
-       Returned coordinates are interpolated from the surrounding grid
-       points in time, latitude, longitude and altitude.
+cdef object get_wind(dataset ds,
+                     double hour, double lat, double lng, double alt):
     """
-    cdef int t_idx, lat_idx, lng_idx, p_idx, i
+    Return [u, v] wind components for the given position.
+    Time is in fractional hours since the dataset starts.
+    Alt is metres above sea level.
+    Lat is latitude in decimal degrees, -90 to +90.
+    Lng is longitude in decimal degrees, 0 to 360.
 
-    t_val = time / 3.0
-    t_idx = int(t_val)
-    t_lerp = t_val - t_idx
-    
-    lat_val = (lat + 90.0) * 2.0
-    lat_idx = int(lat_val)
-    lat_lerp = lat_val - lat_idx
+    Returned coordinates are interpolated from the surrounding grid
+    points in time, latitude, longitude and altitude.
+    """
 
-    lng_val = lng * 2.0
-    lng_idx = int(lng_val)
-    lng_lerp = lng_val - lng_idx
+    cdef Lerp3[8] lerps
+    cdef int altidx
+    cdef double lower, upper, u, v
 
-    p_idx = 0
-    for i in range(47):
-        if dataset[t_idx, i, VAR_A, lat_idx, lng_idx] > alt:
-            p_idx = i - 1
-            break
+    pick3(hour, lat, lng, lerps)
 
-    if p_idx < 0:
-        p_idx = 0
-    elif p_idx > 46:
-        p_idx = 45
+    altidx = search(ds, lerps, alt)
+    lower = interp3(ds, lerps, VAR_A, altidx)
+    upper = interp3(ds, lerps, VAR_A, altidx + 1)
 
-    a_l = _lerp_t(dataset, p_idx, t_lerp, t_idx,
-                       lat_lerp, lat_idx, lng_lerp, lng_idx,
-                       VAR_A)
-    a_h = _lerp_t(dataset, p_idx + 1, t_lerp, t_idx,
-                       lat_lerp, lat_idx, lng_lerp, lng_idx,
-                       VAR_A)
-    p_lerp = ((alt - a_l) / (a_h - a_l))
+    if lower != upper:
+        lerp = (upper - alt) / (upper - lower)
+    else:
+        lerp = 0.5
 
-    u = _lerp_p(dataset, p_lerp, p_idx, t_lerp, t_idx,
-                     lat_lerp, lat_idx, lng_lerp, lng_idx,
-                     VAR_U)
-    v = _lerp_p(dataset, p_lerp, p_idx, t_lerp, t_idx,
-                                 lat_lerp, lat_idx, lng_lerp, lng_idx,
-                                 VAR_V)
+    cdef Lerp1 alt_lerp = Lerp1(altidx, lerp)
+
+    u = interp4(ds, lerps, alt_lerp, VAR_U)
+    v = interp4(ds, lerps, alt_lerp, VAR_V)
+
     return u, v
 
-cdef double _lerp_p(double[:, :, :, :, :] dataset,
-                    double p_lerp, unsigned int p_idx,
-                    double t_lerp, unsigned int t_idx,
-                    double lat_lerp, unsigned int lat_idx,
-                    double lng_lerp, unsigned int lng_idx,
-                    unsigned int var):
-    var_l = _lerp_t(dataset, p_idx, t_lerp, t_idx,
-                         lat_lerp, lat_idx, lng_lerp, lng_idx,
-                         var)
-    var_h = _lerp_t(dataset, p_idx + 1, t_lerp, t_idx,
-                         lat_lerp, lat_idx, lng_lerp, lng_idx,
-                         var)
-    p_lerp_m = 1.0 - p_lerp
-    return var_l * p_lerp_m + var_h * p_lerp
+cdef int pick(double left, double step, int n, double value,
+              Lerp1[2] out) except -1:
 
-cdef double _lerp_t(double[:, :, :, :, :] dataset,
-                    unsigned int p_idx,
-                    double t_lerp, unsigned int t_idx,
-                    double lat_lerp, unsigned int lat_idx,
-                    double lng_lerp, unsigned int lng_idx,
-                    unsigned int var):
-    var_l = _lerp_lat(dataset, p_idx, t_idx, lat_lerp, lat_idx,
-                           lng_lerp, lng_idx, var)
-    var_h = _lerp_lat(dataset, p_idx, t_idx + 1, lat_lerp, lat_idx,
-                           lng_lerp, lng_idx, var)
-    t_lerp_m = 1.0 - t_lerp
-    return var_l * t_lerp_m + var_h * t_lerp
+    cdef double a, l
+    cdef int b
 
-cdef double _lerp_lat(double[:, :, :, :, :] dataset,
-                      unsigned int p_idx, unsigned int t_idx,
-                      double lat_lerp, unsigned int lat_idx,
-                      double lng_lerp, unsigned int lng_idx,
-                      unsigned int var):
-    var_l = _lerp_lng(dataset, p_idx, t_idx, lat_idx,
-                           lng_lerp, lng_idx, var)
-    var_h = _lerp_lng(dataset, p_idx, t_idx, lat_idx + 1,
-                           lng_lerp, lng_idx, var)
-    lat_lerp_m = 1.0 - lat_lerp
-    return var_l * lat_lerp_m + var_h * lat_lerp
+    a = (value - left) / step
+    b = <int> a
+    if b < 0 or b >= n - 1:
+        raise ValueError("Value out of range {0}".format(value))
+    l = a - b
 
-cdef double _lerp_lng(double[:, :, :, :, :] dataset,
-                      unsigned int p_idx, unsigned int t_idx,
-                      unsigned int lat_idx, double lng_lerp,
-                      unsigned int lng_idx, unsigned int var):
-    cdef double var_l, var_h
-    var_l = dataset[t_idx, p_idx, var, lat_idx, lng_idx]
-    var_h = dataset[t_idx, p_idx, var, lat_idx, lng_idx + 1]
-    lng_lerp_m = 1.0 - lng_lerp
-    return var_l * lng_lerp_m + var_h * lng_lerp
+    out[0] = Lerp1(b, 1 - l)
+    out[1] = Lerp1(b + 1, l)
+    return 0
+
+cdef int pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
+    cdef Lerp1[2] lhour, llat, llng
+
+    pick(0, 3, 65, hour, lhour)
+    pick(-90, 0.5, 361, lat, llat)
+    pick(0, 0.5, 720 + 1, lng, llng)
+    if llng[1].index == 720:
+        llng[1].index = 0
+
+    cdef int i = 0
+
+    for a in lhour:
+        for b in llat:
+            for c in llng:
+                p = a.lerp * b.lerp * c.lerp
+                out[i] = Lerp3(a.index, b.index, c.index, p)
+                i += 1
+
+    return 0
+
+cdef double interp3(dataset ds, Lerp3[8] lerps, int variable, int level):
+    cdef double r, v
+
+    r = 0
+    for i in range(8):
+        lerp = lerps[i]
+        v = ds[lerp.hour, level, variable, lerp.lat, lerp.lng]
+        r += v * lerp.lerp
+
+    return r
+
+cdef int search(dataset ds, Lerp3[8] lerps, double target):
+    cdef int lower, upper, mid
+    cdef double test
+    
+    lower, upper = 0, 45
+
+    while lower < upper:
+        mid = (lower + upper + 1) / 2
+        test = interp3(ds, lerps, VAR_A, mid)
+        if target <= test:
+            upper = mid - 1
+        else:
+            lower = mid
+
+    return lower
+
+cdef double interp4(dataset ds, Lerp3[8] lerps, Lerp1 alt_lerp, int variable):
+    lower = interp3(ds, lerps, variable, alt_lerp.index)
+    # and we can infer what the other lerp1 is...
+    upper = interp3(ds, lerps, variable, alt_lerp.index + 1)
+    return lower * alt_lerp.lerp + upper * (1 - alt_lerp.lerp)
