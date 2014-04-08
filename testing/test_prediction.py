@@ -1,5 +1,6 @@
 import sys
 import time
+from datetime import datetime
 import json
 
 from tawhiri import dataset, solver, models
@@ -8,7 +9,7 @@ if len(sys.argv) != 2:
     print("Usage: {} <path to datasets>".format(sys.argv[0]))
     sys.exit(1)
 
-t0 = 6.0 * 3600
+t0 = datetime(2014, 2, 18, 18)
 lat0 = 52.0
 lng0 = 0.0
 alt0 = 0.0
