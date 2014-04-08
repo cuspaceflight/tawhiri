@@ -64,7 +64,10 @@ class Dataset(object):
     element_type = 'float64'
     element_size = 8    # float64
 
-    size = reduce(operator.mul, shape, element_size)
+    size = element_size
+    for _x in shape:
+        size *= _x
+    del _x
 
     SUFFIX_GRIBMIRROR = '.gribmirror'
 
