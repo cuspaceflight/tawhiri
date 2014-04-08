@@ -29,12 +29,130 @@ import itertools
 import numpy as np
 import pygrib
 
-from . import Dataset, unpack_grib
+from .dataset import Dataset
+
+logger = logging.getLogger("tawhiri.downloader")
 
 
-logger = logging.getLogger("tawhiri.downloader.download")
+assert Dataset.element_type == 'float64'
 assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
+
+def make_checklist():
+    return np.zeros(Dataset.shape[0:3], dtype=np.bool_)
+
+
+_grib_name_to_variable = {"Geopotential Height": "height",
+                          "U component of wind": "wind_u",
+                          "V component of wind": "wind_v"}
+
+def unpack_grib(filename, dataset=None, checklist=None, gribmirror=None,
+                assert_hour=None, file_checklist=None, callback=None):
+    # callback must _not_ edit dataset/checklist/gribmirror
+    # or yield to a greenlet that will (see DownloadDaemon.unpack_lock)
+
+    if dataset is not None:
+        dataset_array = \
+                np.ndarray(shape=Dataset.shape, dtype=np.float64,
+                           buffer=dataset.array, offset=0, order='C')
+    else:
+        dataset_array = None
+
+    if file_checklist is not None:
+        file_checklist = file_checklist.copy()
+
+    grib = pygrib.open(filename)
+    try:
+        # pass one: check the contents of the file
+        _check_grib_file(grib, filename, dataset_array, checklist,
+                         assert_hour, file_checklist, callback)
+
+        # pass two: unpack
+        for record, location, location_name in _grib_records(grib):
+            if dataset_array is not None:
+                dataset_array[location] = record.values
+            if gribmirror is not None:
+                gribmirror.write(record.tostring())
+            if checklist is not None:
+                checklist[location] = True
+
+            logger.debug("unpacked %s %s %s",
+                         filename, location_name, location)
+
+            if callback is not None:
+                callback(True, location, location_name)
+
+        logger.info("unpacked %s", filename)
+    finally:
+        grib.close()
+
+def _check_grib_file(grib, filename, dataset_array, checklist,
+                     assert_hour, file_checklist, callback):
+    checked_axes = False
+
+    for record, location, location_name in _grib_records(grib):
+        _check_record(record, location, location_name,
+                      checklist, assert_hour, file_checklist)
+        if file_checklist is not None:
+            file_checklist.remove(location_name)
+
+        # Checking axes (for some reason) is really slow, so do it once as
+        # a small sanity check, and hope that if it's OK for one record,
+        # they haven't changed things and the other records will be OK
+        if not checked_axes:
+            _check_axes(record)
+            checked_axes = True
+
+        if dataset_array is not None and \
+                dataset_array[location].shape != record.values.shape:
+            raise ValueError("record values had incorrect shape")
+
+        logger.debug("checked %s %s %s", filename, location_name, location)
+
+        if callback is not None:
+            callback(False, location, location_name)
+
+    if file_checklist != set():
+        raise ValueError("records missing from file")
+
+def _grib_records(grib):
+    grib.seek(0)
+    for record in grib:
+        if record.typeOfLevel != "isobaricInhPa":
+            continue
+        if record.name not in _grib_name_to_variable:
+            continue
+
+        location_name = (record.forecastTime, record.level,
+                         _grib_name_to_variable[record.name])
+
+        location = tuple(Dataset.axes[i].index(n)
+                         for i, n in enumerate(location_name))
+
+        yield record, location, location_name
+
+def _check_record(record, location, location_name,
+                  checklist, assert_hour, file_checklist):
+    if checklist is not None and checklist[location]:
+        raise ValueError("record already unpacked (from other file): {0}"
+                            .format(location_name))
+    if assert_hour is not None and record.forecastTime != assert_hour:
+        raise ValueError("Incorrect forecastTime (assert_hour)")
+    if file_checklist is not None and location_name not in file_checklist:
+        raise ValueError("unexpected record: {0}".format(location_name))
+
+def _check_axes(record):
+    # I'm unsure whether this is the correct thing to do.
+    # Some GRIB functions (.latitudes, .latLonValues) have the
+    # latitudes scanning negatively (90 to -90); but .values and
+    # .distinctLatitudes seem to return a grid scanning positively
+    # If it works...
+    if not np.array_equal(record.distinctLatitudes,
+                          Dataset.axes.latitude):
+        raise ValueError("unexpected axes on record (latitudes)")
+    if not np.array_equal(record.distinctLongitudes,
+                          Dataset.axes.longitude):
+        raise ValueError("unexpected axes on record (longitudes)")
 
 class HTTPConnection(httplib.HTTPConnection):
     # gevent.httplib is bad:
@@ -130,7 +248,7 @@ class DatasetDownloader(object):
         #   we also have "does this file contain all the records we think it
         #   should" checklists; see Worker._download_file
 
-        self._checklist = Dataset.checklist()
+        self._checklist = make_checklist()
 
     def open(self):
         logger.info("downloader: opening files for dataset %s", self.ds_time)
@@ -538,6 +656,8 @@ class DownloadDaemon(object):
     def clean_directory(self):
         # also returns the latest dataset we have
 
+        # XXX: this won't clean up gribmirror files that don't have their
+        # corresponding dataset.
         datasets = Dataset.listdir(self.directory, only_suffices=('', ))
         keep_rows = sorted(datasets, reverse=True)[:self.num_datasets]
         keep_ds_times = [r.ds_time for r in keep_rows]

@@ -22,6 +22,9 @@ functions to combine models and termination conditions.
 
 import math
 
+from . import interpolate
+
+
 _PI_180 = math.pi / 180.0
 _180_PI = 180.0 / math.pi
 
@@ -69,8 +72,9 @@ def make_wind_velocity(dataset):
        the wind velocity for the current time, latitude, longitude and
        altitude. The `dataset` argument is the wind dataset in use.
     """
+    get_wind = interpolate.make_interpolator(dataset)
     def wind_velocity(t, lat, lng, alt):
-        u, v = dataset.get_wind(t / 3600.0, alt, lat, lng)
+        u, v = get_wind(t / 3600.0, alt, lat, lng)
         R = 6371009 + alt
         dlat = _180_PI * v / R
         dlng = _180_PI * u / (R * math.cos(lat * _PI_180))

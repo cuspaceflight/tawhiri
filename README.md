@@ -20,19 +20,51 @@ general](http://www.cusf.co.uk/wiki/landing_predictor).
 
 ## Setup
 
-pygrib (at the time of writing) had a broken setup.py, so we need to install
-numpy first, and pyproj separately.
+### Predictor
+
+…is written for Python 3 (it uses memoryviews; Issue #19), and needs Cython:
+
+```bash
+$ virtualenv-3.3 venv3
+$ source venv3/bin/activate
+$ pip install cython
+$ python setup.py build_ext --inplace
+```
+
+The last line (re-)builds the Cython extensions, and needs to be run again
+after modifying any `.pyx` files.
+
+#### Memory overcommit
+
+Until issue #17 is resolved, we are forced to open the dataset read-only
+and mmap it privately.
+Turns out the kernel is a bit unhappy about us asking for 18G of memory we
+might end up using. The ~~“solution”~~hack is to turn overcommit up to
+infinity:
+
+```bash
+sudo sysctl vm.overcommit_memory=1
+```
+
+…and create `/etc/sysctl.d/90-tawhiri-overcommit.conf` with contents:
+
+```
+vm.overcommit_memory=1
+```
+
+### Downloader
+
+The downloader uses gevent, so we are disappointingly restricted to running
+it under Python 2 for now (Issue #18).
+
+At the time of writing, pygrib head did not work (in contrast to an earlier
+version; see Issue #15), and both have a broken `setup.py`. Therefore, we
+need to install numpy first, and pyproj separately:
 
 ```bash
 $ sudo aptitude install libevent-dev libgrib-api-dev
-$ virtualenv venv
-$ source venv/bin/activate
+$ virtualenv-2.7 venv2
+$ source venv2/bin/activate
 $ pip install numpy
-$ pip install pygrib pyproj 'gevent<1.0'
-```
-
-
-## Building the Cython extension
-```bash
-$ python setup.py build_ext --inplace
+$ pip install pygrib==1.9.6 pyproj 'gevent<1.0'
 ```
