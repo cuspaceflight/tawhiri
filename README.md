@@ -68,3 +68,8 @@ $ source venv2/bin/activate
 $ pip install numpy
 $ pip install pygrib==1.9.6 pyproj 'gevent<1.0'
 ```
+
+## License
+
+Tawhiri is Copyright 2014 (see AUTHORS & individual files) and licensed under
+the [GNU GPL 3](http://gplv3.fsf.org/) (see LICENSE).
