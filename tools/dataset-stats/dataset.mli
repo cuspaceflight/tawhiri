@@ -3,7 +3,8 @@ open Core.Std
 type t
 
 val filename : Time.t -> string
-val shape : int array
+val shape : int * int * int * int * int
+val shape_arr : int array
 
 val create : Time.t -> t
 val get : t -> int array -> float

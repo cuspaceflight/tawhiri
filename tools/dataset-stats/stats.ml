@@ -39,11 +39,12 @@ type variable = { levels : Aggregates.t array; everywhere : Aggregates.t }
 type t = variable array
 
 let create () =
+    let _, n_levels, n_vars, _, _ = Dataset.shape in
     let create_variable _ =
-        let levels = Array.init Dataset.shape.(1) ~f:(fun _ -> Aggregates.create ()) in
+        let levels = Array.init n_levels ~f:(fun _ -> Aggregates.create ()) in
         { levels; everywhere=Aggregates.create () }
     in
-    Array.init Dataset.shape.(2) ~f:create_variable
+    Array.init n_vars ~f:create_variable
 
 let update stats _ j k _ _ value =
     Aggregates.update stats.(k).levels.(j) value;

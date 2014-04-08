@@ -7,12 +7,13 @@ type t = Time.t * ds_arr
 (* XXX this needs the system clock to be UTC *)
 (* XXX location hardcoded *)
 let filename dstime = Time.format dstime "/var/www/predict/tawhiri/datasets/%Y%m%d%H"
-let shape = [|65; 47; 3; 361; 720|]
+let shape = (65, 47, 3, 361, 720)
+let shape_arr = let a, b, c, d, e = shape in [|a;b;c;d;e|]
 
 let create dstime =
     let module BA = Bigarray in
     let arr = Unix.with_file (filename dstime) ~mode:[O_RDONLY] ~f:(fun fd ->
-        BA.Genarray.map_file fd BA.float64 BA.c_layout false shape
+        BA.Genarray.map_file fd BA.float64 BA.c_layout false shape_arr
     ) in
     (dstime, arr)
 
@@ -20,7 +21,7 @@ let get (_, ds) = Bigarray.Genarray.get ds
 let dstime = fst
 
 let iter ~f ds =
-    let a, b, c, d, e = match shape with [|a;b;c;d;e|] -> a, b, c, d, e | _ -> assert false in
+    let a, b, c, d, e = shape in
     for i = 0 to a - 1 do
         for j = 0 to b - 1 do
             for k = 0 to c - 1 do
