@@ -55,18 +55,28 @@ cdef struct Lerp3:
 
 
 cdef class DatasetProxy:
+    """Proxy access to a memmap which is read-only, providing a buffer
+       interface that appears to be a suibtably shaped five dimensional
+       array of doubles which is writable. Works on Py2 and Py3.
+       Resolves py2 not having .cast() on memoryview and both requiring
+       the underlying buffer be writable for no apparent reasons.
+    """
+    cdef object memmap
     cdef void* buf
     cdef Py_ssize_t len
     cdef Py_ssize_t[5] shape
     cdef Py_ssize_t[5] strides
 
     def __init__(object self, object memmap):
-        cdef Py_buffer pyb
-        cdef const void * cbuf
+        # Hold a reference to the memmap so it doesn't get GCd
+        self.memmap = memmap
+
         IF PY2:
+            cdef const void * cbuf
             PyObject_AsReadBuffer(memmap, &cbuf, &self.len)
             self.buf = <void*>cbuf
         ELSE:
+            cdef Py_buffer pyb
             PyObject_GetBuffer(memmap, &pyb, PyBUF_SIMPLE)
             self.buf = pyb.buf
             self.len = pyb.len
