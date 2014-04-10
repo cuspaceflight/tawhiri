@@ -19,12 +19,15 @@
 Perform numerical integration of the balloon state.
 """
 
+import calendar
+
 
 def solve(t, lat, lng, alt, stages):
     """Solve from initial conditions `t`, `lat`, `lng`, and `alt`, using
        models and termination criteria from `stages`, an iterable of (model,
        terminator) pairs which make up each stage of the flight.
     """
+    t = calendar.timegm(t.timetuple())
     results = [(t, lat, lng, alt)]
     for model, terminator in stages:
         results += euler(t, lat, lng, alt, model, terminator)
