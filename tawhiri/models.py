@@ -74,7 +74,7 @@ def make_wind_velocity(dataset):
     """
     get_wind = interpolate.make_interpolator(dataset)
     def wind_velocity(t, lat, lng, alt):
-        u, v = get_wind(t / 3600.0, alt, lat, lng)
+        u, v = get_wind(t / 3600.0, lat, lng, alt)
         R = 6371009 + alt
         dlat = _180_PI * v / R
         dlng = _180_PI * u / (R * math.cos(lat * _PI_180))
