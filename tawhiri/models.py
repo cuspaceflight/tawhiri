@@ -30,6 +30,9 @@ _PI_180 = math.pi / 180.0
 _180_PI = 180.0 / math.pi
 
 
+## Up/Down Models #############################################################
+
+
 def make_constant_ascent(ascent_rate):
     """Return a constant-ascent model at `ascent_rate`.
     """
@@ -68,6 +71,9 @@ def make_drag_descent(sea_level_descent_rate):
     return drag_descent
 
 
+## Sideways Models ############################################################
+
+
 def make_wind_velocity(dataset):
     """Return a wind-velocity model, which gives lateral movement at
        the wind velocity for the current time, latitude, longitude and
@@ -83,6 +89,9 @@ def make_wind_velocity(dataset):
         dlng = _180_PI * u / (R * math.cos(lat * _PI_180))
         return dlat, dlng, 0.0
     return wind_velocity
+
+
+## Termination Criteria #######################################################
 
 
 def make_burst_termination(burst_altitude):
@@ -117,6 +126,9 @@ def make_time_termination(max_time):
     return time_termination
 
 
+## Model Combinations #########################################################
+
+
 def make_linear_model(models):
     """Return a model that returns the sum of all the models in `models`.
     """
@@ -138,8 +150,10 @@ def make_any_terminator(terminators):
     return terminator
 
 
-def make_standard_stages(ascent_rate, burst_altitude, descent_rate,
-                         dataset):
+## Pre-Defined Profiles #######################################################
+
+
+def standard_profile(ascent_rate, burst_altitude, descent_rate, dataset):
     """Make a model chain for the standard high altitude balloon situation of
        ascent at a constant rate followed by burst and subsequent descent
        at terminal velocity under parachute with a predetermined sea level
@@ -160,3 +174,18 @@ def make_standard_stages(ascent_rate, burst_altitude, descent_rate,
     term_down = ground_termination
 
     return ((model_up, term_up), (model_down, term_down))
+
+
+def float_profile(ascent_rate, float_altitude, stop_time, dataset):
+    """Make a model chain for the typical floating balloon situation of ascent
+       at constant altitude to a float altitude which persists for some
+       amount of time before stopping. Descent is in general not modelled.
+    """
+
+    model_up = make_linear_model([make_constant_ascent(ascent_rate),
+                                  make_wind_velocity(dataset)])
+    term_up = make_burst_termination(float_altitude)
+    model_float = make_wind_velocity(dataset)
+    term_float = make_time_termination(stop_time)
+
+    return ((model_up, term_up), (model_float, term_float))
