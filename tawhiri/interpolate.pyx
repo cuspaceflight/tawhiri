@@ -71,15 +71,22 @@ cdef class DatasetProxy:
         # Hold a reference to the memmap so it doesn't get GCd
         self.memmap = memmap
 
+        cdef int result
         IF PY2:
             cdef const void * cbuf
-            PyObject_AsReadBuffer(memmap, &cbuf, &self.len)
-            self.buf = <void*>cbuf
+            result = PyObject_AsReadBuffer(memmap, &cbuf, &self.len)
+            if result == 0:
+                self.buf = <void*>cbuf
+            else:
+                raise RuntimeError("Could not get buffer from memmap.")
         ELSE:
             cdef Py_buffer pyb
-            PyObject_GetBuffer(memmap, &pyb, PyBUF_SIMPLE)
-            self.buf = pyb.buf
-            self.len = pyb.len
+            result = PyObject_GetBuffer(memmap, &pyb, PyBUF_SIMPLE)
+            if result == 0:
+                self.buf = pyb.buf
+                self.len = pyb.len
+            else:
+                raise RuntimeError("Could not get buffer from memmap.")
 
         shape = (65, 47, 3, 361, 720)
         for idx, val in enumerate(shape):
