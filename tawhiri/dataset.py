@@ -119,14 +119,6 @@ class Dataset(object):
         else:
             mode = "rb"
             msg = "read"
-            # XXX Cython doesn't appear to let us cast a read only memoryview
-            # to some sort of const/read only double array.
-            # This hack/workaround requires vm.overcommit_memory = 1
-            # (mmaps always succeed/infinite overcommit): the kernel is
-            # obviously a bit touchy about giving us 18G of memory---but
-            # we promise to not to write to it, so it's efficively shared.
-            flags = mmap.MAP_PRIVATE
-            prot |= mmap.PROT_WRITE
 
         logger.info("Opening dataset %s %s (%s)", self.ds_time, self.fn, msg)
 

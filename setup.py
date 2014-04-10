@@ -1,5 +1,8 @@
+import sys
 from setuptools import setup
 from Cython.Build import cythonize
+
+PY2 = sys.version_info[0] == 2
 
 try:
     import pypandoc
@@ -25,7 +28,7 @@ setup(
             "tawhiri-download = tawhiri.downloader:main"
         ]
     },
-    ext_modules = cythonize("tawhiri/*.pyx"),
+    ext_modules = cythonize("tawhiri/*.pyx", compile_time_env={'PY2': PY2}),
     url='http://www.cusf.co.uk/wiki/tawhiri:start',
     license='GPLv3+',
     description='High Altitude Balloon Landing Prediction Software',
