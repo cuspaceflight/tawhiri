@@ -19,7 +19,7 @@ start_time = time.time()
 for i in range(n_repeats):
     ds = dataset.Dataset.open_latest(sys.argv[1])
     t0 = ds.ds_time + timedelta(hours=12)
-    stages = models.make_standard_stages(5.0, 30000, 5.0, ds)
+    stages = models.standard_model(5.0, 30000, 5.0, ds)
     result = solver.solve(t0, lat0, lng0, alt0, stages)
 end_time = time.time()
 
