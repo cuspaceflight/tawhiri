@@ -62,7 +62,7 @@ cdef class DatasetProxy:
 
     def __init__(object self, object memmap):
         cdef Py_buffer pyb
-        cdef const void * cbuf = <const void*> self.buf
+        cdef const void * cbuf
         IF PY2:
             PyObject_AsReadBuffer(memmap, &cbuf, &self.len)
             self.buf = <void*>cbuf
