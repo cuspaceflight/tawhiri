@@ -19,7 +19,7 @@ n_repeats = 100
 
 ds = dataset.Dataset.open_latest(sys.argv[1])
 t0 = ds.ds_time + timedelta(hours=12)
-stages = models.standard_model(5.0, 30000, 5.0, ds)
+stages = models.standard_profile(5.0, 30000, 5.0, ds)
 result = solver.solve(t0, lat0, lng0, alt0, stages)
 
 with open("test_prediction_data.js", "w") as f:

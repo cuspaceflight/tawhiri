@@ -30,7 +30,7 @@ _PI_180 = math.pi / 180.0
 _180_PI = 180.0 / math.pi
 
 
-## Up/down models #############################################################
+## Up/Down Models #############################################################
 
 
 def make_constant_ascent(ascent_rate):
@@ -71,7 +71,7 @@ def make_drag_descent(sea_level_descent_rate):
     return drag_descent
 
 
-## Sideways models ############################################################
+## Sideways Models ############################################################
 
 
 def make_wind_velocity(dataset):
@@ -150,10 +150,10 @@ def make_any_terminator(terminators):
     return terminator
 
 
-## Pre-defined combinations ###################################################
+## Pre-Defined Profiles #######################################################
 
 
-def standard_model(ascent_rate, burst_altitude, descent_rate, dataset):
+def standard_profile(ascent_rate, burst_altitude, descent_rate, dataset):
     """Make a model chain for the standard high altitude balloon situation of
        ascent at a constant rate followed by burst and subsequent descent
        at terminal velocity under parachute with a predetermined sea level
@@ -176,7 +176,7 @@ def standard_model(ascent_rate, burst_altitude, descent_rate, dataset):
     return ((model_up, term_up), (model_down, term_down))
 
 
-def float_model(ascent_rate, float_altitude, stop_time, dataset):
+def float_profile(ascent_rate, float_altitude, stop_time, dataset):
     """Make a model chain for the typical floating balloon situation of ascent
        at constant altitude to a float altitude which persists for some
        amount of time before stopping. Descent is in general not modelled.
