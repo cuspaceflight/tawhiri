@@ -20,8 +20,12 @@ setup(
     author='Cambridge University Spaceflight',
     author_email='contact@cusf.co.uk',
     packages=['tawhiri'],
+    entry_points={
+        "console_scripts": [
+            "tawhiri-download = tawhiri.downloader:main"
+        ]
+    },
     ext_modules = cythonize("tawhiri/*.pyx"),
-    scripts=['bin/tawhiri-download'],
     url='http://www.cusf.co.uk/wiki/tawhiri:start',
     license='GPLv3+',
     description='High Altitude Balloon Landing Prediction Software',
