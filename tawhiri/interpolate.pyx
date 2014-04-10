@@ -53,7 +53,7 @@ cdef get_wind(double[:, :, :, :, :] dataset,
        Returned coordinates are interpolated from the surrounding grid
        points in time, latitude, longitude and altitude.
     """
-    cdef unsigned int t_idx, lat_idx, lng_idx, p_idx, i, j, k
+    cdef int t_idx, lat_idx, lng_idx, p_idx, i
 
     t_val = time / 3.0
     t_idx = int(t_val)
