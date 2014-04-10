@@ -116,6 +116,12 @@ cdef int pick(double left, double step, int n, double value,
 cdef int pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
     cdef Lerp1[2] lhour, llat, llng
 
+    # the dimensions of the lat/lon axes are 361 and 720
+    # (The latitude axis includes its two endpoints; the longitude only
+    # includes the lower endpoint)
+    # However, the longitude does wrap around, so we tell `pick` that the
+    # longitude axis is one larger than it is (so that it can "choose" the
+    # 721st point/the 360 degrees point), then wrap it afterwards.
     pick(0, 3, 65, hour, lhour)
     pick(-90, 0.5, 361, lat, llat)
     pick(0, 0.5, 720 + 1, lng, llng)
