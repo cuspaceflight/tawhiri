@@ -109,6 +109,14 @@ cdef class DatasetProxy:
 
 
 def make_interpolator(dataset):
+    """
+    Produce a function that can get wind data from `dataset`
+
+    This wrapper casts :attr:`dataset.array` into a form that is useful
+    to us, and then returns a closure that can be used to retrieve
+    wind velocities.
+    """
+
     cdef double[:, :, :, :, :] data
 
     data = DatasetProxy(dataset.array)
