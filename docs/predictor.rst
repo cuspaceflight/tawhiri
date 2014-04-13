@@ -1,6 +1,8 @@
 Design of the predictor
 =======================
 
+.. highlight:: python
+
 Overview
 --------
 
@@ -23,7 +25,6 @@ Purity
 Models, altitude profiles and termination functions must all be `pure <http://en.wikipedia.org/wiki/Pure_function>`_.
 
 Besides being cleaner, it allows us to use more interesting integration methods without worrying about side effects evaluating the functions.
-This is cleaner, and allows us to use more interesting integration methods if we want later.
 
 Coordinates
 ~~~~~~~~~~~
@@ -38,7 +39,8 @@ Models
 A model is a callable that looks something like this::
 
     def f(time, lat, lon, alt):
-        return x_dot
+        # < calculation goes here >
+        return lat_dot, lon_dot, alt_dot
 
 .. function:: f(time, lat, lon, alt):
 
@@ -59,7 +61,7 @@ A model is a callable that looks something like this::
     :rtype: 3-tuple of floats: ``(lat_dot, lon_dot, alt_dot)``
 
 …configuration
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 …is specified via closures, i.e. we have a function that takes some configuration and returns the actual model function.
 
@@ -72,7 +74,7 @@ We want to be able to specify several models, and then “swap bits” out, or p
 * constant ascent
 * something more exotic, say, parachute glide
 
-For the majority of cases, taking `f` (the function the integrator will use) as linear combinations of models, all with signature will suffice. Note that a function that linearly combines models is itself a model; see :meth:`tawhiri.models.make_linear_model`.
+For the majority of cases, a linear combination of the models we are interested in will suffice. Note that a function that linearly combines models is itself a model; see :meth:`tawhiri.models.make_linear_model`.
 
 Termination functions
 ---------------------
@@ -115,8 +117,11 @@ We want to chain stages of a prediction together: this essentially amounts to ru
 As an example, :meth:`tawhiri.models.standard_profile` produces the chain containing two stages:
 
 * stage 1
+
   * model: a linear combination (:meth:`tawhiri.models.make_linear_model`) of constant ascent (:meth:`tawhiri.models.make_constant_ascent`) and wind velocity :meth:`tawhiri.models.make_wind_velocity`)
   * termination condition: above-a-certain-altitude (:meth:`tawhiri.models.make_burst_termination`)
+
 * stage 2
+
   * model: a linear combination of “drag descent” (:meth:`tawhiri.models.make_drag_descent`) and wind velocity
   * termination condition: positive altitude (:meth:`tawhiri.models.ground_termination`)

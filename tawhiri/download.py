@@ -387,7 +387,7 @@ class DatasetDownloader(object):
 
         self._tmp_directory = \
                 tempfile.mkdtemp(dir=self.directory, prefix="download.")
-        os.chmod(self._tmp_directory, 0775)
+        os.chmod(self._tmp_directory, 0o775)
         logger.debug("Temporary directory is %s", self._tmp_directory)
 
         if self.write_dataset:
