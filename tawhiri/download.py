@@ -15,6 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Tawhiri.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Wind :class:`tahwiri.wind.Dataset` Downloader
+
+Downloaded data arrives in `GRIB <http://en.wikipedia.org/wiki/GRIB>`_
+format, although three quarters of the records in the downloaded file are
+ignored. The records that are used can also be written to a new grib file
+as they are unpacked (which is therefore somewhat smaller, as it is
+still compressed and only contains the useful bits).
+"""
+
+
 from __future__ import division
 
 import logging
@@ -48,6 +59,10 @@ import pygrib
 
 from .dataset import Dataset
 
+
+__all__ = ["DatasetDownloader", "DownloadDaemon", "main", "unpack_grib"]
+
+
 logger = logging.getLogger("tawhiri.downloader")
 
 
@@ -56,6 +71,12 @@ assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
 
 def make_checklist():
+    """
+    Create a matrix of bools with dimensions ``Dataset.shape[0:3]``
+
+    ... i.e., a element for every GRIB record we need when downloading
+    a new dataset
+    """
     return np.zeros(Dataset.shape[0:3], dtype=np.bool_)
 
 
@@ -65,6 +86,52 @@ _grib_name_to_variable = {"Geopotential Height": "height",
 
 def unpack_grib(filename, dataset=None, checklist=None, gribmirror=None,
                 assert_hour=None, file_checklist=None, callback=None):
+    """
+    Unpack the GRIB file at `filename`
+
+    ... into `dataset`
+
+    ... setting the cell corresponding to each GRIB record in `checklist`
+        to ``True`` (see :meth:`make_checklist`)
+
+    ... copying the GRIB records we care about into `gribmirror`
+
+    ... checking that the `forecastTime` matches `assert_hour`
+
+    ... checking that the GRIB records in this file (that we care about)
+        exactly match the set of ``(forecast time, level, variable)`` tuples
+        in `file_checklist`
+
+    ... calling `callback` after processing each record, with arguments
+        ``(pass, location indices, location names)`` (where location is
+        ``(forecast time, level, variable)``)
+
+    `callback` must _not_ edit `dataset`, `checklist` or `gribmirror`,
+    or yield to a greenlet that will
+    (hence :attr:`DownloadDaemon.unpack_lock`).
+
+    `callback` is mainly used to yield to other greenlets doing IO
+    (i.e., downloading other files) while we do the CPU intensive task of
+    unpacking GRIB data.
+
+    The data is unpacked in two passes; the first
+
+    * checks the shape and forecast time of each record,
+    * checks the axes of the first record (i.e., the latitudes and
+      longitudes each point corresponds to) - this is really slow,
+      so is only done once,
+    * checks the contents of the file exactly matches `file_checklist`
+      (excluding records we don't care about),
+    * checks that no elements of `checklist` that we're about to unpack
+      are already marked as having been unpacked (i.e., ``True``).
+
+    The second pass copies the data in each record to its correct
+    location in `dataset`, writes a copy to `gribmirror` and marks
+    the correct place in `checklist` as True.
+
+    :exc:`ValueError` is raised in case of any problems.
+    """
+
     # callback must _not_ edit dataset/checklist/gribmirror
     # or yield to a greenlet that will (see DownloadDaemon.unpack_lock)
 
@@ -105,6 +172,19 @@ def unpack_grib(filename, dataset=None, checklist=None, gribmirror=None,
 
 def _check_grib_file(grib, filename, dataset_array, checklist,
                      assert_hour, file_checklist, callback):
+    """
+    The first pass over the GRIB file, checking its contents
+
+    * checks the shape and forecast time of each record,
+    * checks the axes of the first record (i.e., the latitudes and
+      longitudes each point corresponds to) - this is really slow,
+      so is only done once,
+    * checks the contents of the file exactly matches `file_checklist`
+      (excluding records we don't care about),
+    * checks that no elements of `checklist` that we're about to unpack
+      are already marked as having been unpacked (i.e., ``True``).
+    """
+
     checked_axes = False
 
     for record, location, location_name in _grib_records(grib):
@@ -133,6 +213,19 @@ def _check_grib_file(grib, filename, dataset_array, checklist,
         raise ValueError("records missing from file")
 
 def _grib_records(grib):
+    """
+    Yield ``(record, location, location_name)`` tuples in the file `grib`
+
+    ... where location and location_name are tuples containing indicies
+        or actual axes names/values corresponding to forecast time, level
+        and variable.
+
+        e.g., ``(4, 2, 1)`` ``(12, 950, "wind_u")`` (i.e., 12 hours, 950 mb)
+
+    Records that don't have levels specified as pressure, or are not
+    variables that we are interested in, are ignored.
+    """
+
     grib.seek(0)
     for record in grib:
         if record.typeOfLevel != "isobaricInhPa":
@@ -150,6 +243,18 @@ def _grib_records(grib):
 
 def _check_record(record, location, location_name,
                   checklist, assert_hour, file_checklist):
+    """
+    Check that this record
+
+    ... has not already been unpacked, i.e., ``checklist[location]`` is not
+        set
+
+    ... is for the correct forecast time
+        (i.e., ``forecastTime == assert_hour``)
+
+    ... is expected for this file (i.e., ``location_name in file_checklist``)
+    """
+
     if checklist is not None and checklist[location]:
         raise ValueError("record already unpacked (from other file): {0}"
                             .format(location_name))
@@ -159,6 +264,13 @@ def _check_record(record, location, location_name,
         raise ValueError("unexpected record: {0}".format(location_name))
 
 def _check_axes(record):
+    """
+    Check the axes on `record` match what we expect
+
+    i.e., that the latitudes and longitudes are -90 to 90 /
+    0 to 360 respectively in 0.5 degree increments.
+    """
+
     # I'm unsure whether this is the correct thing to do.
     # Some GRIB functions (.latitudes, .latLonValues) have the
     # latitudes scanning negatively (90 to -90); but .values and
@@ -172,6 +284,8 @@ def _check_axes(record):
         raise ValueError("unexpected axes on record (longitudes)")
 
 class HTTPConnection(httplib.HTTPConnection):
+    """gevent-friendly :class:`httplib.HTTPConnection`"""
+
     # gevent.httplib is bad:
     # in ubuntu 12.04 breaks on all ipv6; fixed upstream Jan 2012.
     # .read() seems to wait for the entire request.
@@ -185,14 +299,15 @@ class HTTPConnection(httplib.HTTPConnection):
         if self._tunnel_host:
             self._tunnel()
 
+
 class NotFound(Exception):
-    pass
+    """A GRIB file wasn't found (404)"""
 
 class BadFile(Exception):
-    pass
+    """A GRIB file was retrieved, but its contents were bad"""
 
 class ErrorStatus(Exception):
-    pass
+    """A HTTP status other than 200 or 404 was returned"""
 
 class DatasetDownloader(object):
     _queue_item_type = namedtuple("queue_item",
@@ -272,7 +387,7 @@ class DatasetDownloader(object):
 
         self._tmp_directory = \
                 tempfile.mkdtemp(dir=self.directory, prefix="download.")
-        os.chmod(self._tmp_directory, 0775)
+        os.chmod(self._tmp_directory, 0o775)
         logger.debug("Temporary directory is %s", self._tmp_directory)
 
         if self.write_dataset:
@@ -342,9 +457,9 @@ class DatasetDownloader(object):
                 self._greenlets.add(w)
 
             # worker unhandled exceptions are raised in this greenlet
-            # via link(). They can appwaear in completed.wait and
-            # greenlets.kill(block=True) only (only times this greenlet
-            # will yield
+            # via link(). They can appear in completed.wait and
+            # greenlets.kill(block=True) only (the only times that this
+            # greenlet will yield)
             self.completed.wait(timeout=total_timeout_secs)
 
         except:
@@ -636,7 +751,7 @@ class DownloadWorker(gevent.Greenlet):
 
     def _unpack_file(self, temp_file, queue_item):
         # callback: yields to other greenlets for IO _only_
-        # the timeout must be canceled - we do not want to be interrupted,
+        # the timeout must be cancelled - we do not want to be interrupted,
         # it could leave downloader._dataset/_checklist in an inconsistent
         # state
 

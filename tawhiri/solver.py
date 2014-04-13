@@ -22,14 +22,17 @@ Perform numerical integration of the balloon state.
 import calendar
 
 
-def solve(t, lat, lng, alt, stages):
+def solve(t, lat, lng, alt, chain):
     """Solve from initial conditions `t`, `lat`, `lng`, and `alt`, using
-       models and termination criteria from `stages`, an iterable of (model,
+       models and termination criteria from `chain`, an iterable of (model,
        terminator) pairs which make up each stage of the flight.
     """
     t = calendar.timegm(t.timetuple())
+    # NB: care is taken to not repeat points between stages:
+    # the integrator does not include the initial conditions it is given
+    # in its output, we include the (first) ics here.
     results = [(t, lat, lng, alt)]
-    for model, terminator in stages:
+    for model, terminator in chain:
         results += euler(t, lat, lng, alt, model, terminator)
         t, lat, lng, alt = results[-1]
     return results

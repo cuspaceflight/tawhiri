@@ -34,8 +34,7 @@ _180_PI = 180.0 / math.pi
 
 
 def make_constant_ascent(ascent_rate):
-    """Return a constant-ascent model at `ascent_rate`.
-    """
+    """Return a constant-ascent model at `ascent_rate` (m/s)"""
     def constant_ascent(t, lat, lng, alt):
         return 0.0, 0.0, ascent_rate
     return constant_ascent
@@ -43,7 +42,7 @@ def make_constant_ascent(ascent_rate):
 
 def make_drag_descent(sea_level_descent_rate):
     """Return a descent-under-parachute model with sea level descent
-       `sea_level_descent_rate`. Descent rate at altitude is determined
+       `sea_level_descent_rate` (m/s). Descent rate at altitude is determined
        using an altitude model courtesy of NASA:
        http://www.grc.nasa.gov/WWW/K-12/airplane/atmosmet.html
 
