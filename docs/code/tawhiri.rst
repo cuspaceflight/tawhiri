@@ -72,6 +72,9 @@ tawhiri.interpolate module
     :undoc-members:
     :show-inheritance:
 
+    The interpolation code is not documented here. Please see the source
+    `on GitHub <https://github.com/cuspaceflight/tawhiri/blob/master/tawhiri/interpolate.pyx>`_.
+
 tawhiri.models module
 ---------------------
 
