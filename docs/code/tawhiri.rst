@@ -67,10 +67,24 @@ tawhiri.download module
 tawhiri.interpolate module
 --------------------------
 
-.. automodule:: tawhiri.interpolate
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. module:: tawhiri.interpolate
+
+.. function:: make_interpolator(dataset)
+
+    Produce a function that can get wind data from `dataset`
+    (a :class:`tawhiri.dataset.Dataset`).
+
+
+    This function returns a closure:
+
+    .. currentmodule:: closure
+
+    .. function:: f(hour, alt, lat, lng)
+
+        :return: delta lat, lon and alt
+
+.. seealso:: implementation
+.. seealso:: wind_data
 
 tawhiri.models module
 ---------------------
@@ -83,11 +97,13 @@ tawhiri.models module
 tawhiri.solver module
 ---------------------
 
-.. automodule:: tawhiri.solver
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. module:: tawhiri.solver
 
+.. function:: solve(t, lat, lng, alt, chain)
+
+    Solve from initial conditions `t`, `lat`, `lng` and `alt`, using models
+    and termination criteria from `chain`, an iterable of (model, terminator)
+    pairs which make up each stage of the flight.
 
 Module contents
 ---------------
