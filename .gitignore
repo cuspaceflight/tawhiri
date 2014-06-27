@@ -7,3 +7,4 @@ tawhiri/*.c
 dist/
 Tawhiri.egg-info/
 test_prediction_data.js
+loglog.png
