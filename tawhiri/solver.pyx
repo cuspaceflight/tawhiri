@@ -1,4 +1,4 @@
-# Copyright 2014 (C) Adam Greig
+# Copyright 2014 (C) Adam Greig, Daniel Richman
 #
 # This file is part of Tawhiri.
 #
@@ -65,7 +65,7 @@ cdef Vector tuptovec(object tup):
 def rk4(double t, double lat, double lng, double alt,
         model, terminator, double dt=60.0):
     """
-    Use RK4 to integrate form initial conditions `t`, `lat`, `lng` and `alt`,
+    Use RK4 to integrate from initial conditions `t`, `lat`, `lng` and `alt`,
     using model `f` and termination criterion `terminator`, at timestep `dt`.
     """
 
