@@ -51,7 +51,7 @@ The function `pick3` selects the indices left and right of a given point in time
 Overview
 --------
 
-:func:`tawhiri.interpolate.make_interpolator` casts the dataset to a pointer (see :class:`tawhiri.interpolate.DatsetProxy`) and wraps the Cython function `get_wind` in a closure, which does the main work.
+:func:`tawhiri.interpolate.make_interpolator` casts the dataset to a pointer (see :class:`tawhiri.interpolate.DatasetProxy`) and wraps the Cython function `get_wind` in a closure, which does the main work.
 
 `get_wind`:
 
