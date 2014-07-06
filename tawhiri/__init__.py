@@ -21,7 +21,7 @@ Tawhiri is trajectory prediction software for high altitude balloons.
 See http://www.cusf.co.uk/wiki/tawhiri:start for further details.
 """
 
-__name__ = "Tawhiri"
+__name__ = "tawhiri"
 __author__ = "Cambridge University Spaceflight <contact@cusf.co.uk>"
 __version__ = "0.1.0"
 __version_info__ = tuple([int(d) for d in __version__.split(".")])
