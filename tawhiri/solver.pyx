@@ -86,13 +86,17 @@ def rk4(double t, double lat, double lng, double alt,
     def tc(double t, Vector y):
         return terminator(t, y.lat, y.lng, y.alt)
 
+    # the current location
     cdef Vector y
 
     y.lat, y.lng, y.alt = (lat, lng, alt)
 
     result = []
 
+    # rk4 variables
     cdef Vector k1, k2, k3, k4
+
+    # the next point
     cdef double t2
     cdef Vector y2
 
@@ -102,27 +106,38 @@ def rk4(double t, double lat, double lng, double alt,
         k3 = f(t + dt / 2, vecadd(y, dt / 2, k2))
         k4 = f(t + dt, vecadd(y, dt, k3))
 
+        # y2 = y + (k1 + 2*k2 + 2*k3 + k4)/6
         y2 = y
         y2 = vecadd(y2, dt / 6, k1)
         y2 = vecadd(y2, dt / 3, k2)
         y2 = vecadd(y2, dt / 3, k3)
         y2 = vecadd(y2, dt / 6, k4)
+
         t2 = t + dt
 
         if tc(t2, y2):
+            # when the termination condition is met,
+            # leave the previous point in (t, y) and the next point in
+            # (t2, y2) ...
             break
 
+        # otherwise, update the current point and add it to the list.
         t = t2
         y = y2
 
         result.append((t, y.lat, y.lng, y.alt))
 
+    # ... and binary search to find a point (t3, y3) between
+    # (t, y) and (t2, y2) close to where the terminator becomes true
     cdef double left, right
     cdef double t3
     cdef Vector y3
 
-    left = 0
-    right = 1
+    # binary search for the constant l in [0, 1]
+    # such that (t3, y3) = (1 - l) * (t, y) + l * (t2, y2)
+    # is near where tc(t3, y3) becomes true
+    left = 0.0
+    right = 1.0
     t3 = t
     y3 = y
 
@@ -136,6 +151,8 @@ def rk4(double t, double lat, double lng, double alt,
         else:
             left = mid
 
+    # add the final point to the result
     result.append((t3, y3.lat, y3.lng, y3.alt))
+    # the point (t2, y2) is discarded
 
     return result
