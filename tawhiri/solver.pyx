@@ -73,6 +73,20 @@ cdef Vector tuptovec(object tup):
     r.lat, r.lng, r.alt = tup
     return r
 
+# Don't appear to be able to cdef closures / make efficient closures.
+cdef class Configuration:
+    cdef object model, terminator
+
+    def __init__(self, model, terminator):
+        self.model = model
+        self.terminator = terminator
+
+    cdef Vector f(self, double t, Vector y):
+        return tuptovec(self.model(t, y.lat, y.lng, y.alt))
+
+    cdef bint tc(self, double t, Vector y):
+        return self.terminator(t, y.lat, y.lng, y.alt)
+
 def rk4(double t, double lat, double lng, double alt,
         object model, object terminator,
         double dt=60.0, double termination_tolerance=0.01):
@@ -81,14 +95,10 @@ def rk4(double t, double lat, double lng, double alt,
     using model `f` and termination criterion `terminator`, at timestep `dt`.
     """
 
-    def f(double t, Vector y):
-        return tuptovec(model(t, y.lat, y.lng, y.alt))
-    def tc(double t, Vector y):
-        return terminator(t, y.lat, y.lng, y.alt)
+    cfg = Configuration(model, terminator)
 
     # the current location
     cdef Vector y
-
     y.lat, y.lng, y.alt = (lat, lng, alt)
 
     result = []
@@ -101,10 +111,10 @@ def rk4(double t, double lat, double lng, double alt,
     cdef Vector y2
 
     while True:
-        k1 = f(t, y)
-        k2 = f(t + dt / 2, vecadd(y, dt / 2, k1))
-        k3 = f(t + dt / 2, vecadd(y, dt / 2, k2))
-        k4 = f(t + dt, vecadd(y, dt, k3))
+        k1 = cfg.f(t, y)
+        k2 = cfg.f(t + dt / 2, vecadd(y, dt / 2, k1))
+        k3 = cfg.f(t + dt / 2, vecadd(y, dt / 2, k2))
+        k4 = cfg.f(t + dt, vecadd(y, dt, k3))
 
         # y2 = y + (k1 + 2*k2 + 2*k3 + k4)/6
         y2 = y
@@ -115,7 +125,7 @@ def rk4(double t, double lat, double lng, double alt,
 
         t2 = t + dt
 
-        if tc(t2, y2):
+        if cfg.tc(t2, y2):
             # when the termination condition is met,
             # leave the previous point in (t, y) and the next point in
             # (t2, y2) ...
@@ -146,7 +156,7 @@ def rk4(double t, double lat, double lng, double alt,
         t3 = lerp(t, t2, mid)
         y3 = veclerp(y, y2, mid)
 
-        if tc(t3, y3):
+        if cfg.tc(t3, y3):
             right = mid
         else:
             left = mid
