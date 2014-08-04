@@ -36,7 +36,8 @@ setup(
     test_suite='nose.collector',
     tests_require=['nose', 'mock'],
     install_requires=[
-        "Cython==0.20.1",
+        "Cython",
+        "ruaumoko"
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

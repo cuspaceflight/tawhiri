@@ -1,1 +1,2 @@
-Cython==0.20.1
+Cython
+ruaumoko
