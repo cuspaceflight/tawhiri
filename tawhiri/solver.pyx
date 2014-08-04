@@ -65,7 +65,7 @@ cdef Vector veclerp(Vector a, Vector b, double l):
     cdef Vector r
     r.lat = lerp(a.lat, b.lat, l)
     r.lng = lerp(a.lng, b.lng, l)
-    r.alt = lerp(a.alt, b.alt, 1)
+    r.alt = lerp(a.alt, b.alt, l)
     return r
 
 cdef Vector tuptovec(object tup):
@@ -148,10 +148,12 @@ def rk4(double t, double lat, double lng, double alt,
     # is near where tc(t3, y3) becomes true
     left = 0.0
     right = 1.0
-    t3 = t
-    y3 = y
 
-    while right - left < termination_tolerance:
+    # in case the loop executes zero times
+    t3 = t2
+    y3 = y2
+
+    while right - left > termination_tolerance:
         mid = (left + right) / 2
         t3 = lerp(t, t2, mid)
         y3 = veclerp(y, y2, mid)

@@ -212,7 +212,7 @@ class Dataset(object):
         with open(self.fn, mode) as f:
             if new:
                 f.seek(self.size - 1)
-                f.write("\0")
+                f.write(b"\0")
             else:
                 f.seek(0, 2)
                 sz = f.tell()
