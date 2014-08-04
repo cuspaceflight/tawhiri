@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta
 import json
 
-from tawhiri import dataset, solver, models
+from tawhiri import dataset, solver, models, kml
 
 if len(sys.argv) != 2:
     print("Usage: {} <path to datasets>".format(sys.argv[0]))
@@ -26,3 +26,11 @@ with open("test_prediction_data.js", "w") as f:
     f.write("var data = ")
     json.dump([(lat, lon) for _, lat, lon, _ in result], f, indent=4)
     f.write(";\n")
+
+markers = [
+    {'name': 'launch', 'description': 'TODO', 'point': result[0]},
+    {'name': 'landing', 'description': 'TODO', 'point': result[-1]},
+    # TODO: add burst after solver returns points where models change
+]
+
+kml.kml(result, markers, 'test_prediction.kml')

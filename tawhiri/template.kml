@@ -1,0 +1,46 @@
+{#- Copyright 2014 Jon Sowman, Daniel Richman -#}
+{%- autoescape true -%}
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+    <Document>
+        <name>Flight Path</name>
+        <description>Description TODO</description>
+        <Style id="yellowPoly">
+            <LineStyle>
+                <color>7f00ffff</color>
+                <width>4</width>
+            </LineStyle>
+            <PolyStyle>
+                <color>7f00ff00</color>
+            </PolyStyle>
+        </Style>
+        <Placemark>
+            <name>Flight path</name>
+            <description>TODO</description>
+            <styleUrl>#yellowPoly</styleUrl>
+            <LineString>
+                <extrude>1</extrude>
+                <tesselate>1</tesselate>
+                <altitudeMode>absolute</altitudeMode>
+                <coordinates>
+
+{% for time, lat, lon, alt in points -%}
+{{ lon }},{{ lat }},{{ alt }}
+{% endfor %}
+                </coordinates>
+            </LineString>
+        </Placemark>
+
+        {% for marker in markers %}
+            <Placemark>
+                <name>{{ marker.name }}</name>
+                <description>{{ marker.description }}</description>
+                <Point>
+                    {% set time, lat, lon, alt = marker.point %}
+                    <coordinates>{{ lon }},{{ lat }},{{ alt }}</coordinates>
+                </Point>
+            </Placemark>
+        {% endfor %}
+    </Document>
+</kml>
+{% endautoescape %}
