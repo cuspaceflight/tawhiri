@@ -172,6 +172,10 @@ class Dataset(object):
         """
         Find the most recent datset in `directory`, and open it
 
+        :type directory: string
+        :param directory: directory to search
+        :type persistent: bool
+        :param persistent: should the latest dataset be cached, and re-used?
         :rtype: :class:`Dataset`
         """
 
