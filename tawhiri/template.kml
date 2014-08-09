@@ -38,6 +38,7 @@
                 <Point>
                     {% set time, lat, lon, alt = marker.point %}
                     <coordinates>{{ lon }},{{ lat }},{{ alt }}</coordinates>
+                    <altitudeMode>absolute</altitudeMode>
                 </Point>
             </Placemark>
         {% endfor %}

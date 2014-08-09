@@ -103,8 +103,8 @@ def make_burst_termination(burst_altitude):
     return burst_termination
 
 
-def ground_termination(t, lat, lng, alt):
-    """A ground termination criteria, which terminations integration when
+def sea_level_termination(t, lat, lng, alt):
+    """A termination criteria which terminations integration when
        the altitude is less than (or equal to) zero.
 
        Note that this is not a model factory.
@@ -112,6 +112,14 @@ def ground_termination(t, lat, lng, alt):
     if alt <= 0:
         return True
 
+def make_elevation_data_termination(dataset=None):
+    """A termination criteria which terminates integration when the
+       altitude goes below ground level, using the elevation data
+       in `dataset` (which should be a ruaumoko.Dataset).
+    """
+    def tc(t, lat, lng, alt):
+        return dataset.get(lat, lng) > alt
+    return tc
 
 def make_time_termination(max_time):
     """A time based termination criteria, which terminates integration when
@@ -152,7 +160,8 @@ def make_any_terminator(terminators):
 ## Pre-Defined Profiles #######################################################
 
 
-def standard_profile(ascent_rate, burst_altitude, descent_rate, dataset):
+def standard_profile(ascent_rate, burst_altitude, descent_rate,
+                     wind_dataset, elevation_dataset):
     """Make a model chain for the standard high altitude balloon situation of
        ascent at a constant rate followed by burst and subsequent descent
        at terminal velocity under parachute with a predetermined sea level
@@ -165,12 +174,12 @@ def standard_profile(ascent_rate, burst_altitude, descent_rate, dataset):
     """
 
     model_up = make_linear_model([make_constant_ascent(ascent_rate),
-                                  make_wind_velocity(dataset)])
+                                  make_wind_velocity(wind_dataset)])
     term_up = make_burst_termination(burst_altitude)
 
     model_down = make_linear_model([make_drag_descent(descent_rate),
-                                    make_wind_velocity(dataset)])
-    term_down = ground_termination
+                                    make_wind_velocity(wind_dataset)])
+    term_down = make_elevation_data_termination(elevation_dataset)
 
     return ((model_up, term_up), (model_down, term_down))
 

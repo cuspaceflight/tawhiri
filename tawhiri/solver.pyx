@@ -83,10 +83,10 @@ cdef class Configuration:
         self.model = model
         self.terminator = terminator
 
-    cdef Vector f(self, double t, Vector y):
+    cdef Vector f(self, double t, Vector y) except *:
         return tuptovec(self.model(t, y.lat, y.lng, y.alt))
 
-    cdef bint tc(self, double t, Vector y):
+    cdef bint tc(self, double t, Vector y) except *:
         return self.terminator(t, y.lat, y.lng, y.alt)
 
 def rk4(double t, double lat, double lng, double alt,

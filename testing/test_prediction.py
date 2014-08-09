@@ -1,25 +1,21 @@
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 
-from tawhiri import dataset, solver, models, kml
+from tawhiri import solver, models, kml
+from tawhiri.dataset import Dataset as WindDataset
+from ruaumoko import Dataset as ElevationDataset
 
-if len(sys.argv) != 2:
-    print("Usage: {} <path to datasets>".format(sys.argv[0]))
-    sys.exit(1)
-
-lat0 = 52.0
-lng0 = 0.0
+lat0 = 52.5563
+lng0 = 360 - 3.1970
 alt0 = 0.0
+t0 = datetime(2014, 2, 19, 15)
 
-dt = 1.0
+wind = WindDataset.open_latest("/opt/wind32")
+elevation = ElevationDataset("/opt/elevation")
 
-n_repeats = 100
-
-ds = dataset.Dataset.open_latest(sys.argv[1])
-t0 = ds.ds_time + timedelta(hours=12)
-stages = models.standard_profile(5.0, 30000, 5.0, ds)
+stages = models.standard_profile(5.0, 30000, 5.0, wind, elevation)
 result = solver.solve(t0, lat0, lng0, alt0, stages)
 
 with open("test_prediction_data.js", "w") as f:
