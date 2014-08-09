@@ -35,8 +35,8 @@ Note that this module is compiled with Cython to enable fast
 memory access.
 """
 
-from cpython.buffer cimport PyBUF_SIMPLE, Py_buffer, PyObject_GetBuffer
-cdef extern int PyObject_AsReadBuffer(object, const void **, Py_ssize_t *)
+
+from magicmemoryview import MagicMemoryView
 
 
 # These need to match Dataset.axes.variable
@@ -56,76 +56,6 @@ cdef struct Lerp3:
     double lerp
 
 
-cdef class DatasetProxy:
-    """
-    A helper / hack to allow us to cast a :func:`memmap.memmap` to a pointer
-    of the correct type.
-
-    Cython is capable of casting a lot of things to a C pointer of the
-    correct type, especially with the aid of :func:`memoryview`. However,
-    in Python 2, `memoryview` lacks the :meth:`memoryview.cast` method
-    (so Cython won't let us change the dimensions of the array). Further,
-    both Python 2 and 3 require the memory map to be writable (making
-    the pointer type `const` does not seem to help here either).
-
-    This class takes a (posisbly read only) memmap object, and produces a
-    Python object with a `__getbuffer__` method that returns The Right Thing.
-    It *does* pretend that the underlying buffer is writable to make Cython
-    happy, but we promise to be good.
-
-    When a Python object is cast by Cython to a pointer, it holds a
-    reference to the underlying Python object in order to prevent the
-    memory to which it refers being garbage collected. The `DatasetProxy`
-    in turn keeps a reference to the `memmap` as an attribute.
-    """
-
-    cdef object memmap
-    cdef void* buf
-    cdef Py_ssize_t len
-    cdef Py_ssize_t[5] shape
-    cdef Py_ssize_t[5] strides
-
-    def __init__(object self, object memmap):
-        # Hold a reference to the memmap so it doesn't get GCd
-        self.memmap = memmap
-
-        cdef int result
-        IF PY2:
-            cdef const void * cbuf
-            result = PyObject_AsReadBuffer(memmap, &cbuf, &self.len)
-            if result == 0:
-                self.buf = <void*>cbuf
-            else:
-                raise RuntimeError("Could not get buffer from memmap.")
-        ELSE:
-            cdef Py_buffer pyb
-            result = PyObject_GetBuffer(memmap, &pyb, PyBUF_SIMPLE)
-            if result == 0:
-                self.buf = pyb.buf
-                self.len = pyb.len
-            else:
-                raise RuntimeError("Could not get buffer from memmap.")
-
-        shape = (65, 47, 3, 361, 720)
-        for idx, val in enumerate(shape):
-            self.shape[idx] = val
-        for idx, val in enumerate(shape):
-            acc = 8
-            for val in shape[idx+1:]:
-                acc *= val
-            self.strides[idx] = acc
-
-    def __getbuffer__(object self, Py_buffer* view, int flags):
-        view.buf = self.buf
-        view.len = self.len
-        view.shape = self.shape
-        view.strides = self.strides
-        view.readonly = 0
-        view.format = "d"
-        view.itemsize = 8
-        view.ndim = 5
-
-
 def make_interpolator(dataset):
     """
     Produce a function that can get wind data from `dataset`
@@ -137,7 +67,7 @@ def make_interpolator(dataset):
 
     cdef double[:, :, :, :, :] data
 
-    data = DatasetProxy(dataset.array)
+    data = MagicMemoryView(dataset.array, (65, 47, 3, 361, 720), b"d")
 
     def f(hour, alt, lat, lng):
         return get_wind(data, hour, alt, lat, lng)
