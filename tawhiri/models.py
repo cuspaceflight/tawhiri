@@ -94,7 +94,7 @@ def make_wind_velocity(dataset):
 
 
 def make_burst_termination(burst_altitude):
-    """Return a burst-termination criteria, which terminations integration
+    """Return a burst-termination criteria, which terminates integration
        when the altitude reaches `burst_altitude`.
     """
     def burst_termination(t, lat, lng, alt):
@@ -104,7 +104,7 @@ def make_burst_termination(burst_altitude):
 
 
 def sea_level_termination(t, lat, lng, alt):
-    """A termination criteria which terminations integration when
+    """A termination criteria which terminates integration when
        the altitude is less than (or equal to) zero.
 
        Note that this is not a model factory.
