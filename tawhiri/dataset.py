@@ -165,16 +165,28 @@ class Dataset(object):
                 yield cls._listdir_type(ds_time, suffix, filename,
                                         os.path.join(directory, filename))
 
+    cached_latest = None
+
     @classmethod
-    def open_latest(cls, directory):
+    def open_latest(cls, directory, persistent=False):
         """
         Find the most recent datset in `directory`, and open it
 
         :rtype: :class:`Dataset`
         """
+
         datasets = Dataset.listdir(directory, only_suffices=('', ))
-        latest = sorted(datasets, reverse=True)[0]
-        return Dataset(directory, latest.ds_time)
+        latest = sorted(datasets, reverse=True)[0].ds_time
+
+        if cls.cached_latest and cls.cached_latest.ds_time == latest:
+           return cls.cached_latest
+        else:
+            ds = Dataset(directory, latest)
+
+            if persistent:
+                cls.cached_latest = ds
+
+            return ds
 
     def __init__(self, directory, ds_time, new=False):
         """
