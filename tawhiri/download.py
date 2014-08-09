@@ -66,7 +66,7 @@ __all__ = ["DatasetDownloader", "DownloadDaemon", "main", "unpack_grib"]
 logger = logging.getLogger("tawhiri.downloader")
 
 
-assert Dataset.element_type == 'float64'
+assert Dataset.element_type == 'float32'
 assert Dataset.axes._fields[0:3] == ("hour", "pressure", "variable")
 
 
@@ -137,7 +137,7 @@ def unpack_grib(filename, dataset=None, checklist=None, gribmirror=None,
 
     if dataset is not None:
         dataset_array = \
-                np.ndarray(shape=Dataset.shape, dtype=np.float64,
+                np.ndarray(shape=Dataset.shape, dtype=np.float32,
                            buffer=dataset.array, offset=0, order='C')
     else:
         dataset_array = None

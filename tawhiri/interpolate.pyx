@@ -45,7 +45,7 @@ DEF VAR_U = 1
 DEF VAR_V = 2
 
 
-ctypedef double[:, :, :, :, :] dataset
+ctypedef float[:, :, :, :, :] dataset
 
 cdef struct Lerp1:
     int index
@@ -65,9 +65,9 @@ def make_interpolator(dataset):
     wind velocities.
     """
 
-    cdef double[:, :, :, :, :] data
+    cdef float[:, :, :, :, :] data
 
-    data = MagicMemoryView(dataset.array, (65, 47, 3, 361, 720), b"d")
+    data = MagicMemoryView(dataset.array, (65, 47, 3, 361, 720), b"f")
 
     def f(hour, alt, lat, lng):
         return get_wind(data, hour, alt, lat, lng)
