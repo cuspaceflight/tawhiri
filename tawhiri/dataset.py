@@ -100,9 +100,9 @@ class Dataset(object):
     assert shape == tuple(len(x) for x in axes)
 
     #: The data type of dataset elements
-    element_type = 'float64'
+    element_type = 'float32'
     #: The size in bytes of `element_type`
-    element_size = 8    # float64
+    element_size = 4    # float32
 
     #: The size in bytes of the entire dataset
     size = element_size
