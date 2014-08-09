@@ -17,6 +17,8 @@
 
 # Cython compiler directives:
 #
+# cython: language_level=3
+#
 # pick(...) is careful in what it returns:
 # cython: boundscheck=False
 # cython: wraparound=False
