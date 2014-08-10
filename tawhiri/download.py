@@ -905,7 +905,7 @@ def main():
     root_logger.setLevel(logging.DEBUG)
 
     parent = argparse.ArgumentParser(add_help=False)
-    parent.add_argument('-d', '--directory', default="datasets")
+    parent.add_argument('-d', '--directory', default=Dataset.DEFAULT_DIRECTORY)
     parent.add_argument('-f', '--log-file')
     parent.add_argument('-e', '--email-exceptions', metavar='USER@DOMAIN.TLD')
     parent.add_argument('-s', '--email-from', default='tawhiri@localhost')
