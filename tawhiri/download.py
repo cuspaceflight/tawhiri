@@ -52,7 +52,7 @@ from gevent.queue import PriorityQueue
 from gevent.dns import resolve_ipv4
 from gevent.coros import RLock
 import gevent.socket
-import httplib
+import ftplib
 import itertools
 import numpy as np
 import pygrib
@@ -283,31 +283,57 @@ def _check_axes(record):
                           Dataset.axes.longitude):
         raise ValueError("unexpected axes on record (longitudes)")
 
-class HTTPConnection(httplib.HTTPConnection):
-    """gevent-friendly :class:`httplib.HTTPConnection`"""
+class FTP(ftplib.FTP):
+    """gevent-friendly :class:`ftplib.FTP`"""
 
-    # gevent.httplib is bad:
-    # in ubuntu 12.04 breaks on all ipv6; fixed upstream Jan 2012.
-    # .read() seems to wait for the entire request.
-    #
-    # Let's subclass httplib rather than using monkey patching.
+    def connect(self, host=None, port=None, timeout=None):
+        if host is not None:
+            self.host = host
+        if port is not None:
+            self.port = port
+        if timeout is not None:
+            self.timeout = timeout
 
-    def connect(self):
         self.sock = gevent.socket.create_connection(
-                (self.host,self.port), self.timeout, self.source_address)
+                (self.host, self.port), self.timeout)
+        self.af = self.sock.family
+        self.file = self.sock.makefile('rb')
+        self.welcome = self.getresp()
+        return self.welcome
 
-        if self._tunnel_host:
-            self._tunnel()
+    def makeport(self):
+        raise NotImplementedError
+
+    def ntransfercmd(self, cmd, rest=None):
+        assert self.passiveserver
+
+        host, port = self.makepasv()
+        conn = gevent.socket.create_connection((host, port), self.timeout)
+
+        try:
+            if rest is not None:
+                self.sendcmd("REST %s" % rest)
+            resp = self.sendcmd(cmd)
+            if resp[0] == '2':
+                resp = self.getresp()
+            if resp[0] != '1':
+                raise ftplib.error_reply(resp)
+        except:
+            conn.close()
+            raise
+
+        if resp[:3] == '150':
+            size = ftplib.parse150(resp)
+
+        return conn, size
 
 
 class NotFound(Exception):
-    """A GRIB file wasn't found (404)"""
+    """A GRIB file wasn't found"""
 
 class BadFile(Exception):
     """A GRIB file was retrieved, but its contents were bad"""
 
-class ErrorStatus(Exception):
-    """A HTTP status other than 200 or 404 was returned"""
 
 class DatasetDownloader(object):
     _queue_item_type = namedtuple("queue_item",
@@ -319,8 +345,8 @@ class DatasetDownloader(object):
                  bad_download_retry_limit=3,
                  write_dataset=True, write_gribmirror=True,
                  deadline=None,
-                 dataset_host="www.ftp.ncep.noaa.gov",
-                 dataset_path="/data/nccf/com/gfs/prod/gfs.{0}/"):
+                 dataset_host="ftp.ncep.noaa.gov",
+                 dataset_path="/pub/data/nccf/com/gfs/prod/gfs.{0}/"):
 
         # set these ASAP for close() via __del__ if __init__ raises something
         self.success = False
@@ -366,7 +392,7 @@ class DatasetDownloader(object):
 
         # Items in the queue are
         #   (hour, sleep_until, filename, ...)
-        # so they sort by hour, and then if a 404 adds a delay to
+        # so they sort by hour, and then if a not-found adds a delay to
         # a specific file, files from that hour without the delay
         # are tried first
         self._files = PriorityQueue()
@@ -606,7 +632,7 @@ class DownloadWorker(gevent.Greenlet):
                 sleep(sleep_for)
 
             # by default, sleep zero seconds at the end to yield:
-            # if we 404, ideally we want another server to try
+            # if we not-found, ideally we want another server to try
             self._server_sleep_time = 0
 
             self._run_queue_item(queue_item)
@@ -643,7 +669,7 @@ class DownloadWorker(gevent.Greenlet):
             if abort:
                 raise # thereby killing the whole download
 
-        except (gevent.socket.error, httplib.HTTPException, ErrorStatus):
+        except (gevent.socket.error, ftplib.Error):
             self._handle_ioerror(queue_item)
 
         except (greenlet.GreenletExit, KeyboardInterrupt, SystemExit):
@@ -664,33 +690,24 @@ class DownloadWorker(gevent.Greenlet):
     def _download_file(self, temp_file, queue_item):
         if self._connection is None:
             self._logger.debug("connecting to %s", self.connect_host)
-            self._connection = HTTPConnection(self.connect_host)
+            self._connection = FTP(self.connect_host, user='anonymous')
 
         remote_file = os.path.join(self.downloader.remote_directory,
-                                    queue_item.filename)
-
-        headers = {"Connection": "Keep-Alive",
-                   "Host": self.downloader.dataset_host}
-        self._connection.request("GET", remote_file, headers=headers)
-
-        resp = self._connection.getresponse()
-
-        if resp.status == 404:
-            raise NotFound
-        elif resp.status != 200:
-            raise ErrorStatus(resp.status)
+                                   queue_item.filename)
 
         with open(temp_file, "w") as f:
             start = time()
             length = 0
 
-            while True:
-                d = resp.read(1024 * 1024)
-                if d == '':
-                    break
-                f.write(d)
-                length += len(d)
+            try:
+                self._connection.retrbinary('RETR ' + remote_file, f.write)
+            except ftplib.Error as e:
+                if e[0].startswith("550"):
+                    raise NotFound
+                else:
+                    raise
 
+            length = f.tell()
             end = time()
 
             duration = end - start
@@ -702,7 +719,7 @@ class DownloadWorker(gevent.Greenlet):
             sleep_time = self.downloader.timeout
         else:
             sleep_time = self.downloader.first_file_timeout
-        self._logger.info("404: %s; file sleep %s",
+        self._logger.info("not found: %s; file sleep %s",
                           queue_item.filename, sleep_time)
         sleep_until = time() + sleep_time
         self._files.put(queue_item._replace(sleep_until=sleep_until))
