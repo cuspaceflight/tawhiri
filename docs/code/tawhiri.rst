@@ -49,6 +49,7 @@ tawhiri.dataset module
         .. autoattribute :: element_size
         .. autoattribute :: size
         .. autoattribute :: SUFFIX_GRIBMIRROR
+        .. autoattribute :: DEFAULT_DIRECTORY
 
         These "utility" class methods are available:
 
