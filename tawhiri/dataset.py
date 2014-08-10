@@ -113,8 +113,11 @@ class Dataset(object):
     #: The filename suffix for "grib mirror" files
     SUFFIX_GRIBMIRROR = '.gribmirror'
 
+    #: The default location of wind data
+    DEFAULT_DIRECTORY = '/srv/tawhiri-datasets'
+
     @classmethod
-    def filename(cls, directory, ds_time, suffix=''):
+    def filename(cls, ds_time, directory=DEFAULT_DIRECTORY, suffix=''):
         """
         Returns the filename under which we expect to find a dataset
 
@@ -133,7 +136,7 @@ class Dataset(object):
         return os.path.join(directory, ds_time_str + suffix)
 
     @classmethod
-    def listdir(cls, directory, only_suffices=None):
+    def listdir(cls, directory=DEFAULT_DIRECTORY, only_suffices=None):
         """
         Scan for datasets in `directory`
 
@@ -168,7 +171,7 @@ class Dataset(object):
     cached_latest = None
 
     @classmethod
-    def open_latest(cls, directory, persistent=False):
+    def open_latest(cls, directory=DEFAULT_DIRECTORY, persistent=False):
         """
         Find the most recent datset in `directory`, and open it
 
@@ -185,14 +188,14 @@ class Dataset(object):
         if cls.cached_latest and cls.cached_latest.ds_time == latest:
            return cls.cached_latest
         else:
-            ds = Dataset(directory, latest)
+            ds = Dataset(latest, directory=directory)
 
             if persistent:
                 cls.cached_latest = ds
 
             return ds
 
-    def __init__(self, directory, ds_time, new=False):
+    def __init__(self, ds_time, directory=DEFAULT_DIRECTORY, new=False):
         """
         Open the dataset file for `ds_time`, in `directory`
 
@@ -210,7 +213,7 @@ class Dataset(object):
         self.ds_time = ds_time
         self.new = new
 
-        self.fn = self.filename(self.directory, self.ds_time)
+        self.fn = self.filename(self.ds_time, directory=self.directory)
 
         prot = mmap.PROT_READ
         flags = mmap.MAP_SHARED

@@ -16,9 +16,9 @@ root_logger.setLevel(logging.DEBUG)
 root_logger.addHandler(handler)
 
 logging.info("setup")
-gribmirror = Dataset.filename(directory, ds_time, Dataset.SUFFIX_GRIBMIRROR)
-temp = Dataset(directory, ds_time, suffix='.temp', new=True)
-actual = Dataset(directory, ds_time)
+gribmirror = Dataset.filename(ds_time, directory=directory, suffix=Dataset.SUFFIX_GRIBMIRROR)
+temp = Dataset(ds_time, directory=directory, suffix='.temp', new=True)
+actual = Dataset(ds_time, directory=directory)
 checklist = Dataset.checklist()
 
 logging.info("unpack")
@@ -28,4 +28,4 @@ logging.info("check")
 assert np.array_equal(actual.array, temp.array)
 
 logging.info("cleanup")
-os.unlink(Dataset.filename(directory, ds_time, suffix='.temp'))
+os.unlink(Dataset.filename(ds_time, directory=directory, suffix='.temp'))

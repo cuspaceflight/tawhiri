@@ -12,8 +12,8 @@ lng0 = 360 - 3.1970
 alt0 = 0.0
 t0 = datetime(2014, 2, 19, 15)
 
-wind = WindDataset.open_latest("/opt/wind32")
-elevation = ElevationDataset("/opt/elevation")
+wind = WindDataset.open_latest()
+elevation = ElevationDataset()
 
 stages = models.standard_profile(5.0, 30000, 5.0, wind, elevation)
 result = solver.solve(t0, lat0, lng0, alt0, stages)

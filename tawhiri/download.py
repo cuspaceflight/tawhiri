@@ -392,11 +392,12 @@ class DatasetDownloader(object):
 
         if self.write_dataset:
             self._dataset = \
-                    Dataset(self._tmp_directory, self.ds_time, new=True)
+                Dataset(self.ds_time, directory=self._tmp_directory, new=True)
 
         if self.write_gribmirror:
-            fn = Dataset.filename(self._tmp_directory, self.ds_time,
-                                  Dataset.SUFFIX_GRIBMIRROR)
+            fn = Dataset.filename(self.ds_time,
+                                  directory=self._tmp_directory,
+                                  suffix=Dataset.SUFFIX_GRIBMIRROR)
             logger.debug("Opening gribmirror (truncate and write) %s %s",
                                 self.ds_time, fn)
             self._gribmirror = open(fn, "w+")
@@ -558,13 +559,19 @@ class DatasetDownloader(object):
         shutil.rmtree(self._tmp_directory)
 
     def _move_file(self, suffix=''):
-        fn1 = Dataset.filename(self._tmp_directory, self.ds_time, suffix)
-        fn2 = Dataset.filename(self.directory, self.ds_time, suffix)
+        fn1 = Dataset.filename(self.ds_time,
+                               directory=self._tmp_directory,
+                               suffix=suffix)
+        fn2 = Dataset.filename(self.ds_time,
+                               directory=self.directory,
+                               suffix=suffix)
         logger.debug("renaming %s to %s", fn1, fn2)
         os.rename(fn1, fn2)
 
     def _delete_file(self, suffix=''):
-        fn = Dataset.filename(self._tmp_directory, self.ds_time, suffix)
+        fn = Dataset.filename(self.ds_time,
+                              directory=self._tmp_directory,
+                              suffix=suffix)
         logger.warning("deleting %s", fn)
         os.unlink(fn)
 
