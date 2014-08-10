@@ -15,17 +15,23 @@ def get_version():
                 return line[15:-2]
     raise Exception("Could not find version number")
 
+PY2 = sys.version_info[0] == 2
+if PY2:
+    entry_points={
+        "console_scripts": [
+            "tawhiri-download = tawhiri.download:main"
+        ]
+    }
+else:
+    entry_points = {}
+
 setup(
     name="Tawhiri",
     version=get_version(),
     author='Cambridge University Spaceflight',
     author_email='contact@cusf.co.uk',
     packages=['tawhiri'],
-    entry_points={
-        "console_scripts": [
-            "tawhiri-download = tawhiri.downloader:main"
-        ]
-    },
+    entry_points=entry_points,
     ext_modules = cythonize("tawhiri/*.pyx"),
     url='http://www.cusf.co.uk/wiki/tawhiri:start',
     license='GPLv3+',
@@ -34,7 +40,6 @@ setup(
     test_suite='nose.collector',
     tests_require=['nose', 'mock'],
     install_requires=[
-        "Cython",
         "magicmemoryview",
         "ruaumoko"
     ],
