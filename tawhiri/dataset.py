@@ -182,12 +182,18 @@ class Dataset(object):
         datasets = Dataset.listdir(directory, only_suffices=('', ))
         latest = sorted(datasets, reverse=True)[0].ds_time
 
-        if cls.cached_latest and cls.cached_latest.ds_time == latest:
+        cached = cls.cached_latest
+        valid = cached and \
+                cached.ds_time == latest and \
+                cached.directory == directory
+
+        if valid:
            return cls.cached_latest
         else:
             ds = Dataset(directory, latest)
 
             if persistent:
+                # note, this creates a ref cycle.
                 cls.cached_latest = ds
 
             return ds
