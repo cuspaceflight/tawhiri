@@ -337,7 +337,7 @@ class DatasetDownloader(object):
 
         if deadline is None:
             deadline = max(datetime.now() + timedelta(hours=2),
-                           ds_time + timedelta(hours=6))
+                           ds_time + timedelta(hours=9, minutes=30))
 
         self.directory = directory
         self.ds_time = ds_time
@@ -444,14 +444,14 @@ class DatasetDownloader(object):
         logger.info("Need to download %s files", self.files_count)
 
     def _run_workers(self, addresses, total_timeout_secs):
-        logger.debug("Spawning %s workers", len(addresses))
+        logger.debug("Spawning %s workers", len(addresses) * 2)
 
         # don't ask _join_all to raise the first exception it catches
         # if we're already raising something in the except block
         raising = False
 
         try:
-            for worker_id, address in enumerate(addresses):
+            for worker_id, address in enumerate(addresses * 2):
                 w = DownloadWorker(self, worker_id, address)
                 w.start()
                 w.link()
