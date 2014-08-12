@@ -30,13 +30,11 @@ def solve(t, lat, lng, alt, chain):
        terminator) pairs which make up each stage of the flight.
     """
     t = calendar.timegm(t.timetuple())
-    # NB: care is taken to not repeat points between stages:
-    # the integrator does not include the initial conditions it is given
-    # in its output, we include the (first) ics here.
-    results = [(t, lat, lng, alt)]
+    results = []
     for model, terminator in chain:
-        results += rk4(t, lat, lng, alt, model, terminator)
-        t, lat, lng, alt = results[-1]
+        stage = rk4(t, lat, lng, alt, model, terminator)
+        results.append(stage)
+        t, lat, lng, alt = stage[-1]
     return results
 
 # Keeping all the components as separate variables is quite unpleasant.
@@ -103,7 +101,7 @@ def rk4(double t, double lat, double lng, double alt,
     cdef Vector y
     y.lat, y.lng, y.alt = (lat, lng, alt)
 
-    result = []
+    result = [(t, y.lat, y.lng, y.alt)]
 
     # rk4 variables
     cdef Vector k1, k2, k3, k4
