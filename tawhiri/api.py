@@ -184,11 +184,11 @@ def run_prediction(req):
 
     # Format trajectory
     if req['profile'] == "standard_profile":
-        resp['prediction'].append(_parse_stage("ascent", result[0]))
-        resp['prediction'].append(_parse_stage("descent", result[1]))
+        resp['prediction'] = _parse_stages(["ascent", "descent"], result)
     elif req['profile'] == "float_profile":
-        resp['prediction'].append(_parse_stage("ascent", result[0]))
-        resp['prediction'].append(_parse_stage("float", result[1]))
+        resp['prediction'] = _parse_stages(["ascent", "float"], result)
+    else:
+        raise InternalException("No implementation for known profile.")
 
     # Convert request datetimes
     resp['request'] = _bulk_convert_datetime_to_rfc3339(resp['request'])
@@ -198,19 +198,23 @@ def run_prediction(req):
 
     return resp
 
-def _parse_stage(name, data):
+def _parse_stages(labels, data):
     """
-    Parse the predictor output for a single stage.
+    Parse the predictor output for a set of stages.
     """
-    stage = {}
-    stage['stage'] = name
-    stage['trajectory'] = [{
-        'latitude': lat,
-        'longitude': lon,
-        'altitude': alt,
-        'datetime': strict_rfc3339.timestamp_to_rfc3339_utcoffset(dt),
-        } for dt, lat, lon, alt in data]
-    return stage
+    assert len(labels) == len(data)
+
+    prediction = []
+    for index, leg in enumerate(data):
+        stage = {}
+        stage['stage'] = labels[index]
+        stage['trajectory'] = [{
+            'latitude': lat,
+            'longitude': lon,
+            'altitude': alt,
+            'datetime': strict_rfc3339.timestamp_to_rfc3339_utcoffset(dt),
+            } for dt, lat, lon, alt in leg]
+    return prediction
 
 @app.route('/', methods=['POST'])
 def main():
