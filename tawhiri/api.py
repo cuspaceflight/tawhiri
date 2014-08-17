@@ -51,33 +51,26 @@ def _bulk_convert_datetime_to_rfc3339(data):
 Exceptions
 """
 class APIException(Exception):
-    def __init__(self, message, error_code):
-        self.message = message
-        self.error_code = error_code
-
-    def __str__(self):
-        return self.message
+    status_code = 500
 
 class APIVersionException(APIException):
-    def __init__(self, message):
-        super(APIVersionException, self).__init__(message, 400)
+    status_code = 400
 
 class RequestException(APIException):
-    def __init__(self, message):
-        super(RequestException, self).__init__(message, 400)
+    status_code = 400
 
 class InvalidDatasetException(APIException):
-    def __init__(self, message):
-        super(InvalidDatasetException, self).__init__(message, 400)
+    status_code = 400
 
 class InternalException(APIException):
-    def __init__(self, message):
-        super(InternalException, self).__init__(message, 500)
+    status_code = 500
 
 class NotYetImplementedException(APIException):
-    def __init__(self, message):
-        super(NotYetImplementedException, self).__init__(message, 501)
+    status_code = 501
 
+"""
+Request
+"""
 def parse_request(data):
     """
     Parse the POST request.
@@ -136,6 +129,9 @@ def _extract_parameter(data, parameter, cast, default=None, ignore=False):
         raise RequestException("Unable to parse parameter '%s': %s." %
                 (parameter, data[parameter]))
 
+"""
+Response
+"""
 def run_prediction(req):
     """
     Run the prediction.
@@ -217,19 +213,21 @@ def _parse_stages(labels, data):
         prediction.append(stage)
     return prediction
 
+"""
+Flask App
+"""
 @app.route('/', methods=['POST'])
 def main():
     """
     Single API endpoint which accepts POST requests.
     """
-    try:
-        response = run_prediction(parse_request(request.form))
-    except APIException as e:
-        resp = {}
-        resp['error'] = {
-            "type": type(e).__name__,
-            "description": str(e)
-            }
-        return jsonify(resp), e.error_code
+    return jsonify(run_prediction(parse_request(request.form)))
 
-    return jsonify(response)
+@app.errorhandler(APIException)
+def handle_exception(error):
+    resp = {}
+    resp['error'] = {
+        "type": type(error).__name__,
+        "description": str(error)
+    }
+    return jsonify(resp), error.status_code
