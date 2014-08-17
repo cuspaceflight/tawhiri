@@ -21,8 +21,8 @@ Provide the HTTP API for Tawhiri.
 
 from flask import Flask, jsonify, request
 from datetime import datetime
+import time
 import strict_rfc3339
-import calendar
 
 from tawhiri import solver, models
 from tawhiri.dataset import Dataset as WindDataset
@@ -32,31 +32,22 @@ app = Flask(__name__)
 
 ruaumoko_ds = ElevationDataset()
 
+LATEST_DATASET_KEYWORD = "latest"
+
 
 # Util functions ##############################################################
-def _rfc3339_to_datetime(dt):
+def _rfc3339_to_timestamp(dt):
     """
-    Convert from a RFC3339 timestamp to a DateTime object.
+    Convert from a RFC3339 timestamp to a UNIX timestamp.
     """
-    return datetime.fromtimestamp(strict_rfc3339.rfc3339_to_timestamp(dt))
+    return strict_rfc3339.rfc3339_to_timestamp(dt)
 
 
-def _datetime_to_rfc3339(dt):
+def _timestamp_to_rfc3339(dt):
     """
-    Convert from a DateTime object to a RFC3339 timestamp.
+    Convert from a UNIX timestamp to a RFC3339 timestamp.
     """
-    return strict_rfc3339.timestamp_to_rfc3339_utcoffset(calendar.timegm(
-        dt.timetuple()))
-
-
-def _bulk_convert_datetime_to_rfc3339(data):
-    """
-    Convert all DateTime values in a dict to RFC3339 timestamps.
-    """
-    for key in data:
-        if isinstance(data[key], datetime):
-            data[key] = _datetime_to_rfc3339(data[key])
-    return data
+    return strict_rfc3339.timestamp_to_rfc3339_utcoffset(dt)
 
 
 # Exceptions ##################################################################
@@ -120,7 +111,7 @@ def parse_request(data):
     req['launch_altitude'] = _extract_parameter(data, "launch_altitude", float,
                                                 ignore=True)
     req['launch_datetime'] = _extract_parameter(data, "launch_datetime",
-                                                _rfc3339_to_datetime)
+                                                _rfc3339_to_timestamp)
 
     # Prediction profile
     req['profile'] = _extract_parameter(data, "profile", str,
@@ -134,13 +125,13 @@ def parse_request(data):
             req[field] = _extract_parameter(data, field, float)
 
         req['stop_time'] = _extract_parameter(data, "stop_time",
-                                              _rfc3339_to_datetime)
+                                              _rfc3339_to_timestamp)
     else:
         raise RequestException("Unknown profile '%s'." % req['profile'])
 
     # Dataset
-    req['dataset'] = _extract_parameter(data, "dataset", _rfc3339_to_datetime,
-                                        "latest")
+    req['dataset'] = _extract_parameter(data, "dataset", _rfc3339_to_timestamp,
+                                        LATEST_DATASET_KEYWORD)
 
     return req
 
@@ -181,19 +172,22 @@ def run_prediction(req):
     }
 
     # Start time
-    resp['metadata']['start_time'] = _datetime_to_rfc3339(datetime.now())
+    resp['metadata']['start_time'] = _timestamp_to_rfc3339(time.time())
 
     # Dataset
-    if req['dataset'] == "latest":
+    if req['dataset'] == LATEST_DATASET_KEYWORD:
         tawhiri_ds = WindDataset.open_latest()
     else:
         try:
-            tawhiri_ds = WindDataset(req['dataset'])
+            tawhiri_ds = WindDataset(datetime.fromtimestamp(req['dataset']))
         except IOError:
             raise InvalidDatasetException("No dataset found for '%s'." %
-                                          _datetime_to_rfc3339(req['dataset']))
+                                          _timestamp_to_rfc3339(
+                                              req['dataset']))
 
-    resp['request']['dataset'] = tawhiri_ds.ds_time
+    # Note that hours and minutes are set to 00 as Tawhiri uses hourly datasets
+    resp['request']['dataset'] = tawhiri_ds.ds_time.strftime(
+        "%Y-%m-%dT%H:00:00Z")
 
     # Stages
     if req['profile'] == "standard_profile":
@@ -221,11 +215,13 @@ def run_prediction(req):
     else:
         raise InternalException("No implementation for known profile.")
 
-    # Convert request datetimes
-    resp['request'] = _bulk_convert_datetime_to_rfc3339(resp['request'])
+    # Convert request UNIX timestamps to RFC3339 timestamps
+    for key in resp['request']:
+        if "datetime" in key:
+            resp['request'][key] = _timestamp_to_rfc3339(resp['request'][key])
 
     # End time
-    resp['metadata']['complete_time'] = _datetime_to_rfc3339(datetime.now())
+    resp['metadata']['complete_time'] = _timestamp_to_rfc3339(time.time())
 
     return resp
 
@@ -244,7 +240,7 @@ def _parse_stages(labels, data):
             'latitude': lat,
             'longitude': lon,
             'altitude': alt,
-            'datetime': strict_rfc3339.timestamp_to_rfc3339_utcoffset(dt),
+            'datetime': _timestamp_to_rfc3339(dt),
             } for dt, lat, lon, alt in leg]
         prediction.append(stage)
     return prediction
