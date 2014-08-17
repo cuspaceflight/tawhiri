@@ -32,45 +32,77 @@ app = Flask(__name__)
 
 ruaumoko_ds = ElevationDataset()
 
-"""
-Util functions
-"""
+
+# Util functions ##############################################################
 def _rfc3339_to_datetime(dt):
+    """
+    Convert from a RFC3339 timestamp to a DateTime object.
+    """
     return datetime.fromtimestamp(strict_rfc3339.rfc3339_to_timestamp(dt))
 
+
 def _datetime_to_rfc3339(dt):
-    return strict_rfc3339.timestamp_to_rfc3339_utcoffset(calendar.timegm(dt.timetuple()))
+    """
+    Convert from a DateTime object to a RFC3339 timestamp.
+    """
+    return strict_rfc3339.timestamp_to_rfc3339_utcoffset(calendar.timegm(
+        dt.timetuple()))
+
 
 def _bulk_convert_datetime_to_rfc3339(data):
+    """
+    Convert all DateTime values in a dict to RFC3339 timestamps.
+    """
     for key in data:
         if isinstance(data[key], datetime):
             data[key] = _datetime_to_rfc3339(data[key])
     return data
 
-"""
-Exceptions
-"""
+
+# Exceptions ##################################################################
 class APIException(Exception):
+    """
+    Base API exception.
+    """
     status_code = 500
+
 
 class APIVersionException(APIException):
+    """
+    Raised when API version is missing or is invalid.
+    """
     status_code = 400
+
 
 class RequestException(APIException):
+    """
+    Raised if request is invalid.
+    """
     status_code = 400
+
 
 class InvalidDatasetException(APIException):
+    """
+    Raised if the dataset specified in the request is invalid.
+    """
     status_code = 400
 
+
 class InternalException(APIException):
+    """
+    Raised when an internal error occurs.
+    """
     status_code = 500
 
+
 class NotYetImplementedException(APIException):
+    """
+    Raised when the functionality has not yet been implemented.
+    """
     status_code = 501
 
-"""
-Request
-"""
+
+# Request #####################################################################
 def parse_request(data):
     """
     Parse the POST request.
@@ -86,13 +118,13 @@ def parse_request(data):
     for field in ["launch_latitude", "launch_longitude", "ascent_rate"]:
         req[field] = _extract_parameter(data, field, float)
     req['launch_altitude'] = _extract_parameter(data, "launch_altitude", float,
-            ignore=True)
+                                                ignore=True)
     req['launch_datetime'] = _extract_parameter(data, "launch_datetime",
-            _rfc3339_to_datetime)
+                                                _rfc3339_to_datetime)
 
     # Prediction profile
     req['profile'] = _extract_parameter(data, "profile", str,
-            "standard_profile")
+                                        "standard_profile")
 
     if req['profile'] == "standard_profile":
         for field in ["ascent_rate", "burst_altitude", "descent_rate"]:
@@ -102,15 +134,16 @@ def parse_request(data):
             req[field] = _extract_parameter(data, field, float)
 
         req['stop_time'] = _extract_parameter(data, "stop_time",
-                _rfc3339_to_datetime)
+                                              _rfc3339_to_datetime)
     else:
         raise RequestException("Unknown profile '%s'." % req['profile'])
 
     # Dataset
     req['dataset'] = _extract_parameter(data, "dataset", _rfc3339_to_datetime,
-            "latest")
+                                        "latest")
 
     return req
+
 
 def _extract_parameter(data, parameter, cast, default=None, ignore=False):
     """
@@ -120,18 +153,17 @@ def _extract_parameter(data, parameter, cast, default=None, ignore=False):
     if parameter not in data:
         if default is None and not ignore:
             raise RequestException("Parameter '%s' not provided in request." %
-                    parameter)
+                                   parameter)
         return default
 
     try:
         return cast(data[parameter])
     except Exception:
         raise RequestException("Unable to parse parameter '%s': %s." %
-                (parameter, data[parameter]))
+                               (parameter, data[parameter]))
 
-"""
-Response
-"""
+
+# Response ####################################################################
 def run_prediction(req):
     """
     Run the prediction.
@@ -139,7 +171,7 @@ def run_prediction(req):
     # If no launch altitude provided, use Ruaumoko to look it up
     if req['launch_altitude'] is None:
         req['launch_altitude'] = ruaumoko_ds.get(req['launch_latitude'],
-                req['launch_longitude'])
+                                                 req['launch_longitude'])
 
     # Response dict
     resp = {
@@ -159,24 +191,27 @@ def run_prediction(req):
             tawhiri_ds = WindDataset(req['dataset'])
         except IOError:
             raise InvalidDatasetException("No dataset found for '%s'." %
-                    _datetime_to_rfc3339(req['dataset']))
+                                          _datetime_to_rfc3339(req['dataset']))
 
     resp['request']['dataset'] = tawhiri_ds.ds_time
 
     # Stages
     if req['profile'] == "standard_profile":
         stages = models.standard_profile(req['ascent_rate'],
-                req['burst_altitude'], req['descent_rate'], tawhiri_ds,
-                ruaumoko_ds)
+                                         req['burst_altitude'],
+                                         req['descent_rate'], tawhiri_ds,
+                                         ruaumoko_ds)
     elif req['profile'] == "float_profile":
         stages = models.float_profile(req['ascent_rate'],
-                req['float_altitude'], req['stop_time'], tawhiri_ds)
+                                      req['float_altitude'], req['stop_time'],
+                                      tawhiri_ds)
     else:
         raise InternalException("No implementation for known profile.")
 
     # Run solver
     result = solver.solve(req['launch_datetime'], req['launch_latitude'],
-            req['launch_longitude'], req['launch_altitude'], stages)
+                          req['launch_longitude'], req['launch_altitude'],
+                          stages)
 
     # Format trajectory
     if req['profile'] == "standard_profile":
@@ -193,6 +228,7 @@ def run_prediction(req):
     resp['metadata']['complete_time'] = _datetime_to_rfc3339(datetime.now())
 
     return resp
+
 
 def _parse_stages(labels, data):
     """
@@ -213,9 +249,8 @@ def _parse_stages(labels, data):
         prediction.append(stage)
     return prediction
 
-"""
-Flask App
-"""
+
+# Flask App ###################################################################
 @app.route('/', methods=['POST'])
 def main():
     """
@@ -223,8 +258,12 @@ def main():
     """
     return jsonify(run_prediction(parse_request(request.form)))
 
+
 @app.errorhandler(APIException)
 def handle_exception(error):
+    """
+    Return correct error message and HTTP status code for API exceptions.
+    """
     resp = {}
     resp['error'] = {
         "type": type(error).__name__,
