@@ -214,6 +214,7 @@ def _parse_stages(labels, data):
             'altitude': alt,
             'datetime': strict_rfc3339.timestamp_to_rfc3339_utcoffset(dt),
             } for dt, lat, lon, alt in leg]
+        prediction.append(stage)
     return prediction
 
 @app.route('/', methods=['POST'])
