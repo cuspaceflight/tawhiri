@@ -272,13 +272,13 @@ def _parse_stages(labels, data):
 
 
 # Flask App ###################################################################
-@app.route('/', methods=['POST'])
+@app.route('/', methods=['GET'])
 def main():
     """
-    Single API endpoint which accepts POST requests. This should be served from
+    Single API endpoint which accepts GET requests. This should be served from
     /api/vX/, where X is the current API_VERSION.
     """
-    return jsonify(run_prediction(parse_request(request.form)))
+    return jsonify(run_prediction(parse_request(request.args)))
 
 
 @app.errorhandler(APIException)
