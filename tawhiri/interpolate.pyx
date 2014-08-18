@@ -48,11 +48,11 @@ DEF VAR_V = 2
 ctypedef float[:, :, :, :, :] dataset
 
 cdef struct Lerp1:
-    int index
+    long index
     double lerp
 
 cdef struct Lerp3:
-    int hour, lat, lng
+    long hour, lat, lng
     double lerp
 
 
@@ -89,7 +89,7 @@ cdef object get_wind(dataset ds,
     """
 
     cdef Lerp3[8] lerps
-    cdef int altidx
+    cdef long altidx
     cdef double lower, upper, u, v
 
     pick3(hour, lat, lng, lerps)
@@ -110,14 +110,14 @@ cdef object get_wind(dataset ds,
 
     return u, v
 
-cdef int pick(double left, double step, int n, double value,
-              Lerp1[2] out) except -1:
+cdef long pick(double left, double step, long n, double value,
+               Lerp1[2] out) except -1:
 
     cdef double a, l
-    cdef int b
+    cdef long b
 
     a = (value - left) / step
-    b = <int> a
+    b = <long> a
     if b < 0 or b >= n - 1:
         raise ValueError("Value out of range {0}".format(value))
     l = a - b
@@ -126,7 +126,7 @@ cdef int pick(double left, double step, int n, double value,
     out[1] = Lerp1(b + 1, l)
     return 0
 
-cdef int pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
+cdef long pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
     cdef Lerp1[2] lhour, llat, llng
 
     # the dimensions of the lat/lon axes are 361 and 720
@@ -141,7 +141,7 @@ cdef int pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
     if llng[1].index == 720:
         llng[1].index = 0
 
-    cdef int i = 0
+    cdef long i = 0
 
     for a in lhour:
         for b in llat:
@@ -152,7 +152,7 @@ cdef int pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
 
     return 0
 
-cdef double interp3(dataset ds, Lerp3[8] lerps, int variable, int level):
+cdef double interp3(dataset ds, Lerp3[8] lerps, long variable, long level):
     cdef double r, v
 
     r = 0
@@ -163,8 +163,8 @@ cdef double interp3(dataset ds, Lerp3[8] lerps, int variable, int level):
 
     return r
 
-cdef int search(dataset ds, Lerp3[8] lerps, double target):
-    cdef int lower, upper, mid
+cdef long search(dataset ds, Lerp3[8] lerps, double target):
+    cdef long lower, upper, mid
     cdef double test
     
     lower, upper = 0, 45
@@ -179,7 +179,7 @@ cdef int search(dataset ds, Lerp3[8] lerps, double target):
 
     return lower
 
-cdef double interp4(dataset ds, Lerp3[8] lerps, Lerp1 alt_lerp, int variable):
+cdef double interp4(dataset ds, Lerp3[8] lerps, Lerp1 alt_lerp, long variable):
     lower = interp3(ds, lerps, variable, alt_lerp.index)
     # and we can infer what the other lerp1 is...
     upper = interp3(ds, lerps, variable, alt_lerp.index + 1)
