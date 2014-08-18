@@ -113,16 +113,16 @@ def parse_request(data):
         raise APIVersionException("Unknown or unsupported API version.")
 
     # Generic fields
-    req['launch_latitude'] = _extract_parameter(data, "launch_latitude", float,
-                                                validator=lambda x: -90 <= x <=
-                                                90)
-    req['launch_longitude'] = _extract_parameter(data, "launch_longitude",
-                                                 float, validator=lambda x: 0
-                                                 <= x < 360)
-    req['launch_datetime'] = _extract_parameter(data, "launch_datetime",
-                                                _rfc3339_to_timestamp)
-    req['launch_altitude'] = _extract_parameter(data, "launch_altitude", float,
-                                                ignore=True)
+    req['launch_latitude'] = \
+            _extract_parameter(data, "launch_latitude", float,
+                               validator=lambda x: -90 <= x <= 90)
+    req['launch_longitude'] = \
+            _extract_parameter(data, "launch_longitude", float,
+                               validator=lambda x: 0 <= x < 360)
+    req['launch_datetime'] = \
+            _extract_parameter(data, "launch_datetime", _rfc3339_to_timestamp)
+    req['launch_altitude'] = \
+            _extract_parameter(data, "launch_altitude", float, ignore=True)
 
     # If no launch altitude provided, use Ruaumoko to look it up
     if req['launch_altitude'] is None:
@@ -137,24 +137,25 @@ def parse_request(data):
     req['profile'] = _extract_parameter(data, "profile", str,
                                         "standard_profile")
 
+    launch_alt = req["launch_altitude"]
+
     if req['profile'] == "standard_profile":
         req['ascent_rate'] = _extract_parameter(data, "ascent_rate", float,
                                                 validator=lambda x: x > 0)
-        req['burst_altitude'] = _extract_parameter(data, "burst_altitude",
-                                                   float, validator=lambda x: x
-                                                   > req['launch_altitude'])
+        req['burst_altitude'] = \
+                _extract_parameter(data, "burst_altitude", float,
+                                   validator=lambda x: x > launch_alt)
         req['descent_rate'] = _extract_parameter(data, "descent_rate", float,
                                                  validator=lambda x: x > 0)
     elif req['profile'] == "float_profile":
         req['ascent_rate'] = _extract_parameter(data, "ascent_rate", float,
                                                 validator=lambda x: x > 0)
-        req['float_altitude'] = _extract_parameter(data, "float_altitude",
-                                                   float, validator=lambda x: x
-                                                   > req['launch_altitude'])
-        req['stop_datetime'] = _extract_parameter(data, "stop_datetime",
-                                                  _rfc3339_to_timestamp,
-                                                  validator=lambda x: x >
-                                                  req['launch_datetime'])
+        req['float_altitude'] = \
+                _extract_parameter(data, "float_altitude", float,
+                                   validator=lambda x: x > launch_alt)
+        req['stop_datetime'] = \
+            _extract_parameter(data, "stop_datetime", _rfc3339_to_timestamp,
+                               validator=lambda x: x > req['launch_datetime'])
     else:
         raise RequestException("Unknown profile '%s'." % req['profile'])
 
