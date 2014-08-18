@@ -97,7 +97,7 @@ class NotYetImplementedException(APIException):
 # Request #####################################################################
 def parse_request(data):
     """
-    Parse the POST request.
+    Parse the request.
     """
     req = {"version": API_VERSION}
 
