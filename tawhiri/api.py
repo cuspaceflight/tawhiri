@@ -276,7 +276,7 @@ def _parse_stages(labels, data):
 def main():
     """
     Single API endpoint which accepts GET requests. This should be served from
-    `/api/vX/`, where `X` is the current API_VERSION.
+    ``/api/vX/``, where ``X`` is the current API_VERSION.
     """
     return jsonify(run_prediction(parse_request(request.args)))
 
