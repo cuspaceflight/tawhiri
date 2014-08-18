@@ -32,6 +32,7 @@ app = Flask(__name__)
 
 ruaumoko_ds = ElevationDataset()
 
+API_VERSION = 1
 LATEST_DATASET_KEYWORD = "latest"
 
 
@@ -56,13 +57,6 @@ class APIException(Exception):
     Base API exception.
     """
     status_code = 500
-
-
-class APIVersionException(APIException):
-    """
-    Raised when API version is missing or is invalid.
-    """
-    status_code = 400
 
 
 class RequestException(APIException):
@@ -105,12 +99,7 @@ def parse_request(data):
     """
     Parse the POST request.
     """
-    req = {}
-
-    # API version
-    req['version'] = _extract_parameter(data, "version", int)
-    if req['version'] != 1:
-        raise APIVersionException("Unknown or unsupported API version.")
+    req = {"version": API_VERSION}
 
     # Generic fields
     req['launch_latitude'] = \
@@ -286,7 +275,8 @@ def _parse_stages(labels, data):
 @app.route('/', methods=['POST'])
 def main():
     """
-    Single API endpoint which accepts POST requests.
+    Single API endpoint which accepts POST requests. This should be served from
+    /api/vX/, where X is the current API_VERSION.
     """
     return jsonify(run_prediction(parse_request(request.form)))
 
