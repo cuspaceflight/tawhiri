@@ -287,6 +287,7 @@ def handle_exception(error):
         "type": type(error).__name__,
         "description": str(error)
     }
+    g.request_complete_time = time.time()
     response['metadata'] = _format_request_metadata()
     return jsonify(response), error.status_code
 
