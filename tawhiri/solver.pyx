@@ -21,15 +21,11 @@
 Perform numerical integration of the balloon state.
 """
 
-import calendar
-
-
 def solve(t, lat, lng, alt, chain):
     """Solve from initial conditions `t`, `lat`, `lng`, and `alt`, using
        models and termination criteria from `chain`, an iterable of (model,
        terminator) pairs which make up each stage of the flight.
     """
-    t = calendar.timegm(t.timetuple())
     results = []
     for model, terminator in chain:
         stage = rk4(t, lat, lng, alt, model, terminator)

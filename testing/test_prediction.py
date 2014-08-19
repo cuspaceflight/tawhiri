@@ -1,8 +1,10 @@
 import sys
-import time
-import itertools
+from os.path import abspath, split, join
+sys.path.append(join(split(abspath(__file__))[0], '..'))
+
 from datetime import datetime
 import json
+import calendar
 
 from tawhiri import solver, models, kml
 from tawhiri.dataset import Dataset as WindDataset
@@ -11,7 +13,7 @@ from ruaumoko import Dataset as ElevationDataset
 lat0 = 52.5563
 lng0 = 360 - 3.1970
 alt0 = 0.0
-t0 = datetime(2014, 2, 19, 15)
+t0 = calendar.timegm(datetime(2014, 2, 19, 15).timetuple())
 
 wind = WindDataset.open_latest()
 elevation = ElevationDataset()

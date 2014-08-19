@@ -123,10 +123,8 @@ def make_elevation_data_termination(dataset=None):
 
 def make_time_termination(max_time):
     """A time based termination criteria, which terminates integration when
-       the current time is greater than `max_time` (a naive datetime object
-       in UTC).
+       the current time is greater than `max_time` (a UNIX timestamp).
     """
-    max_time = calendar.timegm(max_time.timetuple())
     def time_termination(t, lat, lng, alt):
         if t > max_time:
             return True
