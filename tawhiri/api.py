@@ -272,11 +272,10 @@ def _parse_stages(labels, data):
 
 
 # Flask App ###################################################################
-@app.route('/', methods=['GET'])
+@app.route('/api/v{0}/'.format(API_VERSION), methods=['GET'])
 def main():
     """
-    Single API endpoint which accepts GET requests. This should be served from
-    ``/api/vX/``, where ``X`` is the current API_VERSION.
+    Single API endpoint which accepts GET requests.
     """
     return jsonify(run_prediction(parse_request(request.args)))
 
