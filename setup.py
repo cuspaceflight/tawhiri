@@ -43,7 +43,8 @@ setup(
         "magicmemoryview",
         "ruaumoko",
         "Flask",
-        "strict-rfc3339"
+        "strict-rfc3339",
+        "gunicorn"
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

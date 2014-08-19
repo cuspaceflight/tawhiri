@@ -3,3 +3,4 @@ ruaumoko
 magicmemoryview
 Flask
 strict-rfc3339
+gunicorn
