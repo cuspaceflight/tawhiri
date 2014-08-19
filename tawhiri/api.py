@@ -19,7 +19,7 @@
 Provide the HTTP API for Tawhiri.
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
 from datetime import datetime
 import time
 import strict_rfc3339
@@ -189,11 +189,7 @@ def run_prediction(req):
     resp = {
         "request": req,
         "prediction": [],
-        "metadata": {},
     }
-
-    # Start time
-    resp['metadata']['start_time'] = _timestamp_to_rfc3339(time.time())
 
     # Dataset
     try:
@@ -245,9 +241,6 @@ def run_prediction(req):
         if "datetime" in key:
             resp['request'][key] = _timestamp_to_rfc3339(resp['request'][key])
 
-    # End time
-    resp['metadata']['complete_time'] = _timestamp_to_rfc3339(time.time())
-
     return resp
 
 
@@ -277,7 +270,11 @@ def main():
     """
     Single API endpoint which accepts GET requests.
     """
-    return jsonify(run_prediction(parse_request(request.args)))
+    g.request_start_time = time.time()
+    response = run_prediction(parse_request(request.args))
+    g.request_complete_time = time.time()
+    response['metadata'] = _format_request_metadata()
+    return jsonify(response)
 
 
 @app.errorhandler(APIException)
@@ -285,9 +282,20 @@ def handle_exception(error):
     """
     Return correct error message and HTTP status code for API exceptions.
     """
-    resp = {}
-    resp['error'] = {
+    response = {}
+    response['error'] = {
         "type": type(error).__name__,
         "description": str(error)
     }
-    return jsonify(resp), error.status_code
+    response['metadata'] = _format_request_metadata()
+    return jsonify(response), error.status_code
+
+
+def _format_request_metadata():
+    """
+    Format the request metadata for inclusion in the response.
+    """
+    return {
+        "start_datetime": _timestamp_to_rfc3339(g.request_start_time),
+        "complete_datetime": _timestamp_to_rfc3339(g.request_complete_time),
+    }
