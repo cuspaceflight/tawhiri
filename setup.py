@@ -41,7 +41,9 @@ setup(
     tests_require=['nose', 'mock'],
     install_requires=[
         "magicmemoryview",
-        "ruaumoko"
+        "ruaumoko",
+        "Flask",
+        "strict-rfc3339"
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
