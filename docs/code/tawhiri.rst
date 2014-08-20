@@ -109,6 +109,14 @@ tawhiri.solver module
     and termination criteria from `chain`, an iterable of (model, terminator)
     pairs which make up each stage of the flight.
 
+tawhiri.api module
+-----------------------
+
+.. automodule:: tawhiri.api
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Module contents
 ---------------
 

@@ -34,6 +34,8 @@ ruaumoko_ds = ElevationDataset()
 
 API_VERSION = 1
 LATEST_DATASET_KEYWORD = "latest"
+PROFILE_STANDARD = "standard_profile"
+PROFILE_FLOAT = "float_profile"
 
 
 # Util functions ##############################################################
@@ -124,11 +126,11 @@ def parse_request(data):
 
     # Prediction profile
     req['profile'] = _extract_parameter(data, "profile", str,
-                                        "standard_profile")
+                                        PROFILE_STANDARD)
 
     launch_alt = req["launch_altitude"]
 
-    if req['profile'] == "standard_profile":
+    if req['profile'] == PROFILE_STANDARD:
         req['ascent_rate'] = _extract_parameter(data, "ascent_rate", float,
                                                 validator=lambda x: x > 0)
         req['burst_altitude'] = \
@@ -136,7 +138,7 @@ def parse_request(data):
                                validator=lambda x: x > launch_alt)
         req['descent_rate'] = _extract_parameter(data, "descent_rate", float,
                                                  validator=lambda x: x > 0)
-    elif req['profile'] == "float_profile":
+    elif req['profile'] == PROFILE_FLOAT:
         req['ascent_rate'] = _extract_parameter(data, "ascent_rate", float,
                                                 validator=lambda x: x > 0)
         req['float_altitude'] = \
@@ -207,12 +209,12 @@ def run_prediction(req):
         "%Y-%m-%dT%H:00:00Z")
 
     # Stages
-    if req['profile'] == "standard_profile":
+    if req['profile'] == PROFILE_STANDARD:
         stages = models.standard_profile(req['ascent_rate'],
                                          req['burst_altitude'],
                                          req['descent_rate'], tawhiri_ds,
                                          ruaumoko_ds)
-    elif req['profile'] == "float_profile":
+    elif req['profile'] == PROFILE_FLOAT:
         stages = models.float_profile(req['ascent_rate'],
                                       req['float_altitude'],
                                       req['stop_datetime'], tawhiri_ds)
@@ -229,9 +231,9 @@ def run_prediction(req):
                                   str(e))
 
     # Format trajectory
-    if req['profile'] == "standard_profile":
+    if req['profile'] == PROFILE_STANDARD:
         resp['prediction'] = _parse_stages(["ascent", "descent"], result)
-    elif req['profile'] == "float_profile":
+    elif req['profile'] == PROFILE_FLOAT:
         resp['prediction'] = _parse_stages(["ascent", "float"], result)
     else:
         raise InternalException("No implementation for known profile.")
