@@ -34,6 +34,7 @@ from collections import namedtuple
 import mmap
 import os
 import os.path
+import signal
 import operator
 from datetime import datetime
 import logging
