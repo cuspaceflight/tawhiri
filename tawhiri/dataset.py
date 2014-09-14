@@ -171,6 +171,8 @@ class Dataset(object):
 
     cached_latest = None
 
+    # prune_latest is registered as the signal handler for SIGALRM at the
+    # bottom of the file.
     @classmethod
     def prune_latest(cls, signum, stack_frame):
         cls.cached_latest = None
@@ -207,7 +209,6 @@ class Dataset(object):
             if persistent:
                 # Start the countdown
                 signal.alarm(60)
-                signal.signal(signal.SIGALRM, cls.prune_latest)
                 # note, this creates a ref cycle.
                 cls.cached_latest = ds
 
@@ -277,3 +278,6 @@ class Dataset(object):
         if hasattr(self, 'array'):
             logger.info("Closing dataset %s %s", self.ds_time, self.fn)
             del self.array
+
+
+signal.signal(signal.SIGALRM, Dataset.prune_latest)
