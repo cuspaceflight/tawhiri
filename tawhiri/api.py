@@ -202,7 +202,7 @@ def run_prediction(req):
     except IOError:
         raise InvalidDatasetException("No matching dataset found.")
     except ValueError as e:
-        raise InvalidDatasetException(e.message)
+        raise InvalidDatasetException(*e.args)
 
     # Note that hours and minutes are set to 00 as Tawhiri uses hourly datasets
     resp['request']['dataset'] = tawhiri_ds.ds_time.strftime(
