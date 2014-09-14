@@ -30,8 +30,6 @@ from ruaumoko import Dataset as ElevationDataset
 
 app = Flask(__name__)
 
-ruaumoko_ds = ElevationDataset()
-
 API_VERSION = 1
 LATEST_DATASET_KEYWORD = "latest"
 PROFILE_STANDARD = "standard_profile"
@@ -39,6 +37,12 @@ PROFILE_FLOAT = "float_profile"
 
 
 # Util functions ##############################################################
+def ruaumoko_ds():
+    if not hasattr("ruaumoko_ds", "once"):
+        ruaumoko_ds.once = ElevationDataset()
+
+    return ruaumoko_ds.once
+
 def _rfc3339_to_timestamp(dt):
     """
     Convert from a RFC3339 timestamp to a UNIX timestamp.
@@ -118,8 +122,8 @@ def parse_request(data):
     # If no launch altitude provided, use Ruaumoko to look it up
     if req['launch_altitude'] is None:
         try:
-            req['launch_altitude'] = ruaumoko_ds.get(req['launch_latitude'],
-                                                     req['launch_longitude'])
+            req['launch_altitude'] = ruaumoko_ds().get(req['launch_latitude'],
+                                                       req['launch_longitude'])
         except Exception:
             raise InternalException("Internal exception experienced whilst " +
                                     "looking up 'launch_altitude'.")
@@ -213,7 +217,7 @@ def run_prediction(req):
         stages = models.standard_profile(req['ascent_rate'],
                                          req['burst_altitude'],
                                          req['descent_rate'], tawhiri_ds,
-                                         ruaumoko_ds)
+                                         ruaumoko_ds())
     elif req['profile'] == PROFILE_FLOAT:
         stages = models.float_profile(req['ascent_rate'],
                                       req['float_altitude'],
