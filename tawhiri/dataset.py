@@ -34,6 +34,7 @@ from collections import namedtuple
 import mmap
 import os
 import os.path
+import signal
 import operator
 from datetime import datetime
 import logging
@@ -171,6 +172,10 @@ class Dataset(object):
     cached_latest = None
 
     @classmethod
+    def prune_latest(cls, signum, stack_frame):
+        cls.cached_latest = None
+
+    @classmethod
     def open_latest(cls, directory=DEFAULT_DIRECTORY, persistent=False):
         """
         Find the most recent datset in `directory`, and open it
@@ -191,11 +196,18 @@ class Dataset(object):
                 cached.directory == directory
 
         if valid:
-           return cls.cached_latest
+            if persistent:
+                # Refresh countdown
+                signal.alarm(60)
+
+            return cls.cached_latest
         else:
             ds = Dataset(latest, directory=directory)
 
             if persistent:
+                # Start the countdown
+                signal.alarm(60)
+                signal.signal(signal.SIGALRM, cls.prune_latest)
                 # note, this creates a ref cycle.
                 cls.cached_latest = ds
 
