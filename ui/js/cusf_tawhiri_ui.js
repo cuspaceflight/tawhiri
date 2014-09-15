@@ -1,9 +1,10 @@
 // Global static objects
 requestStatus = {
+    NOT_STARTED: 0,
     RUNNING: 1,
-    FAILED: 0,
-    FAILED_SHOULD_RERUN: 2,
-    FINISHED: 3
+    FAILED: 2,
+    FAILED_SHOULD_RERUN: 3,
+    FINISHED: 4
 };
 
 MapObjects = {
@@ -138,141 +139,56 @@ function feetToMeters(feet) {
 }
 
 // Global objects
-function Request() {
+// A request is a single request to the server for a path; a new Path is created
+// and plotted once a request has completed. We keep the launch time on the
+// Request since we need to refer to it later (the launch time inside reqParams
+// has been mangled).
+function Request(reqParams, launchtime, callback) {
     var _this = this;
-    //this.base_url = 'http://predict.habhub.org/';
-    this.base_url = '';
+    this.api_url = '/v1/';
     this.statusPollInterval = 1000; //ms
     this.statusCheckTimeout = 15000; //ms
-    this.status = requestStatus.RUNNING;
+    this.status = requestStatus.NOT_STARTED;
     this.numberOfReruns = 0;
     this.maxNumberOfReruns = 3;
     this.statusCheckFailCount = 0;
     this.maxStatusCheckFails = 2;
-    this.data = null;
-    this.launchtime = null; // epoch
-    this.callback = null;
-    this.CSVData = null;
+    this.reqParams = reqParams;
+    this.launchtime = launchtime;
+    this.callback = callback;
+    this.predData = null;
     this.checkStatusAjaxSettings = null;
     this.rerun = function() {
         this.checkStatusAjaxSettings = null;
         this.status = requestStatus.RUNNING;
         this.submit();
     };
-    this.submit = function(data, launchtime, callback) {
-        _this.data = (data === undefined ? this.data : data);
-        _this.launchtime = (launchtime === undefined ? this.launchtime : launchtime);
-        _this.callback = (callback === undefined ? this.callback : callback);
+    this.submit = function() {
         $.ajax({
-            data: data,
+            data: this.reqParams,
             cache: false,
-            url: this.base_url + 'ajax.php?action=submitForm',
-            type: 'POST',
+            url: this.api_url,
+            type: 'GET',
             dataType: 'json',
             error: function(xhr, status, error) {
-                notifications.alert('Sending form data failed. Rerunning.; ' + status + '; ' + error);
-                console.log('sending form data failed. Rerunning.; ' + status + '; ' + error, xhr);
+                notifications.alert('Prediction error: ' + status + ' ' + error);
+                console.log('Prediction error: ' + status + ' ' + error, xhr);
                 _this.status = requestStatus.FAILED_SHOULD_RERUN;
                 _this.callback(_this);
             },
             success: function(data) {
-                //console.log(data);
-                if (data.valid === 'false') {
-                    notifications.error('Error submitting prediction form, some of the submitted data appeared invalid. Aborting.;' + data.error);
-                    _this.status = requestStatus.FAILED;
-                    _this.callback(_this);
-                } else if (data.valid === 'true') {
-                    _this.uuid = data.uuid;
-                    //console.log('Prediction form submitted with uuid ' + _this.uuid);
-                    _this.isBackendWorking = true;
-                    _this.setStatusCheck();
-                } else {
-                    notifications.alert('Error submitting prediction form, invalid data.valid. Rerunning.');
-                    console.log('Error submitting prediction form, invalid data.valid. Rerunning.');
-                    _this.status = requestStatus.FAILED_SHOULD_RERUN;
-                    _this.callback(_this);
-                }
-            }
-        });
-    };
-    this.setStatusCheck = function() {
-        window.setTimeout(function() {
-            _this.checkStatus();
-        }, _this.statusPollInterval);
-    };
-    this.checkStatus = function() {
-        // cache settings
-        if (_this.checkStatusAjaxSettings === null) {
-            _this.checkStatusAjaxSettings = {
-                url: _this.base_url + 'preds/' + _this.uuid + '/progress.json',
-                cache: false,
-                dataType: 'json',
-                timeout: _this.statusCheckTimeout,
-                error: function(xhr, status, error) {
-                    if (_this.statusCheckFailCount <= _this.maxStatusCheckFails) {
-                        _this.statusCheckFailCount++;
-                        if (status === 'timeout') {
-
-                            notifications.alert('Status update failed, timeout (>5s). Rerunning.');
-                            console.log('Status update failed, timeout (>5s). Rerunning.');
-                            _this.setStatusCheck();
-                        } else {
-                            notifications.alert('Status update failed. Rerunning.; ' + status + '; ' + error);
-                            console.log('Status update failed. Rerunning.; ' + status + '; ' + error);
-                            _this.setStatusCheck();
-                        }
-                    } else {
-                        notifications.error('Status update failed, maximum number of attempts reached. Aborting.');
-                        console.log('Status update failed, maximum number of attempts reached. Aborting.');
-                        _this.status = requestStatus.FAILED_SHOULD_RERUN;
-                        _this.callback(_this);
-                    }
-
-                },
-                success: function(data) {
-                    if (data.pred_complete === false) {
-                        if (data.pred_running === false) {
-                            notifications.alert('Error: predictor not finished but not running. Rerunning.');
-                            console.log('Error: predictor not finished but not running');
-                            _this.status = requestStatus.FAILED_SHOULD_RERUN;
-                            _this.callback(_this);
-                        } else {
-                            _this.setStatusCheck();
-                        }
-                    } else if (data.pred_complete === true) {
-                        _this.getCSVData();
-                    } else {
-                        notifications.alert('Error: predictor status neither true or false. Rerunning.; ' + data.pred_complete);
-                        console.log('Error: predictor status invalid');
-                        _this.status = requestStatus.FAILED_SHOULD_RERUN;
-                        _this.callback(_this);
-                    }
-                }
-            };
-        }
-        $.ajax(this.checkStatusAjaxSettings);
-    };
-    this.getCSVData = function() {
-        $.get(_this.base_url + 'ajax.php', {action: 'getCSV', uuid: _this.uuid}, function(data) {
-            if (data !== null) {
-                //console.log('Got CSV data from server');
-                _this.CSVData = data;
+                _this.predData = data.prediction;
                 _this.status = requestStatus.FINISHED;
                 _this.callback(_this);
-            } else {
-                notifications.alert('Error: no CSV data actually returned. Rerunning.');
-                console.log('Error: no CSV data actually returned. Rerunning.');
-                _this.status = requestStatus.FAILED_SHOULD_RERUN;
-                _this.callback(_this);
             }
-        }, 'json');
+        });
     };
 }
 
 function Path(request) {
     var _this = this;
 
-    this.CSVData = request.CSVData;
+    this.predData = request.predData;
     this.launchTime = request.launchtime;
     this.pathCollection = [];
     this.polyCenter = null;
@@ -291,68 +207,53 @@ function Path(request) {
         var path = poly.getPath();
         var pathw = polyw.getPath();
         _this.pathCollection = [poly, polyw];
-        var time;
-        var lat;
-        var lng;
-        var alt;
-        var latlng;
-        var burst_time;
-        var burst_lat;
-        var burst_lng;
-        var burst_alt = -10;
-        var burst_latlng;
-        $.each(_this.CSVData, function(key, val) {
-            // each location, time string
-            var results = val.split(',');
-            if (results.length === 4) {
-                time = new Date(parseInt(results[0]) * 1000); // convert to ms
-                lat = parseFloat(results[1]);
-                lng = parseFloat(results[2]);
-                alt = parseFloat(results[3]);
-                //console.log("time: ", time, "; lat: ", lat, "; long: ", lng, "; alt: ", alt);
-                latlng = new google.maps.LatLng(lat, lng);
+        var stages = {};
+
+        $.each(_this.predData, function(key, stage) {
+            stages[stage.stage] = stage;
+
+            $.each(stage.trajectory, function(key, point) {
+                var time = new Date(point.datetime);
+                var latlng = new google.maps.LatLng(point.latitude, point.longitude);
                 path.push(latlng);
                 pathw.push(latlng);
                 // add location to map bounds ready for recenter
                 map.addMapBound(latlng);
-
-                if (key === 0) {
-                    // launch position
-                    var marker = new google.maps.Marker({
-                        position: latlng,
-                        icon: MapObjects.upArrow,
-                        map: map.map,
-                        title: 'Launch position'
-                    });
-                    _this.pathCollection.push(marker);
-                }
-                if (alt > burst_alt) {
-                    burst_time = time;
-                    burst_lat = lat;
-                    burst_lng = lng;
-                    burst_alt = alt;
-                    burst_latlng = latlng;
-                }
-            }
+            });
         });
-        var marker = new google.maps.Marker({
-            position: latlng,
+
+        _this.polyCenter = poly;
+        _this.polyOverlay = polyw;
+
+        var ascent = stages["ascent"].trajectory;
+        var launch = ascent[0];
+        var burst = ascent[ascent.length - 1];
+        var descent = stages["descent"].trajectory;
+        var landing = descent[descent.length - 1];
+
+        _this.pathCollection.push(new google.maps.Marker({
+            position: new google.maps.LatLng(launch.latitude, launch.longitude),
+            icon: MapObjects.upArrow,
+            map: map.map,
+            title: 'Launch position'
+        }));
+
+        _this.pathCollection.push(new google.maps.Marker({
+            position: new google.maps.LatLng(landing.latitude, landing.longitude),
             icon: MapObjects.landCircle,
             map: map.map,
             title: 'Landing position',
             visible: false
-        });
-        _this.pathCollection.push(marker);
-        var marker = new google.maps.Marker({
-            position: burst_latlng,
+        }));
+
+        _this.pathCollection.push(new google.maps.Marker({
+            position: new google.maps.LatLng(burst.latitude, burst.longitude),
             icon: MapObjects.burstCircle,
             map: map.map,
             title: 'Burst position',
             visible: false
-        });
-        _this.pathCollection.push(marker);
-        _this.polyCenter = poly;
-        _this.polyOverlay = polyw;
+        }));
+
         return true;
     };
 
@@ -378,9 +279,11 @@ function Path(request) {
     return this;
 }
 
-function Prediction(predictionData) {
+// A prediction is a collection of "requests": there may be multiple requests for one
+// prediction if the user has asked for multiple "hourly" predictions.
+function Prediction(predData) {
     var _this = this;
-    this.predictionData = predictionData;
+    this.predData = predictionData;
     this.requests = [];
     this.paths = {}; // time value: path
     this.selectedPathLaunchtime = null;
@@ -393,7 +296,7 @@ function Prediction(predictionData) {
         _this.progressBar.makeAnimated();
     };
 
-    this.onRequestFinish = function(request) {
+    this.onRequestUpdate = function(request) {
         switch (request.status) {
             case requestStatus.FINISHED:
                 // success, make a path
@@ -402,6 +305,7 @@ function Prediction(predictionData) {
                 map.hourlySlider.registerTime(request.launchtime);
                 break;
             case requestStatus.FAILED_SHOULD_RERUN:
+                console.log("FAILED SHOULD RERUN");
                 if (request.numberOfReruns <= request.maxNumberOfReruns) {
                     notifications.alert('Request rerunning', 1500);
                     request.rerun();
@@ -428,12 +332,12 @@ function Prediction(predictionData) {
         }
 
     };
-    this.addDataset = function(formData, launchTime) {
+    this.addRequest = function(predData, launchTime) {
         var request = new Request();
         _this.requests.push(request);
         _this.runningRequests++;
         _this.totalResponsesExpected++;
-        request.submit(formData, launchTime, _this.onRequestFinish);
+        request.submit(predData, launchTime, _this.onRequestUpdate);
     };
 
     this.dimAllPaths = function() {
@@ -833,9 +737,6 @@ function Form($wrapper) {
     this.open = this.slidingPanel.open;
     this.close = this.slidingPanel.close;
     this.toggle = this.slidingPanel.toggle;
-    this.input_launch_day = $('#inputLaunchDay');
-    this.input_launch_month = $('#inputLaunchMonth');
-    this.input_launch_year = $('#inputLaunchYear');
     this.input_launch_hour = $('#inputLaunchHour');
     this.input_launch_minute = $('#inputLaunchMinute');
     this.maxPredictionHours = 180; // latest prediction available
@@ -843,6 +744,7 @@ function Form($wrapper) {
     this.currentDate = null;
     this.maxPrediction = null;
     this.minPrediction = null;
+    this.selectedLaunchDate = null;
     this.calculateDates = function() {
         var date = new Date();
         _this.currentDate = ceilMinute(date, 5);
@@ -853,11 +755,18 @@ function Form($wrapper) {
     this.isValidTime = function(date) {
         return date >= _this.minPrediction && date >= _this.maxPrediction;
     };
+    this.getSelectedLaunchDatetime = function () {
+        var dt = new Date(this._selectedLaunchDate.getTime());
+        dt.setHours($('#inputLaunchHour').val());
+        dt.setMinutes($('#inputLaunchMinute').val());
+    };
+    this.showLaunchDatetimeUTCPreview = function () {
+        var dt = this.getSelectedLaunchDatetime();
+        $("#launchDatetimeUTCPreview").text(dt.toISOString());
+    };
     this._validateMinutesHourly = function() {
-        var $date = $('#dateTimePicker').datetimepicker('getDate');
-        var selectedTime = new Date($date.val());
-        selectedTime.setHours($('#inputLaunchHour option:selected').val());
-        selectedTime.setMinutes($('#inputLaunchMinute option:selected').val());
+        var $date = uhis._$('#dateTimePicker').datetimepicker('getDate');
+        var selectedTime = _this.getSelectedDatetime();
         $('#inputLaunchMinute option').removeAttr('disabled');
         var $selectedHour = $('#inputLaunchHour option:selected');
         if (selectedTime.toDateString() === _this.minPrediction.toDateString()
@@ -922,16 +831,16 @@ function Form($wrapper) {
             // add an option for the latest permissible hourly prediction
             $('#hourly option:not(:disabled)').last().after('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
         }
+
+        this.showLaunchDatetimeUTCPreview();
     };
     this.setUpDatePicker = function() {
         var onSelectDate = function(dateTime) {
-            $("input[name='day']").val(dateTime.getDate());
-            $("input[name='month']").val(dateTime.getMonth() + 1);
-            $("input[name='year']").val(dateTime.getFullYear());
             $('#displayLaunchDate').html(dateTime.getDate() + ' '
                     + months[dateTime.getMonth()] + ' '
                     + dateTime.getFullYear());
             $('#dateTimePicker-wrapper').collapse('hide');
+            _this.selectedLaunchDate = dateTime;
             // sort out time pickers
             var currentDateString = dateTime.toDateString();
             if (currentDateString === _this.minPrediction.toDateString()) {
@@ -1005,15 +914,15 @@ function Form($wrapper) {
         var prediction = new Prediction();
         map.addPrediction(prediction);
         for (var h = 0; h < formData.hourly; h++) { // < so that we don't add additional hours
-            var predictionData = $.extend({}, formData);
+            var predData = $.extend({}, formData);
             var d = new Date(runTime.getTime() + (h * 60 * 60 * 1000)); // add h hours
-            predictionData.year = d.getFullYear();
-            predictionData.month = d.getMonth();
-            predictionData.day = d.getDate();
-            predictionData.hour = padTwoDigits(d.getHours());
-            predictionData.min = padTwoDigits(d.getMinutes());
-            //console.log($.param(predictionData));
-            prediction.addDataset(predictionData, d.getTime());
+            predData.year = d.getFullYear();
+            predData.month = d.getMonth();
+            predData.day = d.getDate();
+            predData.hour = padTwoDigits(d.getHours());
+            predData.min = padTwoDigits(d.getMinutes());
+            //console.log($.param(predData));
+            prediction.addRequest(predData, d.getTime());
         }
         _this.close();
     };
@@ -1052,19 +961,21 @@ function Form($wrapper) {
     };
     this.submit = function() {
         var formData = _this.serializeToObject();
-        // convert to standard units (m, m/s)
-        console.log('unit conversion: ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
-        formData.initial_alt = _this.convertUnits(formData.initial_alt, formData.unitLaunchAltitude);
-        formData.ascent = _this.convertUnits(formData.ascent, formData.unitLaunchAscentRate);
-        formData.burst = _this.convertUnits(formData.burst, formData.unitLaunchBurstAlt);
-        formData.drag = _this.convertUnits(formData.drag, formData.unitLaunchDescentRate);
-        console.log('converted to   : ', formData.initial_alt, formData.ascent, formData.burst, formData.drag);
-        // remove unrequired fields
-        delete formData.unitLaunchAltitude;
-        delete formData.unitLaunchAscentRate;
-        delete formData.unitLaunchBurstAlt;
-        delete formData.unitLaunchDescentRate;
-        _this.predict(formData);
+        var reqParams = {};
+
+        reqParams.launch_datetime = _this.getSelectedDatetime().toISOString();
+        this.showLaunchDatetimeUTCPreview();
+
+        reqParams.profile = "standard_profile";
+        reqParams.launch_latitude  = formData.launch_latitude;
+        reqParams.launch_longitude = formData.launch_longitude;
+        reqParams.launch_altitude  = _this.convertUnits(formData.launch_altitude, formData.unitLaunchAltitude);
+
+        reqParams.ascent_rate     = _this.convertUnits(formData.ascent_rate,     formData.unitLaunchAscentRate);
+        reqParams.burst_altitude  = _this.convertUnits(formData.burst_altitude,  formData.unitLaunchBurstAlt);
+        reqParams.descent_rate    = _this.convertUnits(formData.descent_rate,    formData.unitLaunchDescentRate);
+
+        _this.predict(reqParams);
     };
     this.convertUnits = function(value, fromUnits) {
         switch (fromUnits) {

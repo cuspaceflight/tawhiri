@@ -45,7 +45,6 @@
           </div><!-- /.row -->
           <form class="form-horizontal" id="prediction-form" role="form">
             <input type="hidden" name="launchsite" value="Other"/>
-            <input type="hidden" name="second" value="0"/>
             <input type="hidden" name="submit" value="Run Prediction"/>
             <h4>Launch parameters 
               <small class="text-right">
@@ -60,20 +59,20 @@
             <div class="form-group">
               <label for="inputLaunchLat" class="col-sm-3 control-label">Lat</label>
               <div class="col-sm-9">
-                <input type="number" step="any" class="form-control" id="inputLaunchLat" name="lat" placeholder="" required="required">
+                <input type="number" step="any" class="form-control" id="inputLaunchLat" name="launch_latitude" placeholder="" required="required">
               </div>
             </div>
             <div class="form-group">
               <label for="inputLaunchLong" class="col-sm-3 control-label">Long</label>
               <div class="col-sm-9">
-                <input type="number" step="any" class="form-control" id="inputLaunchLong" name="lon" placeholder="" required="required">
+                <input type="number" step="any" class="form-control" id="inputLaunchLong" name="launch_longitude" placeholder="" required="required">
               </div>
             </div>
             <div class="form-group ">
               <label for="inputLaunchAltitude" class="col-sm-3 control-label">Altitude</label>
               <div class="col-sm-9">
                 <div class="input-group">
-                  <input type="number" step="any" class="form-control" id="inputLaunchAltitude" name="initial_alt" value="0" placeholder="" required="required">
+                  <input type="number" step="any" class="form-control" id="inputLaunchAltitude" name="launch_altitude" value="0" placeholder="" required="required">
                   <div class="input-group-btn unit-selection">       
                     <input type="hidden" name="unitLaunchAltitude" value="m"/>
                     <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span id="unit-current-LaunchAltitude" class="unit-current">m</span> <span class="caret"></span></button>
@@ -93,17 +92,13 @@
               <div id="dateTimePicker-wrapper" class="col-sm-12 collapse in">
                 <input id="dateTimePicker"/>
               </div>
-              <input type="hidden" name="day"/>
-              <input type="hidden" name="month"/>
-              <input type="hidden" name="year"/>
-
             </div>
             <div class="form-group">
               <label for="inputLaunchHour" class="col-sm-3 control-label">Time</label>
               <div class="col-sm-9">
                 <div class="row">
                   <div class="col-sm-6">
-                    <select id="inputLaunchHour" name="hour" class="form-control" required="required">
+                    <select id="inputLaunchHour" name="launch_datetime_hour" class="form-control" required="required">
                       <option value="00">00</option>
                       <option value="01">01</option>
                       <option value="02">02</option>
@@ -131,7 +126,7 @@
                     </select>
                   </div>
                   <div class="col-sm-6">
-                    <select id="inputLaunchMinute" name="min" class="form-control" required="required">
+                    <select id="inputLaunchMinute" name="launch_datetime_min" class="form-control" required="required">
                       <option value="00">00</option>
                       <option value="05">05</option>
                       <option value="10">10</option>
@@ -149,13 +144,17 @@
                 </div>
               </div>
             </div>
+            <div class="form-group">
+              <div class="col-sm-9"></div>
+              <div id="launchDatetimeUTCPreview"></div>
+            </div>
 
             <h4>In flight parameters</h4>
             <div class="form-group ">
               <label for="inputLaunchAscentRate" class="col-sm-6 control-label">Ascent Rate</label>
               <div class="col-sm-6">
                 <div class="input-group">
-                  <input type="number" step="1" min="0" class="form-control" id="inputLaunchAscentRate" name="ascent" value="5" placeholder="" required="required">
+                  <input type="number" step="1" min="0" class="form-control" id="inputLaunchAscentRate" name="ascent_rate" value="5" placeholder="" required="required">
                   <div class="input-group-btn unit-selection">         
                     <input type="hidden" name="unitLaunchAscentRate" value="m/s"/>
                     <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m/s</span> <span class="caret"></span></button>
@@ -171,7 +170,7 @@
               <label for="inputLaunchBurstAlt" class="col-sm-5 control-label">Burst Alt</label>
               <div class="col-sm-7">
                 <div class="input-group">
-                  <input type="number" step="100" class="form-control" id="inputLaunchBurstAlt" name="burst" value="3000" placeholder="" required="required">
+                  <input type="number" step="100" class="form-control" id="inputLaunchBurstAlt" name="burst_altitude" value="30000" placeholder="" required="required">
                   <div class="input-group-btn unit-selection">    
                     <input type="hidden" name="unitLaunchBurstAlt" value="m"/>
                     <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m</span> <span class="caret"></span></button>
@@ -187,7 +186,7 @@
               <label for="inputLaunchDescentRate" class="col-sm-6 control-label">Descent Rate</label>
               <div class="col-sm-6">
                 <div class="input-group">
-                  <input type="number" step="1" min="0" class="form-control" id="inputLaunchDescentRate" name="drag" value="5" placeholder="" required="required">
+                  <input type="number" step="1" min="0" class="form-control" id="inputLaunchDescentRate" name="descent_rate" value="5" placeholder="" required="required">
                   <div class="input-group-btn unit-selection">  
                     <input type="hidden" name="unitLaunchDescentRate" value="m/s"/>
                     <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span class="unit-current">m/s</span> <span class="caret"></span></button>
