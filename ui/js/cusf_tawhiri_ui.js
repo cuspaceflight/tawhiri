@@ -145,7 +145,7 @@ function feetToMeters(feet) {
 // has been mangled).
 function Request(reqParams, launchtime, callback) {
     var _this = this;
-    this.api_url = '/v1/';
+    this.api_url = '/api/v1/';
     this.statusPollInterval = 1000; //ms
     this.statusCheckTimeout = 15000; //ms
     this.status = requestStatus.NOT_STARTED;
@@ -159,20 +159,22 @@ function Request(reqParams, launchtime, callback) {
     this.predData = null;
     this.checkStatusAjaxSettings = null;
     this.rerun = function() {
+        this.numberOfReruns++;
         this.checkStatusAjaxSettings = null;
         this.status = requestStatus.RUNNING;
         this.submit();
     };
     this.submit = function() {
         $.ajax({
-            data: this.reqParams,
+            data: _this.reqParams,
             cache: false,
-            url: this.api_url,
+            url: _this.api_url,
             type: 'GET',
             dataType: 'json',
             error: function(xhr, status, error) {
-                notifications.alert('Prediction error: ' + status + ' ' + error);
-                console.log('Prediction error: ' + status + ' ' + error, xhr);
+                var py_error = xhr.responseJSON.error;
+                notifications.alert('Prediction error: ' + py_error.type + ' ' + py_error.description);
+                console.log('Prediction error: ' + status + ' ' + error + ' ' + py_error.type + ' ' + py_error.description);
                 _this.status = requestStatus.FAILED_SHOULD_RERUN;
                 _this.callback(_this);
             },
@@ -283,7 +285,7 @@ function Path(request) {
 // prediction if the user has asked for multiple "hourly" predictions.
 function Prediction(predData) {
     var _this = this;
-    this.predData = predictionData;
+    this.predData = predData;
     this.requests = [];
     this.paths = {}; // time value: path
     this.selectedPathLaunchtime = null;
@@ -333,11 +335,11 @@ function Prediction(predData) {
 
     };
     this.addRequest = function(predData, launchTime) {
-        var request = new Request();
+        var request = new Request(predData, launchTime, _this.onRequestUpdate);
         _this.requests.push(request);
         _this.runningRequests++;
         _this.totalResponsesExpected++;
-        request.submit(predData, launchTime, _this.onRequestUpdate);
+        request.submit();
     };
 
     this.dimAllPaths = function() {
@@ -748,6 +750,7 @@ function Form($wrapper) {
     this.calculateDates = function() {
         var date = new Date();
         _this.currentDate = ceilMinute(date, 5);
+        _this.selectedLaunchDate = new Date(_this.currentDate.getTime());
         _this.minPrediction = new Date(_this.currentDate.getTime() - this.minPredictionHours * 1000 * 60 * 60);
         _this.maxPrediction = floorMinute(new Date(date.getTime() + this.maxPredictionHours * 1000 * 60 * 60), 5);
         //console.log(_this.maxPrediction);
@@ -756,17 +759,17 @@ function Form($wrapper) {
         return date >= _this.minPrediction && date >= _this.maxPrediction;
     };
     this.getSelectedLaunchDatetime = function () {
-        var dt = new Date(this._selectedLaunchDate.getTime());
+        var dt = new Date(_this.selectedLaunchDate.getTime());
         dt.setHours($('#inputLaunchHour').val());
         dt.setMinutes($('#inputLaunchMinute').val());
+        return dt;
     };
     this.showLaunchDatetimeUTCPreview = function () {
-        var dt = this.getSelectedLaunchDatetime();
+        var dt = _this.getSelectedLaunchDatetime();
         $("#launchDatetimeUTCPreview").text(dt.toISOString());
     };
     this._validateMinutesHourly = function() {
-        var $date = uhis._$('#dateTimePicker').datetimepicker('getDate');
-        var selectedTime = _this.getSelectedDatetime();
+        var selectedTime = _this.getSelectedLaunchDatetime();
         $('#inputLaunchMinute option').removeAttr('disabled');
         var $selectedHour = $('#inputLaunchHour option:selected');
         if (selectedTime.toDateString() === _this.minPrediction.toDateString()
@@ -832,7 +835,7 @@ function Form($wrapper) {
             $('#hourly option:not(:disabled)').last().after('<option class="dynamicallyInsertedMaxValue" value="' + maxHourlyPrediction + '">' + maxHourlyPrediction + '</option>');
         }
 
-        this.showLaunchDatetimeUTCPreview();
+        _this.showLaunchDatetimeUTCPreview();
     };
     this.setUpDatePicker = function() {
         var onSelectDate = function(dateTime) {
@@ -898,30 +901,16 @@ function Form($wrapper) {
             $('#dateTimePicker-wrapper').collapse('toggle');
         });
     };
-    this.predict = function(formData) {
+    this.predict = function(predData, launchDatetime, hourly) {
         map.reset();
         notifications.closeAllNotifications();
-        //console.log(formData);
-        var runTime = new Date(
-                formData.year,
-                formData.month,
-                formData.day,
-                formData.hour,
-                formData.min,
-                formData.second,
-                0 // ms
-                );
+
         var prediction = new Prediction();
         map.addPrediction(prediction);
-        for (var h = 0; h < formData.hourly; h++) { // < so that we don't add additional hours
-            var predData = $.extend({}, formData);
-            var d = new Date(runTime.getTime() + (h * 60 * 60 * 1000)); // add h hours
-            predData.year = d.getFullYear();
-            predData.month = d.getMonth();
-            predData.day = d.getDate();
-            predData.hour = padTwoDigits(d.getHours());
-            predData.min = padTwoDigits(d.getMinutes());
-            //console.log($.param(predData));
+        for (var h = 0; h < hourly; h++) { // < so that we don't add additional hours
+            var predData = $.extend({}, predData);
+            var d = new Date(launchDatetime.getTime() + (h * 60 * 60 * 1000)); // add h hours
+            predData.launch_datetime = d.toISOString();
             prediction.addRequest(predData, d.getTime());
         }
         _this.close();
@@ -963,19 +952,22 @@ function Form($wrapper) {
         var formData = _this.serializeToObject();
         var reqParams = {};
 
-        reqParams.launch_datetime = _this.getSelectedDatetime().toISOString();
         this.showLaunchDatetimeUTCPreview();
 
         reqParams.profile = "standard_profile";
         reqParams.launch_latitude  = formData.launch_latitude;
-        reqParams.launch_longitude = formData.launch_longitude;
+        reqParams.launch_longitude = _this.wrapLongitude(formData.launch_longitude);
         reqParams.launch_altitude  = _this.convertUnits(formData.launch_altitude, formData.unitLaunchAltitude);
 
         reqParams.ascent_rate     = _this.convertUnits(formData.ascent_rate,     formData.unitLaunchAscentRate);
         reqParams.burst_altitude  = _this.convertUnits(formData.burst_altitude,  formData.unitLaunchBurstAlt);
         reqParams.descent_rate    = _this.convertUnits(formData.descent_rate,    formData.unitLaunchDescentRate);
-
-        _this.predict(reqParams);
+     
+        _this.predict(reqParams, _this.getSelectedLaunchDatetime(), formData.hourly);
+    };
+    this.wrapLongitude = function(lon) {
+        lon %= 360.0;
+        return (lon < 0 ? lon + 360 : lon);
     };
     this.convertUnits = function(value, fromUnits) {
         switch (fromUnits) {
