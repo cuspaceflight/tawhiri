@@ -3,7 +3,6 @@ requestStatus = {
     NOT_STARTED: 0,
     RUNNING: 1,
     FAILED: 2,
-    FAILED_SHOULD_RERUN: 3,
     FINISHED: 4
 };
 
@@ -149,8 +148,6 @@ function Request(reqParams, launchtime, callback) {
     this.statusPollInterval = 1000; //ms
     this.statusCheckTimeout = 15000; //ms
     this.status = requestStatus.NOT_STARTED;
-    this.numberOfReruns = 0;
-    this.maxNumberOfReruns = 3;
     this.statusCheckFailCount = 0;
     this.maxStatusCheckFails = 2;
     this.reqParams = reqParams;
@@ -158,12 +155,6 @@ function Request(reqParams, launchtime, callback) {
     this.callback = callback;
     this.predData = null;
     this.checkStatusAjaxSettings = null;
-    this.rerun = function() {
-        this.numberOfReruns++;
-        this.checkStatusAjaxSettings = null;
-        this.status = requestStatus.RUNNING;
-        this.submit();
-    };
     this.submit = function() {
         $.ajax({
             data: _this.reqParams,
@@ -175,7 +166,7 @@ function Request(reqParams, launchtime, callback) {
                 var py_error = xhr.responseJSON.error;
                 notifications.alert('Prediction error: ' + py_error.type + ' ' + py_error.description);
                 console.log('Prediction error: ' + status + ' ' + error + ' ' + py_error.type + ' ' + py_error.description);
-                _this.status = requestStatus.FAILED_SHOULD_RERUN;
+                _this.status = requestStatus.FAILED;
                 _this.callback(_this);
             },
             success: function(data) {
@@ -306,14 +297,6 @@ function Prediction(predData) {
                 _this.paths[request.launchtime] = new Path(request);
                 map.hourlySlider.registerTime(request.launchtime);
                 break;
-            case requestStatus.FAILED_SHOULD_RERUN:
-                console.log("FAILED SHOULD RERUN");
-                if (request.numberOfReruns <= request.maxNumberOfReruns) {
-                    notifications.alert('Request rerunning', 1500);
-                    request.rerun();
-                    break;
-                }
-                // else...
             case requestStatus.FAILED:
                 notifications.error('Request failed.');
                 _this.runningRequests--;
