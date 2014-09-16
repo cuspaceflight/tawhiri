@@ -1,6 +1,21 @@
 import sys
-from setuptools import setup
-from Cython.Build import cythonize
+import os
+import fnmatch
+from setuptools import setup, Extension
+
+try:
+     from Cython.Build import cythonize
+     cython_present = True
+except ImportError:
+     cython_present = False
+
+if cython_present:
+    ext_modules = cythonize("tawhiri/*.pyx")
+else:
+    files = fnmatch.filter(os.listdir("tawhiri"), "*.c")
+    submodules = [n[:-2] for n in files]
+    ext_modules = [Extension('tawhiri.' + sm, ['tawhiri/' + sm + '.c'])
+                   for sm in submodules]
 
 try:
     import pypandoc
@@ -32,8 +47,9 @@ setup(
     author_email='contact@cusf.co.uk',
     packages=['tawhiri'],
     package_data={"tawhiri": ["template.kml"]},
+    zip_safe=False,
     entry_points=entry_points,
-    ext_modules = cythonize("tawhiri/*.pyx"),
+    ext_modules=ext_modules,
     url='http://www.cusf.co.uk/wiki/tawhiri:start',
     license='GPLv3+',
     description='High Altitude Balloon Landing Prediction Software',
