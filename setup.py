@@ -31,6 +31,7 @@ setup(
     author='Cambridge University Spaceflight',
     author_email='contact@cusf.co.uk',
     packages=['tawhiri'],
+    package_data={"tawhiri": ["template.kml"]},
     entry_points=entry_points,
     ext_modules = cythonize("tawhiri/*.pyx"),
     url='http://www.cusf.co.uk/wiki/tawhiri:start',
