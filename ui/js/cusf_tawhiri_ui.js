@@ -687,8 +687,6 @@ function Map($wrapper) {
         try {
             var date = new Date(launchtime);
             var path = _this.predictions[0].paths[launchtime].polyCenter.getPath(); // this should probably be abstracted slightly
-            date = new Date(date.getTime());
-            date.setMonth(date.getMonth() - 1); // -1 because we have to add 1 for the old api
             var len = path.getLength();
             var launch_latlng = path.getAt(0);
             var landing_latlng = path.getAt(len - 1);
@@ -729,7 +727,7 @@ function Form($wrapper) {
     this.currentDate = null;
     this.maxPrediction = null;
     this.minPrediction = null;
-    this.selectedLaunchDate = null;
+    this.selectedLaunchDate = null; // will have hours=minutes=seconds=millseconds=0
     this.calculateDates = function() {
         var date = new Date();
         _this.currentDate = ceilMinute(date, 5);
@@ -826,7 +824,14 @@ function Form($wrapper) {
                     + months[dateTime.getMonth()] + ' '
                     + dateTime.getFullYear());
             $('#dateTimePicker-wrapper').collapse('hide');
-            _this.selectedLaunchDate = dateTime;
+
+            var dt = new Date(dateTime.getTime());
+            dt.setHours(0);
+            dt.setMinutes(0);
+            dt.setSeconds(0);
+            dt.setMilliseconds(0);
+            _this.selectedLaunchDate = dt;
+
             // sort out time pickers
             var currentDateString = dateTime.toDateString();
             if (currentDateString === _this.minPrediction.toDateString()) {
@@ -903,6 +908,7 @@ function Form($wrapper) {
         var mins = padTwoDigits(_this.currentDate.getMinutes());
         $('#inputLaunchHour option[value=' + hrs + ']').prop('selected', true);
         $('#inputLaunchMinute option[value=' + mins + ']').prop('selected', true);
+        _this.showLaunchDatetimeUTCPreview();
     };
     this.setUpEventHandling = function() {
         // ajax submission
