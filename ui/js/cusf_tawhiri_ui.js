@@ -158,7 +158,6 @@ function Request(reqParams, launchtime, callback) {
     this.submit = function() {
         $.ajax({
             data: _this.reqParams,
-            cache: false,
             url: _this.api_url,
             type: 'GET',
             dataType: 'json',
