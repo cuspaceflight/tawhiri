@@ -56,6 +56,14 @@ cdef struct Lerp3:
     double lerp
 
 
+class RangeError(ValueError):
+    def __init__(self, variable, value):
+        self.variable = variable
+        self.value = value
+        s = "{0}={1}".format(variable, value)
+        super(RangeError, self).__init__(s)
+
+
 def make_interpolator(dataset):
     """
     Produce a function that can get wind data from `dataset`
@@ -111,7 +119,7 @@ cdef object get_wind(dataset ds,
     return u, v
 
 cdef long pick(double left, double step, long n, double value,
-               Lerp1[2] out) except -1:
+               object variable_name, Lerp1[2] out) except -1:
 
     cdef double a, l
     cdef long b
@@ -119,7 +127,7 @@ cdef long pick(double left, double step, long n, double value,
     a = (value - left) / step
     b = <long> a
     if b < 0 or b >= n - 1:
-        raise ValueError("Value out of range {0}".format(value))
+        raise RangeError(variable_name, value)
     l = a - b
 
     out[0] = Lerp1(b, 1 - l)
@@ -135,9 +143,9 @@ cdef long pick3(double hour, double lat, double lng, Lerp3[8] out) except -1:
     # However, the longitude does wrap around, so we tell `pick` that the
     # longitude axis is one larger than it is (so that it can "choose" the
     # 721st point/the 360 degrees point), then wrap it afterwards.
-    pick(0, 3, 65, hour, lhour)
-    pick(-90, 0.5, 361, lat, llat)
-    pick(0, 0.5, 720 + 1, lng, llng)
+    pick(0, 3, 65, hour, "hour", lhour)
+    pick(-90, 0.5, 361, lat, "lat", llat)
+    pick(0, 0.5, 720 + 1, lng, "lng", llng)
     if llng[1].index == 720:
         llng[1].index = 0
 
