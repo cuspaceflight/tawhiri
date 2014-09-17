@@ -1,0 +1,11 @@
+graft docs
+graft deploy
+graft ui
+
+include AUTHORS
+include LICENCE
+include README.md
+include requirements.txt
+
+include tawhiri/template.kml
+recursive-include tawhiri *.pyx
