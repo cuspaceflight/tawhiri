@@ -20,7 +20,7 @@ Contents:
 License & Authors
 =================
 
-Tawhiri is Copyright 2014 (see AUTHORS & individual files) and licensed under the `GNU GPL 3 <http://gplv3.fsf.org/>`_.
+Tawhiri is Copyright 2014 (see `AUTHORS <https://github.com/cuspaceflight/tawhiri/blob/master/AUTHORS>`_ & individual files) and licensed under the `GNU GPL 3 <http://gplv3.fsf.org/>`_.
 
 
 See also
