@@ -56,11 +56,27 @@ cdef Vector vecadd(Vector a, double k, Vector b):
 cdef double lerp(double a, double b, double l):
     return (1 - l) * a + l * b
 
+cdef double lnglerp(double a, double b, double l):
+    cdef double l2
+
+    l2 = 1 - l
+    if a > b:
+        a, b = b, a
+        l, l2 = l2, l
+
+    # distance round one way:  b - a
+    # distance around other:   (a + 360) - b
+    # (b - a < a - b + 360) = (b - a < 180)
+    if b - a < 180.0:
+        return l2 * a + l * b
+    else:
+        return (l2 * (a + 360) + l * b) % 360.0
+
 cdef Vector veclerp(Vector a, Vector b, double l):
     """(1 - l) * a + l * b"""
     cdef Vector r
     r.lat = lerp(a.lat, b.lat, l)
-    r.lng = lerp(a.lng, b.lng, l)
+    r.lng = lnglerp(a.lng, b.lng, l)
     r.alt = lerp(a.alt, b.alt, l)
     return r
 
