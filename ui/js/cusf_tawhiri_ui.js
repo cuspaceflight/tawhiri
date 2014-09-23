@@ -138,6 +138,7 @@ function feetToMeters(feet) {
 }
 
 // Global objects
+
 // A request is a single request to the server for a path; a new Path is created
 // and plotted once a request has completed. We keep the launch time on the
 // Request since we need to refer to it later (the launch time inside reqParams
@@ -148,13 +149,10 @@ function Request(reqParams, launchtime, callback) {
     this.statusPollInterval = 1000; //ms
     this.statusCheckTimeout = 15000; //ms
     this.status = requestStatus.NOT_STARTED;
-    this.statusCheckFailCount = 0;
-    this.maxStatusCheckFails = 2;
     this.reqParams = reqParams;
     this.launchtime = launchtime;
     this.callback = callback;
     this.predData = null;
-    this.checkStatusAjaxSettings = null;
     this.submit = function() {
         $.ajax({
             data: _this.reqParams,
