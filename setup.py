@@ -40,6 +40,11 @@ if PY2:
 else:
     entry_points = {}
 
+# Information on where to get non-PyPI packages
+dependency_links = [
+    'git+https://github.com/cuspaceflight/ruaumoko.git#egg=ruaumoko',
+]
+
 setup(
     name="Tawhiri",
     version=get_version(),
@@ -55,6 +60,7 @@ setup(
     description='High Altitude Balloon Landing Prediction Software',
     long_description=long_description,
     test_suite='nose.collector',
+    dependency_links=dependency_links,
     tests_require=['nose', 'mock'],
     install_requires=[
         "magicmemoryview",
