@@ -32,7 +32,6 @@ def main():
     if ui_dir is not None:
         @app.route('/<path:path>')
         def send_ui(path):
-            print('hello', path, ui_dir)
             return send_from_directory(ui_dir, path)
 
         @app.route('/')
