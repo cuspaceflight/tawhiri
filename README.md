@@ -20,8 +20,7 @@ Please see the [CUSF wiki](http://www.cusf.co.uk/wiki/), which contains pages
 on [Tawhiri](http://www.cusf.co.uk/wiki/tawhiri:start) and [prediction in
 general](http://www.cusf.co.uk/wiki/landing_predictor).
 
-[More detailed API and setup documentation](https://tawhiri.readthedocs.org/)
-may be found at Read the Docs.
+[More detailed API and setup documentation](http://tawhiri.cusf.co.uk/).
 
 ## Setup
 
