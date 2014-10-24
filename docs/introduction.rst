@@ -38,3 +38,22 @@ At the time of writing, pygrib head did not work (in contrast to an earlier vers
     $ source venv/bin/activate
     $ pip install numpy
     $ pip install pygrib==1.9.6 pyproj 'gevent<1.0'
+
+Web API
+~~~~~~~
+
+The web API may be run in a development web-server using the ``tawhiri-webapp``
+script. If necessary, you can use the ``TAWHIRI_SETTINGS`` environment variable
+to load configuration from a file:
+
+.. code:: bash
+
+    $ cat > devel-settings.txt <<EOL
+    ELEVATION_DATASET = '/path/to/ruaumoko-dataset'
+    WIND_DATASET_DIR = '/path/to/tawhiri-datasets'
+    EOL
+    $ tawhiri-webapp runserver -rd
+
+See the output of ``tawhiri-webapp -?`` and ``tawhiri-webapp runserver -?`` for
+more information.
+

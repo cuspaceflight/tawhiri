@@ -39,7 +39,8 @@ PROFILE_FLOAT = "float_profile"
 # Util functions ##############################################################
 def ruaumoko_ds():
     if not hasattr("ruaumoko_ds", "once"):
-        ruaumoko_ds.once = ElevationDataset()
+        ds_loc = app.config.get('ELEVATION_DATASET', ElevationDataset.default_location)
+        ruaumoko_ds.once = ElevationDataset(ds_loc)
 
     return ruaumoko_ds.once
 
@@ -197,12 +198,15 @@ def run_prediction(req):
         "prediction": [],
     }
 
+    # Find wind data location
+    app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
+
     # Dataset
     try:
         if req['dataset'] == LATEST_DATASET_KEYWORD:
-            tawhiri_ds = WindDataset.open_latest(persistent=True)
+            tawhiri_ds = WindDataset.open_latest(persistent=True, directory=ds_dir)
         else:
-            tawhiri_ds = WindDataset(datetime.fromtimestamp(req['dataset']))
+            tawhiri_ds = WindDataset(datetime.fromtimestamp(req['dataset']), directory=ds_dir)
     except IOError:
         raise InvalidDatasetException("No matching dataset found.")
     except ValueError as e:
