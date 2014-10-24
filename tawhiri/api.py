@@ -199,7 +199,7 @@ def run_prediction(req):
     }
 
     # Find wind data location
-    app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
+    ds_dir = app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
 
     # Dataset
     try:
