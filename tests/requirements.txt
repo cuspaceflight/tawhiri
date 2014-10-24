@@ -1,0 +1,5 @@
+# Requirements for tawhiri test suite
+
+# Running test suite
+nose
+coverage
