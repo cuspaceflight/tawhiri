@@ -1,5 +1,7 @@
 # T&#257;whirim&#257;tea
 
+[![Documentation Status](https://readthedocs.org/projects/tawhiri/badge/?version=latest)](https://readthedocs.org/projects/tawhiri/?badge=latest)
+
 ## Introduction
 
 Tawhiri is the name given to the next version of the CUSF Landing Prediction
@@ -17,6 +19,9 @@ god of weather, which rather aptly
 Please see the [CUSF wiki](http://www.cusf.co.uk/wiki/), which contains pages
 on [Tawhiri](http://www.cusf.co.uk/wiki/tawhiri:start) and [prediction in
 general](http://www.cusf.co.uk/wiki/landing_predictor).
+
+[More detailed API and setup documentation](https://tawhiri.readthedocs.org/)
+may be found at Read the Docs.
 
 ## Setup
 
