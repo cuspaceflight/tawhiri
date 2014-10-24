@@ -19,7 +19,7 @@ Command-line manager for API webapp
 
 """
 import os
-from flask import send_file, send_from_directory
+from flask import send_file, send_from_directory, redirect, url_for
 from flask.ext.script import Manager
 from .api import app
 manager = Manager(app)
@@ -30,12 +30,16 @@ def main():
 
     ui_dir = app.config.get('UI_DIR')
     if ui_dir is not None:
-        @app.route('/<path:path>')
+        @app.route('/ui/<path:path>')
         def send_ui(path):
             return send_from_directory(ui_dir, path)
 
-        @app.route('/')
+        @app.route('/ui/')
         def send_index():
             return send_file(os.path.join(ui_dir, 'index.html'))
+
+        @app.route('/')
+        def send_ui_redirect():
+            return redirect(url_for('send_index'))
 
     return manager.run()
