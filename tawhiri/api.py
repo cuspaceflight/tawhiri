@@ -39,10 +39,7 @@ PROFILE_FLOAT = "float_profile"
 # Util functions ##############################################################
 def ruaumoko_ds():
     if not hasattr("ruaumoko_ds", "once"):
-        try:
-            ds_loc = app.config['ELEVATION_DATASET']
-        except KeyError:
-            ds_loc = ElevationDataset.default_location
+        ds_loc = app.config.get('ELEVATION_DATASET', ElevationDataset.default_location)
         ruaumoko_ds.once = ElevationDataset(ds_loc)
 
     return ruaumoko_ds.once
@@ -202,10 +199,7 @@ def run_prediction(req):
     }
 
     # Find wind data location
-    try:
-        ds_dir = app.config['WIND_DATASET_DIR']
-    except KeyError:
-        ds_dir = WindDataset.DEFAULT_DIRECTORY
+    app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
 
     # Dataset
     try:
