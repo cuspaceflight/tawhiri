@@ -19,6 +19,7 @@ Command-line manager for API webapp
 
 """
 import os
+from flask import send_file, send_from_directory
 from flask.ext.script import Manager
 from .api import app
 manager = Manager(app)
@@ -26,4 +27,16 @@ manager = Manager(app)
 def main():
     if 'TAWHIRI_SETTINGS' in os.environ:
         app.config.from_envvar('TAWHIRI_SETTINGS')
+
+    ui_dir = app.config.get('UI_DIR')
+    if ui_dir is not None:
+        @app.route('/<path:path>')
+        def send_ui(path):
+            print('hello', path, ui_dir)
+            return send_from_directory(ui_dir, path)
+
+        @app.route('/')
+        def send_index():
+            return send_file(os.path.join(ui_dir, 'index.html'))
+
     return manager.run()
