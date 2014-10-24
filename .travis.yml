@@ -1,0 +1,20 @@
+# Boilerplate to select python and add v2 and v3 to test matrix.
+language: python
+python:
+    - "2.7"
+    - "3.3"
+
+install:
+    # Install coveralls (coverage support for travis)
+    - "pip install coveralls"
+    # Install (specific) requirements and ourself
+    - "pip install -r requirements.txt"
+    # Install stuff for running test suite
+    - "pip install -r tests/requirements.txt"
+
+# Run tests
+script: "nosetests -e testing --with-coverage --cover-package=tawhiri"
+
+after_success:
+    # Update code-coverage information on coveralls.io
+    - "coveralls"
