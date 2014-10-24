@@ -1,6 +1,5 @@
+# Required for setup.py
 Cython
-ruaumoko
-magicmemoryview
-Flask
-strict-rfc3339
-gunicorn
+
+# Ourselves
+-e .
