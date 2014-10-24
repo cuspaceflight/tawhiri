@@ -30,15 +30,15 @@ def get_version():
                 return line[15:-2]
     raise Exception("Could not find version number")
 
+entry_points = {
+        "console_scripts": [
+            "tawhiri-webapp = tawhiri.manager:main",
+        ],
+}
+
 PY2 = sys.version_info[0] == 2
 if PY2:
-    entry_points={
-        "console_scripts": [
-            "tawhiri-download = tawhiri.download:main"
-        ]
-    }
-else:
-    entry_points = {}
+    entry_points["console_scripts"].append("tawhiri-download = tawhiri.download:main")
 
 setup(
     name="Tawhiri",
@@ -60,6 +60,7 @@ setup(
         "magicmemoryview",
         "ruaumoko",
         "Flask",
+        "Flask-Script",
         "strict-rfc3339",
         "gunicorn"
     ],
