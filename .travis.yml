@@ -12,8 +12,11 @@ install:
     # Install stuff for running test suite
     - "pip install -r tests/requirements.txt"
 
-# Run tests
-script: "nosetests -e testing --with-coverage --cover-package=tawhiri"
+script:
+    # Run tests
+    - "nosetests -e testing --with-coverage --cover-package=tawhiri"
+    # Build documentation
+    - "python setup.py build_sphinx"
 
 after_success:
     # Update code-coverage information on coveralls.io

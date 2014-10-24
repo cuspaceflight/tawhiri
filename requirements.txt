@@ -1,5 +1,9 @@
 # Required for setup.py
 Cython
 
+# Documentation
+sphinx
+docutils
+
 # Ourselves
 -e .
