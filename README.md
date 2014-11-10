@@ -31,7 +31,7 @@ general](http://www.cusf.co.uk/wiki/landing_predictor).
 ```bash
 $ virtualenv venv
 $ source venv/bin/activate
-$ pip install cython
+$ pip install -r requirements.txt
 $ python setup.py build_ext --inplace
 ```
 
