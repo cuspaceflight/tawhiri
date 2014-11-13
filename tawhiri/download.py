@@ -56,6 +56,7 @@ import ftplib
 import itertools
 import numpy as np
 import pygrib
+from six import reraise
 
 from .dataset import Dataset
 
@@ -525,7 +526,7 @@ class DatasetDownloader(object):
 
         if exc_info is not None:
             try:
-                raise exc_info[1], None, exc_info[2]
+                reraise(exc_info[1], None, exc_info[2])
             finally:
                 # avoid circular reference
                 del exc_info
@@ -798,7 +799,7 @@ class DownloadWorker(gevent.Greenlet):
                 try:
                     type, value, traceback = sys.exc_info()
                     value = str(value)
-                    raise BadFile(value), None, traceback
+                    reraise(BadFile(value), None, traceback)
                 finally:
                     # avoid circular reference
                     del traceback
