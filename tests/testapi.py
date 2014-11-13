@@ -2,17 +2,20 @@ from __future__ import print_function
 
 import json
 
+from flask import Flask
 from flask.ext.testing import TestCase
 from mock import patch, MagicMock
 from six.moves.urllib.parse import urlencode
 
-from tawhiri.api import app
+from tawhiri.api.v1 import api
 
 # Root path for v1 API
 API_ROOT = '/api/v1/'
 
 class BasicApiTest(TestCase):
     def create_app(self):
+        app = Flask(__name__)
+        app.register_blueprint(api, url_prefix=API_ROOT)
         app.debug = True
         return app
 
@@ -34,8 +37,8 @@ class BasicApiTest(TestCase):
 
     @patch('tawhiri.models.standard_profile')
     @patch('tawhiri.solver.solve')
-    @patch('tawhiri.api.WindDataset')
-    @patch('tawhiri.api.ruaumoko_ds')
+    @patch('tawhiri.api.v1.WindDataset')
+    @patch('tawhiri.api.v1.ruaumoko_ds')
     def test_simple_run(self, ruaumoko_ds_mock, wind_ds_mock, solve_mock, profile_mock):
         """Make a simple request for a landing prediction."""
 

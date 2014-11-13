@@ -16,10 +16,10 @@
 # along with Tawhiri.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provide the HTTP API for Tawhiri.
+Provide the v1 HTTP API for Tawhiri as a Flask Blueprint.
 """
 
-from flask import Flask, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
 from datetime import datetime
 import time
 import strict_rfc3339
@@ -28,18 +28,16 @@ from tawhiri import solver, models
 from tawhiri.dataset import Dataset as WindDataset
 from ruaumoko import Dataset as ElevationDataset
 
-app = Flask(__name__)
+api = Blueprint('api_v1', __name__)
 
-API_VERSION = 1
 LATEST_DATASET_KEYWORD = "latest"
 PROFILE_STANDARD = "standard_profile"
 PROFILE_FLOAT = "float_profile"
 
-
 # Util functions ##############################################################
 def ruaumoko_ds():
     if not hasattr("ruaumoko_ds", "once"):
-        ds_loc = app.config.get('ELEVATION_DATASET', ElevationDataset.default_location)
+        ds_loc = current_app.config.get('ELEVATION_DATASET', ElevationDataset.default_location)
         ruaumoko_ds.once = ElevationDataset(ds_loc)
 
     return ruaumoko_ds.once
@@ -106,7 +104,7 @@ def parse_request(data):
     """
     Parse the request.
     """
-    req = {"version": API_VERSION}
+    req = {"version": 1}
 
     # Generic fields
     req['launch_latitude'] = \
@@ -199,7 +197,7 @@ def run_prediction(req):
     }
 
     # Find wind data location
-    ds_dir = app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
+    ds_dir = current_app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
 
     # Dataset
     try:
@@ -275,7 +273,7 @@ def _parse_stages(labels, data):
 
 
 # Flask App ###################################################################
-@app.route('/api/v{0}/'.format(API_VERSION), methods=['GET'])
+@api.route('/')
 def main():
     """
     Single API endpoint which accepts GET requests.
@@ -287,7 +285,7 @@ def main():
     return jsonify(response)
 
 
-@app.errorhandler(APIException)
+@api.errorhandler(APIException)
 def handle_exception(error):
     """
     Return correct error message and HTTP status code for API exceptions.
