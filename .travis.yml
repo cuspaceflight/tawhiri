@@ -14,7 +14,7 @@ install:
 
 script:
     # Run tests
-    - "nosetests -e testing --with-coverage --cover-package=tawhiri"
+    - "python setup.py nosetests"
     # Build documentation
     - "python setup.py build_sphinx"
 
