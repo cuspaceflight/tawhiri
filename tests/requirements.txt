@@ -1,4 +1,6 @@
 # Requirements for tawhiri test suite
+mock
+flask-testing
 
 # Running test suite
 nose
