@@ -1,4 +1,5 @@
 # Requirements for tawhiri test suite
+mock
 
 # Running test suite
 nose
