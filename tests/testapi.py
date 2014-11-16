@@ -7,7 +7,7 @@ from flask.ext.testing import TestCase
 from mock import patch, MagicMock
 from six.moves.urllib.parse import urlencode
 
-from tawhiri.api import api
+from tawhiri.api import blueprint
 
 # Root path for v1 API
 API_ROOT = '/api/v1/'
@@ -15,7 +15,7 @@ API_ROOT = '/api/v1/'
 class BasicApiTest(TestCase):
     def create_app(self):
         app = Flask(__name__)
-        app.register_blueprint(api, url_prefix=API_ROOT)
+        app.register_blueprint(blueprint, url_prefix=API_ROOT)
         app.debug = True
         return app
 
