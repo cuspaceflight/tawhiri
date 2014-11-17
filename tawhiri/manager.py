@@ -21,7 +21,7 @@ Command-line manager for API webapp
 import os
 from flask import send_file, send_from_directory, redirect, url_for
 from flask.ext.script import Manager
-from .api import app
+from .app import app
 manager = Manager(app)
 
 def main():
