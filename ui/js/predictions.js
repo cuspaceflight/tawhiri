@@ -1,4 +1,4 @@
-function Path(request) {
+function Prediction(request) {
     var _this = this;
 
     this.predData = request.predData;
@@ -114,7 +114,7 @@ function PredictionCollection(predData) {
             case requestStatus.FINISHED:
                 // success, make a path
                 _this.runningRequests--;
-                _this.paths[request.launchtime] = new Path(request);
+                _this.paths[request.launchtime] = new Prediction(request);
                 map.hourlySlider.registerTime(request.launchtime);
                 break;
             case requestStatus.FAILED:
