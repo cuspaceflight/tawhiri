@@ -1,8 +1,8 @@
-function Prediction(request) {
+function Prediction(data) {
     var _this = this;
 
-    this.predData = request.predData;
-    this.launchTime = request.launchtime;
+    this.predData = data.prediction;
+    this.launchTime = data.launchTime;
     this.pathCollection = [];
     this.polyCenter = null;
     this.polyOverlay = null;
@@ -97,7 +97,6 @@ function Prediction(request) {
 function PredictionCollection(predData) {
     var _this = this;
     this.predData = predData;
-    this.requests = [];
     this.paths = {}; // time value: path
     this.selectedPathLaunchtime = null;
     this.runningRequests = 0;
@@ -109,18 +108,16 @@ function PredictionCollection(predData) {
         _this.progressBar.makeAnimated();
     };
 
-    this.onRequestUpdate = function(request) {
-        switch (request.status) {
-            case requestStatus.FINISHED:
-                // success, make a path
-                _this.runningRequests--;
-                _this.paths[request.launchtime] = new Prediction(request);
-                map.hourlySlider.registerTime(request.launchtime);
-                break;
-            case requestStatus.FAILED:
-                notifications.error('Request failed.');
-                _this.runningRequests--;
-                break;
+    this.onRequestUpdate = function(data, error) {
+        _this.runningRequests--;
+
+        if(error) {
+            // error, raise notification
+            notifications.error('Request failed.');
+        } else {
+            // success, make a path
+            _this.paths[data.launchTime] = new Prediction(data);
+            map.hourlySlider.registerTime(data.launchTime);
         }
 
         if (_this.progressBar.isAnimated) {
@@ -135,14 +132,11 @@ function PredictionCollection(predData) {
             map.centerMapToBounds();
             map.hourlySlider.redraw();
         }
-
     };
     this.addRequest = function(predData, launchTime) {
-        var request = new Request(predData, launchTime, _this.onRequestUpdate);
-        _this.requests.push(request);
         _this.runningRequests++;
         _this.totalResponsesExpected++;
-        request.submit();
+        request_prediction(predData, launchTime, _this.onRequestUpdate);
     };
 
     this.dimAllPaths = function() {
@@ -183,40 +177,41 @@ function PredictionCollection(predData) {
     return this;
 }
 
-// A request is a single request to the server for a path; a new Path is created
-// and plotted once a request has completed. We keep the launch time on the
-// Request since we need to refer to it later (the launch time inside reqParams
-// has been mangled).
-function Request(reqParams, launchtime, callback) {
-    var _this = this;
-    this.api_url = '/api/v1/';
-    this.statusPollInterval = 1000; //ms
-    this.statusCheckTimeout = 15000; //ms
-    this.status = requestStatus.NOT_STARTED;
-    this.reqParams = reqParams;
-    this.launchtime = launchtime;
-    this.callback = callback;
-    this.predData = null;
-    this.submit = function() {
-        $.ajax({
-            data: _this.reqParams,
-            url: _this.api_url,
-            type: 'GET',
-            dataType: 'json',
-            error: function(xhr, status, error) {
-                var py_error = xhr.responseJSON.error;
-                notifications.alert('Prediction error: ' + py_error.type + ' ' + py_error.description);
-                console.log('Prediction error: ' + status + ' ' + error + ' ' + py_error.type + ' ' + py_error.description);
-                _this.status = requestStatus.FAILED;
-                _this.callback(_this);
-            },
-            success: function(data) {
-                _this.predData = data.prediction;
-                _this.status = requestStatus.FINISHED;
-                _this.callback(_this);
-            }
-        });
-    };
+// Make a single request to the server for a prediction; a new Prediction is
+// created and plotted once a request has completed. We keep the launch time on
+// the Request since we need to refer to it later (the launch time inside
+// reqParams has been mangled).
+//
+// callback should be a function taking (data, error). error will be defined
+// only if the request succeeds. data is an object of the form
+//  { prediction: <object>, requestParameters: <object>, launchTime: int }
+// giving the returned prediction data.
+function request_prediction(reqParams, launchtime, callback) {
+    var api_url = '/api/v1/',
+        statusPollInterval = 1000, //ms
+        statusCheckTimeout = 15000, //ms
+        predData = null;
+
+    $.ajax({
+        data: reqParams,
+        url: api_url,
+        type: 'GET',
+        dataType: 'json',
+        error: function(xhr, status, error) {
+            var py_error = xhr.responseJSON.error;
+            notifications.alert('Prediction error: ' + py_error.type + ' ' + py_error.description);
+            console.log('Prediction error: ' + status + ' ' + error + ' ' + py_error.type + ' ' + py_error.description);
+            callback(null, error);
+        },
+        success: function(data) {
+            predData = data.prediction;
+            callback({
+                requestParameters: reqParams,
+                prediction: predData,
+                launchTime: launchtime,
+            }, null);
+        }
+    });
 }
 
 function Notifications($notificationArea) {
