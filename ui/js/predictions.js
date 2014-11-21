@@ -92,9 +92,9 @@ function Path(request) {
     return this;
 }
 
-// A prediction is a collection of "requests": there may be multiple requests for one
+// A collection of "requests": there may be multiple requests for one
 // prediction if the user has asked for multiple "hourly" predictions.
-function Prediction(predData) {
+function PredictionCollection(predData) {
     var _this = this;
     this.predData = predData;
     this.requests = [];

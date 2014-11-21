@@ -180,13 +180,13 @@ function Form($wrapper) {
         map.reset();
         notifications.closeAllNotifications();
 
-        var prediction = new Prediction();
-        map.addPrediction(prediction);
+        var predictionCollection = new PredictionCollection();
+        map.addPredictionCollection(predictionCollection);
         for (var h = 0; h < hourly; h++) { // < so that we don't add additional hours
             predData = $.extend({}, predData);
             var d = new Date(launchDatetime.getTime() + (h * 60 * 60 * 1000)); // add h hours
             predData.launch_datetime = d.toISOString();
-            prediction.addRequest(predData, d.getTime());
+            predictionCollection.addRequest(predData, d.getTime());
         }
         _this.close();
     };
@@ -493,8 +493,8 @@ function Map($wrapper) {
             closeAutoComplete();
         });
     };
-    this.addPrediction = function(prediction) {
-        _this.predictions.push(prediction);
+    this.addPredictionCollection = function(predictionCollection) {
+        _this.predictions.push(predictionCollection);
     };
     this.toggleGpsTracker = function() {
         if (_this.isGpsTracking) {
