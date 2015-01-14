@@ -341,6 +341,9 @@ class DatasetDownloader(object):
                                     ("hour", "sleep_until", "filename",
                                      "expect_pressures", "bad_downloads"))
 
+    filename_pattern = \
+            "gfs.t{ds_hour}z.pgrb2{pressure_flag}.0p50.f{axis_hour:03}"
+
     def __init__(self, directory, ds_time, timeout=120,
                  first_file_timeout=600,
                  bad_download_retry_limit=3,
@@ -457,15 +460,17 @@ class DatasetDownloader(object):
         logger.debug("downloaded %s successfully", self.ds_time)
 
     def _add_files(self):
-        filename_prefix = self.ds_time.strftime("gfs.t%Hz.pgrb2")
+        ds_hr_str = self.ds_time.strftime("%H")
+        pressure_groups = (("", Dataset.pressures_pgrb2f),
+                           ("b", Dataset.pressures_pgrb2bf))
 
-        for hour in Dataset.axes.hour:
-            hour_str = "{0:02}".format(hour)
-
-            for bit, exp_pr in (("f", Dataset.pressures_pgrb2f),
-                                ("bf", Dataset.pressures_pgrb2bf)):
-                self._files.put(self._queue_item_type(
-                    hour, 0, filename_prefix + bit + hour_str, exp_pr, 0))
+        for axis_hour in Dataset.axes.hour:
+            for pressure_flag, expect_pr in pressure_groups:
+                fn = self.filename_pattern.format(ds_hour=ds_hr_str,
+                                                  pressure_flag=pressure_flag,
+                                                  axis_hour=axis_hour)
+                qi = self._queue_item_type(axis_hour, 0, fn, expect_pr, 0)
+                self._files.put(qi)
                 self.files_count += 1
 
         logger.info("Need to download %s files", self.files_count)
