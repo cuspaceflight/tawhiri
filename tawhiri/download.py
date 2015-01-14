@@ -155,7 +155,10 @@ def unpack_grib(filename, dataset=None, checklist=None, gribmirror=None,
         # pass two: unpack
         for record, location, location_name in _grib_records(grib):
             if dataset_array is not None:
-                dataset_array[location] = record.values
+                # the fact that latitudes are reversed here must match
+                # check_axes!
+                t, p, v = location
+                dataset_array[t,p,v,::-1,:] = record.values
             if gribmirror is not None:
                 gribmirror.write(record.tostring())
             if checklist is not None:
@@ -272,12 +275,8 @@ def _check_axes(record):
     0 to 360 respectively in 0.5 degree increments.
     """
 
-    # I'm unsure whether this is the correct thing to do.
-    # Some GRIB functions (.latitudes, .latLonValues) have the
-    # latitudes scanning negatively (90 to -90); but .values and
-    # .distinctLatitudes seem to return a grid scanning positively
-    # If it works...
-    if not np.array_equal(record.distinctLatitudes,
+    # The fact that latitudes is reversed here must match unpack_grib!
+    if not np.array_equal(record.distinctLatitudes[::-1],
                           Dataset.axes.latitude):
         raise ValueError("unexpected axes on record (latitudes)")
     if not np.array_equal(record.distinctLongitudes,

@@ -44,16 +44,18 @@ after modifying any `.pyx` files.
 The downloader uses gevent, so we are disappointingly restricted to running
 it under Python 2 for now (Issue #18).
 
-At the time of writing, pygrib head did not work (in contrast to an earlier
-version; see Issue #15), and both have a broken `setup.py`. Therefore, we
-need to install numpy first, and pyproj separately:
+```bash
+$ sudo aptitude install libevent-dev libjasper-dev libopenjpeg-dev libpng-dev
+```
+
+Acquire a sufficiently modern version of `libgrib-api-dev` from APT. The
+version in 12.04 is too old. 1.10.4 is known to work.
 
 ```bash
-$ sudo aptitude install libevent-dev libgrib-api-dev
 $ virtualenv -p python2 venv
 $ source venv/bin/activate
 $ pip install numpy
-$ pip install pygrib==1.9.6 pyproj 'gevent<1.0'
+$ pip install pygrib==2.0.0 pyproj 'gevent<1.0'
 ```
 
 ## License
