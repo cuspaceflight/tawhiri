@@ -77,8 +77,8 @@ def make_interpolator(dataset):
 
     data = MagicMemoryView(dataset.array, (65, 47, 3, 361, 720), b"f")
 
-    def f(hour, alt, lat, lng):
-        return get_wind(data, hour, alt, lat, lng)
+    def f(hour, lat, lng, alt):
+        return get_wind(data, hour, lat, lng, alt)
 
     return f
 
