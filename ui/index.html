@@ -9,6 +9,7 @@
 	<link rel="stylesheet" href="/css/custom_navbar.css">
 	<link rel="stylesheet" href="/main.css">
 	<script src="/js/jquery-1.11.2.min.js"></script>
+	<script src="/js/bootstrap.min.js"></script>
 	<script src="http://maps.googleapis.com/maps/api/js"></script>
 	<script src="/main.js"></script>
 </head>
@@ -19,6 +20,11 @@
 
 		<nav class="navbar navbar-default navbar-fixed-top" id="predictor-navbar">
 			<div class="container">
+
+				<ul class="nav navbar-nav">
+					<li><a href="#">Menu</a></li>
+				</ul>
+
 				<span class="navbar-brand">CUSF Predictor</span>
 				<ul class="nav navbar-nav navbar-right">
 					<li><a href="#">Help</a></li>
@@ -30,9 +36,9 @@
 
 		<div class="sidebar">
 			
-			<form>
+			<form class="form-horizontal">
 
-				<div class="row">
+				<div class="form-group">
 					<div class="col-sm-12">
 						<div class="input-group">
 							<span class="input-group-btn">
@@ -49,6 +55,47 @@
 						</div>
 					</div>
 				</div>
+
+				<div class="form-group">
+					<label for="inputLaunchLatitude" class="col-sm-3 control-label">Latitude</label>
+					<div class="col-sm-9">
+						<input class="form-control" id="inputLaunchLatitude" name="launch_latitude" value="0" type="number" placeholder="" required="required">
+					</div>
+
+					<label for="inputLaunchLongitude" class="col-sm-3 control-label">Longitude</label>
+					<div class="col-sm-9">
+						<input class="form-control" id="inputLaunchLongitude" name="launch_longitude" value="0" type="number" placeholder="" required="required">
+					</div>
+
+					<label for="inputLaunchAltitude" class="col-sm-3 control-label">Altitude</label>
+					<div class="col-sm-9">
+						<div class="input-group">
+							<input step="any" class="form-control" id="inputLaunchAltitude" name="launch_altitude" value="0" placeholder="" required="required" type="number">
+							<div class="input-group-btn unit-selection">       
+								<input name="unitLaunchAltitude" value="m" type="hidden">
+								<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span id="unit-current-LaunchAltitude" class="unit-current">m</span> <span class="caret"></span></button>
+								<ul class="dropdown-menu pull-right">
+									<li><a href="#">m</a></li>
+									<li><a href="#">ft</a></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<label for="btnVaryWhat" class="col-sm-3 control-label">Vary</label>
+					<div class="col-sm-9">
+						<input id="inputVaryWhat" value="Nothing" type="hidden">
+						<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">Nothing <span class="caret"></span></button>
+						<ul class="dropdown-menu">
+							<li><a href="#">Nothing</a></li>
+							<li><a href="#">Date/Time</a></li>
+							<li><a href="#">Model</a></li>
+						</ul>
+					</div>
+				</div>
+
 			</form>
 
 		</div>
