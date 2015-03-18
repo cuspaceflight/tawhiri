@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>Tawhiri NEWUI</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+	<link rel="stylesheet" href="/css/bootstrap.min.css">
+	<link rel="stylesheet" href="/leaflet.css">
+	<link rel="stylesheet" href="/css/custom_navbar.css">
+	<link rel="stylesheet" href="/main.css">
+	<script src="/js/jquery-1.11.2.min.js"></script>
+	<script src="http://maps.googleapis.com/maps/api/js"></script>
+	<script src="/main.js"></script>
+</head>
+<body onLoad="init()">
+	<div class="container-fluid">
+
+		<div id="map-container"></div>
+
+		<nav class="navbar navbar-default navbar-fixed-top" id="predictor-navbar">
+			<div class="container">
+				<span class="navbar-brand">CUSF Predictor</span>
+				<ul class="nav navbar-nav navbar-right">
+					<li><a href="#">Help</a></li>
+					<li><a href="#">About</a></li>
+					<li><a href="#">GITHUB</a></li>
+				</ul>
+			</div>
+		</nav>
+
+		<div class="sidebar">
+			
+			<form>
+
+				<div class="row">
+					<div class="col-sm-12">
+						<div class="input-group">
+							<span class="input-group-btn">
+								<button class="btn btn-info" id="gps-locate" type="button">
+									<span class="glyphicon glyphicon-record"></span>
+								</button>
+							</span>
+							<input autocomplete="off" class="form-control" id="pac-input" placeholder="Search for a place" type="text">
+							<span class="input-group-btn">
+								<button class="btn btn-default" id="pac-input-submit" type="button">
+									<span class="glyphicon glyphicon-search"></span>
+								</button>
+							</span>
+						</div>
+					</div>
+				</div>
+			</form>
+
+		</div>
+
+	</div>
+</body>
+</html>
