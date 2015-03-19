@@ -4,28 +4,56 @@ html, body {
 	height: 100%;
 }
 body {
-	padding-top: 50px;
+	padding-top: 56px;
+}
+.navbar-brand {
+    position: absolute;
+    width: 60%;
+    left: 20%;
+    top: 0;
+    text-align: center;
+    margin: auto;
+    font-size: 26pt;
+}
+.unit-selection .dropdown-menu {
+	min-width: 50px;
 }
 .container-fluid {
 	height: 100%;
 	margin: 0px;
 	padding: 0px;
 }
-.col-sm-3 {
+.col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5 {
 	padding-right: 0px;
 }
 .sidebar {
+	transition: all 0.5s;
 	width: 320px;
-	margin-top: 50px;
+	margin-top: 56px;
 	padding: 5px;
 	position: fixed;
-	left: 0;
+	left: 0px;
 	top: 0;
 	height: 100%;
 	background: #ffffff;
 	-webkit-box-shadow: 5px 0px 5px 0px rgba(50, 50, 50, 0.75);
 	-moz-box-shadow:    5px 0px 5px 0px rgba(50, 50, 50, 0.75);
 	box-shadow:         5px 0px 5px 0px rgba(50, 50, 50, 0.75);
+}
+#btn-bapm {
+	font-weight:bold;
+}
+.double-unit button.dropdown-toggle {
+	border-top-left-radius: 0px;
+	border-bottom-left-radius: 0px;
+}
+.double-unit span.unit-selection:not(:last-of-type) button.dropdown-toggle {
+	border-top-right-radius: 0px;
+	border-bottom-right-radius: 0px;
+}
+#sidebar-toggle {
+	font-size: 18pt;
+	outline: none;
 }
 #map-container {
 	width: 100%;

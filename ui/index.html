@@ -5,10 +5,11 @@
 	<title>Tawhiri NEWUI</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 	<link rel="stylesheet" href="/css/bootstrap.min.css">
-	<link rel="stylesheet" href="/leaflet.css">
 	<link rel="stylesheet" href="/css/custom_navbar.css">
+	<link rel="stylesheet" href="/css/jquery.datetimepicker.css"/ >
 	<link rel="stylesheet" href="/main.css">
 	<script src="/js/jquery-1.11.2.min.js"></script>
+	<script src="/js/jquery.datetimepicker.js"></script>
 	<script src="/js/bootstrap.min.js"></script>
 	<script src="http://maps.googleapis.com/maps/api/js"></script>
 	<script src="/main.js"></script>
@@ -22,10 +23,10 @@
 			<div class="container">
 
 				<ul class="nav navbar-nav">
-					<li><a href="#">Menu</a></li>
+					<li><a id="sidebar-toggle" href="#"><span class="glyphicon glyphicon-list"></span></a></li>
 				</ul>
 
-				<span class="navbar-brand">CUSF Predictor</span>
+				<span class="navbar-brand">CUSF Tawhiri</span>
 				<ul class="nav navbar-nav navbar-right">
 					<li><a href="#">Help</a></li>
 					<li><a href="#">About</a></li>
@@ -57,23 +58,25 @@
 				</div>
 
 				<div class="form-group">
-					<label for="inputLaunchLatitude" class="col-sm-3 control-label">Latitude</label>
-					<div class="col-sm-9">
+					<label for="inputLaunchLatitude" class="col-sm-4 control-label">Latitude</label>
+					<div class="col-sm-8">
 						<input class="form-control" id="inputLaunchLatitude" name="launch_latitude" value="0" type="number" placeholder="" required="required">
 					</div>
 
-					<label for="inputLaunchLongitude" class="col-sm-3 control-label">Longitude</label>
-					<div class="col-sm-9">
+					<label for="inputLaunchLongitude" class="col-sm-4 control-label">Longitude</label>
+					<div class="col-sm-8">
 						<input class="form-control" id="inputLaunchLongitude" name="launch_longitude" value="0" type="number" placeholder="" required="required">
 					</div>
 
-					<label for="inputLaunchAltitude" class="col-sm-3 control-label">Altitude</label>
-					<div class="col-sm-9">
+					<label for="inputLaunchAltitude" class="col-sm-4 control-label">Altitude</label>
+					<div class="col-sm-8">
 						<div class="input-group">
 							<input step="any" class="form-control" id="inputLaunchAltitude" name="launch_altitude" value="0" placeholder="" required="required" type="number">
-							<div class="input-group-btn unit-selection">       
+							<div class="input-group-btn unit-selection">
 								<input name="unitLaunchAltitude" value="m" type="hidden">
-								<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><span id="unit-current-LaunchAltitude" class="unit-current">m</span> <span class="caret"></span></button>
+								<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+									<span class="unit-current">m</span> <span class="caret"></span>
+								</button>
 								<ul class="dropdown-menu pull-right">
 									<li><a href="#">m</a></li>
 									<li><a href="#">ft</a></li>
@@ -84,10 +87,12 @@
 				</div>
 
 				<div class="form-group">
-					<label for="btnVaryWhat" class="col-sm-3 control-label">Vary</label>
-					<div class="col-sm-9">
+					<label for="inputVaryWhat" class="col-sm-4 control-label">Vary</label>
+					<div class="col-sm-8">
 						<input id="inputVaryWhat" value="Nothing" type="hidden">
-						<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">Nothing <span class="caret"></span></button>
+						<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+							Nothing <span class="caret"></span>
+						</button>
 						<ul class="dropdown-menu">
 							<li><a href="#">Nothing</a></li>
 							<li><a href="#">Date/Time</a></li>
@@ -96,6 +101,105 @@
 					</div>
 				</div>
 
+				<div class="form-group">
+					<label for="inputLaunchDate" class="col-sm-4 control-label">Launch Date</label>
+					<div class="col-sm-6">
+						<input id="inputLaunchDate" type="text" class="form-control">
+					</div>
+					<label for="inputLaunchStartTime" class="col-sm-4 control-label">Launch Time</label>
+					<div class="col-sm-3">
+						<input id="inputLaunchStartTime" type="text" class="form-control">
+					</div>
+
+					<label for="inputLaunchEndTime" class="col-sm-1 control-label">to</label>
+					<div class="col-sm-3">
+						<input id="inputLaunchEndTime" type="text" class="form-control">
+					</div>
+				</div>
+
+				<div class="form-group">
+					<div class="col-sm-4">
+						<input id="inputBAPM" value="Burst Alt" type="hidden">
+						<button id="btn-bapm" type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+							Burst Alt <span class="caret"></span>
+						</button>
+						<ul class="dropdown-menu">
+							<li><a href="#">Burst Alt</a></li>
+							<li><a href="#">Float Alt</a></li>
+							<li><a href="#">Payload Mass</a></li>
+						</ul>
+					</div>
+					<div class="col-sm-8">
+						<div class="input-group">
+							<input name="inputBurstAltitide" value="30" type="number" class="form-control">
+							<div class="input-group-btn double-unit">
+								<span class="unit-selection">
+									<input name="unitBurstAltitude" value="km" type="hidden">
+									<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+										<span class="unit-current">km</span> <span class="caret"></span>
+									</button>
+									<ul class="dropdown-menu pull-left">
+										<li><a href="#">km</a></li>
+										<li><a href="#">kft</a></li>
+									</ul>
+								</span>
+								<span class="unit-selection">
+									<input name="unitBurstAltitudeUncertainty" value="+-10%" type="hidden">
+									<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+										<span class="unit-current">&plusmn;10%</span> <span class="caret"></span>
+									</button>
+									<ul class="dropdown-menu pull-right">
+										<li><a href="#">&plusmn;5%</a></li>
+										<li><a href="#">&plusmn;10%</a></li>
+										<li><a href="#">&plusmn;15%</a></li>
+										<li><a href="#">&plusmn;20%</a></li>
+									</ul>
+								</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="col-sm-4">
+						<label for="inputBalloonMass" class="control-label">Balloon Mass</label>
+					</div>
+					<div class="col-sm-8">
+						<div class="input-group">
+							<input id="inputBalloonMassMin" type="number" class="form-control" placeholder="min">
+							<span class="input-group-btn" style="width:0px"></span>
+							<input id="inputBalloonMassMax" type="number" class="form-control" placeholder="max">
+							<div class="input-group-btn unit-selection">
+								<input name="unitBalloonMass" value="g" type="hidden">
+								<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+									<span class="unit-current">g</span> <span class="caret"></span>
+								</button>
+								<ul class="dropdown-menu">
+									<li><a href="#">g</a></li>
+									<li><a href="#">oz</a></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+
+					<div class="col-sm-4">
+						<label for="inputAscentRate" class="control-label">Ascent Rate</label>
+					</div>
+					<div class="col-sm-8">
+						<div class="input-group">
+							<input name="inputAscentRate" value="5" type="number" class="form-control">
+							<div class="input-group-btn unit-selection">
+								<input name="unitAscentRate" value="m/s" type="hidden">
+								<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+									<span class="unit-current">m/s</span> <span class="caret"></span>
+								</button>
+								<ul class="dropdown-menu pull-right">
+									<li><a href="#">m/s</a></li>
+									<li><a href="#">ft/s</a></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+
+				</div>
 			</form>
 
 		</div>
