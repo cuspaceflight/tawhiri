@@ -4,16 +4,40 @@ html, body {
 	height: 100%;
 }
 body {
-	padding-top: 56px;
+	padding-top: 50px;
 }
 .navbar-brand {
     position: absolute;
-    width: 60%;
-    left: 20%;
+    pointer-events: none;
+    width: 100%;
+    left: 0;
     top: 0;
     text-align: center;
     margin: auto;
     font-size: 26pt;
+}
+.navbar-toggle {
+	position: absolute;
+	right:10px;
+	margin-right:0px;
+	top:5px;
+	margin-top:1px;
+}
+.navbar-collapse.in,.navbar-collapse.collapsing{
+	margin-top:50px;
+}
+.fakebutton {
+	color: #333;
+	opacity: 1 !important;
+	background: none !important;  
+	font-weight: bold;
+}
+#sidebar-toggle {
+	font-size: 18pt;
+	position: absolute;
+	left:10px;
+	margin-top:-5px;
+	outline: none;
 }
 .unit-selection .dropdown-menu {
 	min-width: 50px;
@@ -28,9 +52,11 @@ body {
 }
 .sidebar {
 	transition: all 0.5s;
+	overflow: hidden;
+	overflow-y: scroll;
 	width: 320px;
-	margin-top: 56px;
 	padding: 5px;
+	padding-top: 55px;
 	position: fixed;
 	left: 0px;
 	top: 0;
@@ -50,10 +76,6 @@ body {
 .double-unit span.unit-selection:not(:last-of-type) button.dropdown-toggle {
 	border-top-right-radius: 0px;
 	border-bottom-right-radius: 0px;
-}
-#sidebar-toggle {
-	font-size: 18pt;
-	outline: none;
 }
 #map-container {
 	width: 100%;

@@ -24,15 +24,18 @@ $(function(){
 
 	$("#inputLaunchDate").datetimepicker({
 		timepicker:false,
+		closeOnDateSelect:true,
 		format:"Y/m/d"
 	});
 
 	$("#inputLaunchStartTime").datetimepicker({
 		datepicker:false,
+		closeOnTimeSelect:true,
 		format:"H:i"
 	});
 	$("#inputLaunchEndTime").datetimepicker({
 		datepicker:false,
+		closeOnTimeSelect:true,
 		format:"H:i"
 	});
 

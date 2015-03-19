@@ -5,6 +5,7 @@
 	<title>Tawhiri NEWUI</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 	<link rel="stylesheet" href="/css/bootstrap.min.css">
+	<link rel="stylesheet" href="/css/bootstrap-theme.min.css">
 	<link rel="stylesheet" href="/css/custom_navbar.css">
 	<link rel="stylesheet" href="/css/jquery.datetimepicker.css"/ >
 	<link rel="stylesheet" href="/main.css">
@@ -21,16 +22,30 @@
 		<nav class="navbar navbar-default navbar-fixed-top" id="predictor-navbar">
 			<div class="container">
 
-				<ul class="nav navbar-nav">
-					<li><a id="sidebar-toggle" href="#"><span class="glyphicon glyphicon-list"></span></a></li>
-				</ul>
+				<div class="navbar-header">
 
-				<span class="navbar-brand">CUSF Tawhiri</span>
-				<ul class="nav navbar-nav navbar-right">
-					<li><a href="#">Help</a></li>
-					<li><a href="#">About</a></li>
-					<li><a href="#">GITHUB</a></li>
-				</ul>
+					<ul class="nav navbar-nav">
+						<li><a id="sidebar-toggle" href="#"><span class="glyphicon glyphicon-list"></span></a></li>
+					</ul>
+
+					<span class="navbar-brand">CUSF Tawhiri</span>
+
+					<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#tawhiri-nav-collapse">
+						<span class="sr-only">Toggle navigation</span>
+				        <span class="icon-bar"></span>
+				        <span class="icon-bar"></span>
+				        <span class="icon-bar"></span>
+    				</button>
+				</div>
+				<div class="collapse navbar-collapse" id="tawhiri-nav-collapse">
+					
+					<ul class="nav navbar-nav navbar-right">
+						<li><a href="#">Help</a></li>
+						<li><a href="#">About</a></li>
+						<li><a href="#">GITHUB</a></li>
+					</ul>
+				</div>
+
 			</div>
 		</nav>
 
@@ -106,13 +121,12 @@
 						<input id="inputLaunchDate" type="text" class="form-control">
 					</div>
 					<label for="inputLaunchStartTime" class="col-sm-4 control-label">Launch Time</label>
-					<div class="col-sm-3">
-						<input id="inputLaunchStartTime" type="text" class="form-control">
-					</div>
-
-					<label for="inputLaunchEndTime" class="col-sm-1 control-label">to</label>
-					<div class="col-sm-3">
-						<input id="inputLaunchEndTime" type="text" class="form-control">
+					<div class="col-sm-8">
+						<div class="input-group">
+							<input id="inputLaunchStartTime" type="text" class="form-control">
+							<span class="input-group-btn"><button class="btn fakebutton" disabled>to</button></span>
+							<input id="inputLaunchEndTime" type="text" class="form-control">
+						</div>
 					</div>
 				</div>
 
@@ -122,8 +136,8 @@
 						<button id="btn-bapm" type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
 							Burst Alt <span class="caret"></span>
 						</button>
-						<ul class="dropdown-menu">
-							<lei><a href="#">Burst Alt</a></li>
+						<ul class="dropdown-menu pull-left">
+							<li><a href="#">Burst Alt</a></li>
 							<li><a href="#">Float Alt</a></li>
 							<li><a href="#">Payload Mass</a></li>
 						</ul>
@@ -198,6 +212,12 @@
 						</div>
 					</div>
 
+				</div>
+
+				<div class="form-group">
+					<div class="col-sm-6 col-sm-offset-3">
+						<button type="button" class="btn btn-lg btn-success">PREDICT</button>
+					</div>
 				</div>
 			</form>
 
