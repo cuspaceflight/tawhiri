@@ -25,9 +25,8 @@ memmapped into the predictor process and thereby treated like a huge array.
 directory, and can open (& create) dataset files.
 
 Note: once opened, the dataset is mmaped as :attr:`Dataset.array`, which by
-itself is not particularly useful. The :mod:`tawhiri.download` creates a
-:class:`numpy.ndarray from this mapping, and :mod:`tawhiri.interpolate` casts
-it (via a memory view) to a pointer in Cython.
+itself is not particularly useful.  :mod:`tawhiri.interpolate` casts it (via a
+memory view) to a pointer in Cython.
 """
 
 from collections import namedtuple

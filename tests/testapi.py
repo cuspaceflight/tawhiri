@@ -4,7 +4,7 @@ import json
 
 from flask.ext.testing import TestCase
 from mock import patch, MagicMock
-from six.moves.urllib.parse import urlencode
+from urllib.parse import urlencode
 
 from tawhiri.api import app
 

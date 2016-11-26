@@ -36,10 +36,6 @@ entry_points = {
         ],
 }
 
-PY2 = sys.version_info[0] == 2
-if PY2:
-    entry_points["console_scripts"].append("tawhiri-download = tawhiri.download:main")
-
 setup(
     name="Tawhiri",
     version=get_version(),
@@ -62,14 +58,13 @@ setup(
         "Flask",
         "Flask-Script",
         "strict-rfc3339",
-        "gunicorn",
-        "six"
+        "gunicorn"
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
-        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.5',
         'Topic :: Scientific/Engineering',
     ],
 )
