@@ -35,12 +35,19 @@ cdef class WarningCounts:
 
     def to_dict(self):
         res = \
-            { "altitude_too_low": self.altitude_too_low 
-            , "altitude_too_high": self.altitude_too_high 
+            { "altitude_too_low": 
+                { "count": self.altitude_too_low 
+                , "description": "The altitude went too low: wind data may be unreliable"
+                }
+            , "altitude_too_high":
+                { "count": self.altitude_too_high
+                , "description": "The altitude went too high, above the max forecast wind. \
+                                  Wind data will be unreliable"
+                }
             }
 
         for key in list(res.keys()):
-            if res[key] == 0:
+            if res[key]["count"] == 0:
                 del res[key]
 
         return res
