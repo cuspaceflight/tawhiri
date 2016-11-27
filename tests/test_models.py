@@ -20,7 +20,7 @@ from nose.tools import assert_equal, assert_almost_equal
 from nose.tools import assert_true, assert_false
 from mock import patch, Mock
 
-from tawhiri import models
+from tawhiri import models, warnings
 
 
 class TestModels:
@@ -71,7 +71,8 @@ class TestModels:
         get_wind.return_value = 3.0, -5.0
         make_interpolator.return_value = get_wind
 
-        f = models.make_wind_velocity(ds)
+        w = warnings.WarningCounts()
+        f = models.make_wind_velocity(ds, w)
         dlat, dlng, zero = f(10.0, 52.0, 0.5, 1000.0)
         assert_equal(zero, 0.0)
         get_wind.assert_called_with(0.0, 52.0, 0.5, 1000.0)
@@ -79,6 +80,8 @@ class TestModels:
         # Computed by hand
         assert_almost_equal(dlat, -4.495895997e-5)
         assert_almost_equal(dlng, 4.381527359e-5)
+
+        assert not w.any
 
     def test_burst_termination(self):
         for alt in (0.0, 5000.0, 50000.0):
@@ -152,6 +155,7 @@ class TestModels:
     @patch('tawhiri.models.make_drag_descent')
     @patch('tawhiri.models.make_elevation_data_termination')
     def test_standard_profile(self, elev, drag, burst, wind, const, linear):
+        warns = warnings.WarningCounts()
         wind_ds = Mock()
         elev_ds = Mock()
         const.return_value = 'const'
@@ -160,15 +164,16 @@ class TestModels:
         burst.return_value = 'burst'
         drag.return_value = 'drag'
         elev.return_value = 'elev'
-        model = models.standard_profile(5.0, 30000.0, 6.0, wind_ds, elev_ds)
+        model = models.standard_profile(5.0, 30000.0, 6.0, wind_ds, elev_ds, warns)
         const.assert_called_with(5.0)
-        wind.assert_called_with(wind_ds)
+        wind.assert_called_with(wind_ds, warns)
         linear.assert_any_call(['const', 'wind'])
         burst.assert_called_with(30000.0)
         drag.assert_called_with(6.0)
         linear.assert_called_with(['drag', 'wind'])
         elev.assert_called_with(elev_ds)
         assert_equal(model, (('linear', 'burst'), ('linear', 'elev')))
+        assert not warns.any
 
     @patch('tawhiri.models.make_linear_model')
     @patch('tawhiri.models.make_constant_ascent')
@@ -176,16 +181,18 @@ class TestModels:
     @patch('tawhiri.models.make_burst_termination')
     @patch('tawhiri.models.make_time_termination')
     def test_float_profile(self, time, burst, wind, const, linear):
+        warns = warnings.WarningCounts()
         wind_ds = Mock()
         time.return_value = 'time'
         burst.return_value = 'burst'
         wind.return_value = 'wind'
         const.return_value = 'const'
         linear.return_value = 'linear'
-        model = models.float_profile(5.0, 12000.0, 7200.0, wind_ds)
+        model = models.float_profile(5.0, 12000.0, 7200.0, wind_ds, warns)
         const.assert_called_with(5.0)
-        wind.assert_called_with(wind_ds)
+        wind.assert_called_with(wind_ds, warns)
         linear.assert_called_with(['const', 'wind'])
         burst.assert_called_with(12000.0)
         time.assert_called_with(7200.0)
         assert_equal(model, (('linear', 'burst'), ('wind', 'time')))
+        assert not warns.any

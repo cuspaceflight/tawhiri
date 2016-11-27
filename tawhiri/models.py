@@ -73,12 +73,12 @@ def make_drag_descent(sea_level_descent_rate):
 ## Sideways Models ############################################################
 
 
-def make_wind_velocity(dataset):
+def make_wind_velocity(dataset, warningcounts):
     """Return a wind-velocity model, which gives lateral movement at
        the wind velocity for the current time, latitude, longitude and
        altitude. The `dataset` argument is the wind dataset in use.
     """
-    get_wind = interpolate.make_interpolator(dataset)
+    get_wind = interpolate.make_interpolator(dataset, warningcounts)
     dataset_epoch = calendar.timegm(dataset.ds_time.timetuple())
     def wind_velocity(t, lat, lng, alt):
         t -= dataset_epoch
@@ -159,7 +159,7 @@ def make_any_terminator(terminators):
 
 
 def standard_profile(ascent_rate, burst_altitude, descent_rate,
-                     wind_dataset, elevation_dataset):
+                     wind_dataset, elevation_dataset, warningcounts):
     """Make a model chain for the standard high altitude balloon situation of
        ascent at a constant rate followed by burst and subsequent descent
        at terminal velocity under parachute with a predetermined sea level
@@ -172,26 +172,26 @@ def standard_profile(ascent_rate, burst_altitude, descent_rate,
     """
 
     model_up = make_linear_model([make_constant_ascent(ascent_rate),
-                                  make_wind_velocity(wind_dataset)])
+                                  make_wind_velocity(wind_dataset, warningcounts)])
     term_up = make_burst_termination(burst_altitude)
 
     model_down = make_linear_model([make_drag_descent(descent_rate),
-                                    make_wind_velocity(wind_dataset)])
+                                    make_wind_velocity(wind_dataset, warningcounts)])
     term_down = make_elevation_data_termination(elevation_dataset)
 
     return ((model_up, term_up), (model_down, term_down))
 
 
-def float_profile(ascent_rate, float_altitude, stop_time, dataset):
+def float_profile(ascent_rate, float_altitude, stop_time, dataset, warningcounts):
     """Make a model chain for the typical floating balloon situation of ascent
        at constant altitude to a float altitude which persists for some
        amount of time before stopping. Descent is in general not modelled.
     """
 
     model_up = make_linear_model([make_constant_ascent(ascent_rate),
-                                  make_wind_velocity(dataset)])
+                                  make_wind_velocity(dataset, warningcounts)])
     term_up = make_burst_termination(float_altitude)
-    model_float = make_wind_velocity(dataset)
+    model_float = make_wind_velocity(dataset, warningcounts)
     term_float = make_time_termination(stop_time)
 
     return ((model_up, term_up), (model_float, term_float))

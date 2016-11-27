@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import json
 
-from flask.ext.testing import TestCase
+from flask_testing import TestCase
 from mock import patch, MagicMock
 from urllib.parse import urlencode
 

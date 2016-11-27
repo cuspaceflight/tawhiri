@@ -37,6 +37,7 @@ memory access.
 
 
 from magicmemoryview import MagicMemoryView
+from .warnings cimport WarningCounts
 
 
 # These need to match Dataset.axes.variable
@@ -64,7 +65,7 @@ class RangeError(ValueError):
         super(RangeError, self).__init__(s)
 
 
-def make_interpolator(dataset):
+def make_interpolator(dataset, WarningCounts warnings):
     """
     Produce a function that can get wind data from `dataset`
 
@@ -75,15 +76,18 @@ def make_interpolator(dataset):
 
     cdef float[:, :, :, :, :] data
 
+    if warnings is None:
+        raise TypeError("Warnings must not be None")
+
     data = MagicMemoryView(dataset.array, (65, 47, 3, 361, 720), b"f")
 
     def f(hour, lat, lng, alt):
-        return get_wind(data, hour, lat, lng, alt)
+        return get_wind(data, warnings, hour, lat, lng, alt)
 
     return f
 
 
-cdef object get_wind(dataset ds,
+cdef object get_wind(dataset ds, WarningCounts warnings,
                      double hour, double lat, double lng, double alt):
     """
     Return [u, v] wind components for the given position.
@@ -111,12 +115,15 @@ cdef object get_wind(dataset ds,
     else:
         lerp = 0.5
 
+    if lerp < 0: warnings.altitude_too_high += 1
+    if alt < 0:  warnings.altitude_too_low  += 1
+
     cdef Lerp1 alt_lerp = Lerp1(altidx, lerp)
 
     u = interp4(ds, lerps, alt_lerp, VAR_U)
     v = interp4(ds, lerps, alt_lerp, VAR_V)
 
-    return u, v
+    return u, v, 
 
 cdef long pick(double left, double step, long n, double value,
                object variable_name, Lerp1[2] out) except -1:
@@ -171,6 +178,7 @@ cdef double interp3(dataset ds, Lerp3[8] lerps, long variable, long level):
 
     return r
 
+# Searches for the largest index lower than target, excluding the topmost level.
 cdef long search(dataset ds, Lerp3[8] lerps, double target):
     cdef long lower, upper, mid
     cdef double test

@@ -8,17 +8,19 @@ import calendar
 
 from tawhiri import solver, models, kml
 from tawhiri.dataset import Dataset as WindDataset
+from tawhiri.warnings import WarningCounts
 from ruaumoko import Dataset as ElevationDataset
 
 lat0 = 52.5563
 lng0 = 360 - 3.1970
-alt0 = 0.0
-t0 = calendar.timegm(datetime(2014, 2, 19, 15).timetuple())
+alt0 = 100.0
+t0 = calendar.timegm(datetime(2016, 11, 28, 15).timetuple())
 
 wind = WindDataset.open_latest()
 elevation = ElevationDataset()
+warningcounts = WarningCounts()
 
-stages = models.standard_profile(5.0, 30000, 5.0, wind, elevation)
+stages = models.standard_profile(5.0, 30000, 5.0, wind, elevation, warningcounts)
 rise, fall = solver.solve(t0, lat0, lng0, alt0, stages)
 
 assert rise[-1] == fall[0]
@@ -33,5 +35,7 @@ markers = [
     {'name': 'landing', 'description': 'TODO', 'point': fall[-1]},
     {'name': 'burst', 'description': 'TODO', 'point': fall[0]}
 ]
+
+print("Warnings:", str(warningcounts.to_dict()))
 
 kml.kml([rise, fall], markers, 'test_prediction.kml')

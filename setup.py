@@ -51,7 +51,7 @@ setup(
     description='High Altitude Balloon Landing Prediction Software',
     long_description=long_description,
     test_suite='nose.collector',
-    tests_require=['nose', 'mock'],
+    tests_require=['nose', 'mock', 'Flask-Testing'],
     install_requires=[
         "magicmemoryview",
         "ruaumoko",
