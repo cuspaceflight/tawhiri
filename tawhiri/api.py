@@ -18,8 +18,9 @@
 """
 Provide the HTTP API for Tawhiri.
 """
+import hashlib
 
-from flask import Flask, jsonify, request, g
+from flask import Flask, jsonify, request, g, Response
 from datetime import datetime
 import time
 import strict_rfc3339
@@ -188,6 +189,64 @@ def _extract_parameter(data, parameter, cast, default=None, ignore=False,
 
 
 # Response ####################################################################
+def _wind_dataset_for_request(req):
+    """Return a WindDataset for the specified request or raise an
+    InvalidDatasetException.
+
+    """
+    # Find wind data location
+    ds_dir = app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
+
+    # Dataset
+    try:
+        if req['dataset'] == LATEST_DATASET_KEYWORD:
+            tawhiri_ds = WindDataset.open_latest(
+                persistent=True, directory=ds_dir
+            )
+        else:
+            tawhiri_ds = WindDataset(
+                datetime.fromtimestamp(req['dataset']), directory=ds_dir
+            )
+    except IOError:
+        raise InvalidDatasetException("No matching dataset found.")
+    except ValueError as e:
+        raise InvalidDatasetException(*e.args)
+
+    return tawhiri_ds
+
+def prediction_etag(req):
+    """Compute an ETag for a particular prediction.
+
+    """
+    # We wrap values in [<name>:<value>] to guard against prefix/suffix
+    # collisions
+    hashfunc = hashlib.sha1()
+    def mix(name, value):
+        hashfunc.update('[{0}:{1}]'.format(name, value).encode('utf8'))
+
+    # The insight here is that the prediction is entirely determined by the
+    # dataset used and the launch request however the ordering of keys in req
+    # is not guaranteed. Mix in an explicit order.
+
+    # Wind dataset
+    tawhiri_ds = _wind_dataset_for_request(req)
+    mix('DATASET', tawhiri_ds.ds_time.isoformat())
+
+    # Request
+    keys = ['launch_latitude', 'launch_longitude', 'launch_altitude',
+            'launch_datetime']
+    if req['profile'] == PROFILE_STANDARD:
+        keys.extend(['ascent_rate', 'descent_rate', 'burst_altitude'])
+    elif req['profile'] == PROFILE_STANDARD:
+        keys.extend(['ascent_rate', 'float_altitude', 'stop_datetime'])
+    else:
+        raise InternalException("No implementation for known profile.")
+
+    for k in keys:
+        mix(k, req[k])
+
+    return hashfunc.hexdigest()
+
 def run_prediction(req):
     """
     Run the prediction.
@@ -198,19 +257,7 @@ def run_prediction(req):
         "prediction": [],
     }
 
-    # Find wind data location
-    ds_dir = app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
-
-    # Dataset
-    try:
-        if req['dataset'] == LATEST_DATASET_KEYWORD:
-            tawhiri_ds = WindDataset.open_latest(persistent=True, directory=ds_dir)
-        else:
-            tawhiri_ds = WindDataset(datetime.fromtimestamp(req['dataset']), directory=ds_dir)
-    except IOError:
-        raise InvalidDatasetException("No matching dataset found.")
-    except ValueError as e:
-        raise InvalidDatasetException(*e.args)
+    tawhiri_ds = _wind_dataset_for_request(req)
 
     # Note that hours and minutes are set to 00 as Tawhiri uses hourly datasets
     resp['request']['dataset'] = tawhiri_ds.ds_time.strftime(
@@ -281,11 +328,27 @@ def main():
     Single API endpoint which accepts GET requests.
     """
     g.request_start_time = time.time()
-    response = run_prediction(parse_request(request.args))
+
+    # Parse request into a prediction specification
+    pred_spec = parse_request(request.args)
+
+    # Compute an ETag for this spec
+    pred_etag = prediction_etag(pred_spec)
+
+    # Does this request specify an ETag?
+    inm = request.headers.get('If-None-Match', None)
+    if inm == pred_etag:
+        return Response(status=304)
+
+    # Run the prediction
+    response = run_prediction(pred_spec)
     g.request_complete_time = time.time()
     response['metadata'] = _format_request_metadata()
-    return jsonify(response)
 
+    # Create the response and set ETag header
+    rv = jsonify(response)
+    rv.headers['ETag'] = pred_etag
+    return rv
 
 @app.errorhandler(APIException)
 def handle_exception(error):
