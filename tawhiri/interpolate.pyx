@@ -116,7 +116,6 @@ cdef object get_wind(dataset ds, WarningCounts warnings,
         lerp = 0.5
 
     if lerp < 0: warnings.altitude_too_high += 1
-    if alt < 0:  warnings.altitude_too_low  += 1
 
     cdef Lerp1 alt_lerp = Lerp1(altidx, lerp)
 

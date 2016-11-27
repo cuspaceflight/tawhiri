@@ -20,5 +20,4 @@
 # cython: language_level=3
 
 cdef class WarningCounts:
-    cdef public int altitude_too_low
     cdef public int altitude_too_high

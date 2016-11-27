@@ -26,20 +26,15 @@ fired, and how many times they have fired.
 
 cdef class WarningCounts:
     def __init__(self):
-        self.altitude_too_low = 0
         self.altitude_too_high = 0
 
     @property
     def any(self):
-        return bool(self.altitude_too_low or self.altitude_too_high)
+        return bool(self.altitude_too_high)
 
     def to_dict(self):
         res = \
-            { "altitude_too_low": 
-                { "count": self.altitude_too_low 
-                , "description": "The altitude went too low: wind data may be unreliable"
-                }
-            , "altitude_too_high":
+            { "altitude_too_high":
                 { "count": self.altitude_too_high
                 , "description": "The altitude went too high, above the max forecast wind. \
                                   Wind data will be unreliable"
