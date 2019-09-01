@@ -26,6 +26,7 @@ import strict_rfc3339
 
 from tawhiri import solver, models
 from tawhiri.dataset import Dataset as WindDataset
+from tawhiri.warnings import WarningCounts
 from ruaumoko import Dataset as ElevationDataset
 
 app = Flask(__name__)
@@ -198,6 +199,8 @@ def run_prediction(req):
         "prediction": [],
     }
 
+    warningcounts = WarningCounts()
+
     # Find wind data location
     ds_dir = app.config.get('WIND_DATASET_DIR', WindDataset.DEFAULT_DIRECTORY)
 
@@ -213,19 +216,23 @@ def run_prediction(req):
         raise InvalidDatasetException(*e.args)
 
     # Note that hours and minutes are set to 00 as Tawhiri uses hourly datasets
-    resp['request']['dataset'] = tawhiri_ds.ds_time.strftime(
-        "%Y-%m-%dT%H:00:00Z")
+    resp['request']['dataset'] = \
+            tawhiri_ds.ds_time.strftime("%Y-%m-%dT%H:00:00Z")
 
     # Stages
     if req['profile'] == PROFILE_STANDARD:
         stages = models.standard_profile(req['ascent_rate'],
                                          req['burst_altitude'],
-                                         req['descent_rate'], tawhiri_ds,
-                                         ruaumoko_ds())
+                                         req['descent_rate'],
+                                         tawhiri_ds,
+                                         ruaumoko_ds(),
+                                         warningcounts)
     elif req['profile'] == PROFILE_FLOAT:
         stages = models.float_profile(req['ascent_rate'],
                                       req['float_altitude'],
-                                      req['stop_datetime'], tawhiri_ds)
+                                      req['stop_datetime'],
+                                      tawhiri_ds,
+                                      warningcounts)
     else:
         raise InternalException("No implementation for known profile.")
 
@@ -250,6 +257,8 @@ def run_prediction(req):
     for key in resp['request']:
         if "datetime" in key:
             resp['request'][key] = _timestamp_to_rfc3339(resp['request'][key])
+
+    resp["warnings"] = warningcounts.to_dict()
 
     return resp
 

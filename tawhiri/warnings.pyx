@@ -36,8 +36,8 @@ cdef class WarningCounts:
         res = \
             { "altitude_too_high":
                 { "count": self.altitude_too_high
-                , "description": "The altitude went too high, above the max forecast wind. \
-                                  Wind data will be unreliable"
+                , "description": "The altitude went too high, above the max forecast wind. "
+                                 "Wind data will be unreliable"
                 }
             }
 
