@@ -41,22 +41,9 @@ after modifying any `.pyx` files.
 
 ### Downloader
 
-The downloader uses gevent, so we are disappointingly restricted to running
-it under Python 2 for now (Issue #18).
-
-```bash
-$ sudo aptitude install libevent-dev libjasper-dev libopenjpeg-dev libpng-dev
-```
-
-Acquire a sufficiently modern version of `libgrib-api-dev` from APT. The
-version in 12.04 is too old. 1.10.4 is known to work.
-
-```bash
-$ virtualenv -p python2 venv
-$ source venv/bin/activate
-$ pip install numpy
-$ pip install pygrib==2.0.0 pyproj 'gevent<1.0'
-```
+The downloader was written before Python had good cooperative concurrency
+support, and so is instead a [separate
+application](https://github.com/cuspaceflight/tawhiri-downloader) in OCaml.
 
 ## License
 

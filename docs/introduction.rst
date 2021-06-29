@@ -27,17 +27,7 @@ The last line (re-)builds the Cython extensions, and needs to be run again after
 Downloader
 ~~~~~~~~~~
 
-The downloader uses gevent, so we are (disappointingly) restricted to running it under Python 2 for now.
-
-At the time of writing, pygrib head did not work (in contrast to an earlier version), and both have a broken `setup.py`. Therefore, we need to install numpy first, and pyproj separately:
-
-.. code:: bash
-
-    $ sudo aptitude install libevent-dev libgrib-api-dev
-    $ virtualenv -p python2 venv
-    $ source venv/bin/activate
-    $ pip install numpy
-    $ pip install pygrib==1.9.6 pyproj 'gevent<1.0'
+The downloader was written before Python had good cooperative concurrency support, and so is instead a `separate application <https://github.com/cuspaceflight/tawhiri-downloader>`_ in OCaml.
 
 Web API
 ~~~~~~~

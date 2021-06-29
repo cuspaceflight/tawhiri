@@ -8,6 +8,6 @@ The variables we are interested in are “wind u”, “wind v” and “altitud
 
 We store wind datasets as a large array of floats (32bit). This amounts to a 9GB file on disk, which is memory mapped into the predictor and downloader processes as needed. The operating system manages caching, which means that data for popular areas can be loaded very quickly, even after a cold start of the predictor process itself.
 
-:mod:`tawhiri.download` is responsible for acquiring the wind dataset. It downloads all the relevant GRIB files (~6GB), decompresses them, and stores the wind data in a new file on disk.
+The `downloader application <https://github.com/cuspaceflight/tawhiri-downloader>`_ is responsible for acquiring the wind dataset. It downloads all the relevant GRIB files (~6GB), decompresses them, and stores the wind data in a new file on disk.
 
 :mod:`tawhiri.interpolate`, given a dataset, estimates “wind u” and “wind v” at some time, latitude, longitude and altitude, by searching for two pressure levels between which the altiutde is contained, and interpolating along the 4 axes. More details on the implementation of this are available `here <implementation>`_

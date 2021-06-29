@@ -57,14 +57,6 @@ tawhiri.dataset module
         .. automethod :: listdir
         .. automethod :: open_latest
 
-tawhiri.download module
------------------------
-
-.. automodule:: tawhiri.download
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 tawhiri.interpolate module
 --------------------------
 
